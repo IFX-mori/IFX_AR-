@@ -531,11 +531,12 @@ function rgbToHsv(r, g, b) {
 function classifyLamp(rgb, type) {
   if (!rgb) return 'unknown';
   const { h, s, v } = rgbToHsv(rgb.r, rgb.g, rgb.b);
-  if (v < 0.18) return 'off'; // 暗すぎる（消灯）
-  if (s < 0.25) return 'off'; // 彩度が低い（白・グレー）
+  if (v < 0.15) return 'off'; // 暗すぎる（消灯）
   if (type === 'red') {
-    // 赤の色相: 0°-20° または 340°-360°
-    return (h <= 20 || h >= 340) ? 'on' : 'off';
+    // 赤の色相: 0°-35° または 330°-360°（橙寄りの赤に対応）
+    // 彩度は低くても色相+明度で判定（ランプカバーで薄まる場合を考慮）
+    if (s < 0.08) return 'off'; // 完全な無彩色は除外
+    return (h <= 33 || h >= 330) ? 'on' : 'off';
   }
   if (type === 'yellow') {
     // 黄の色相: 30°-70°
