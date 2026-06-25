@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AR設備ガイダンス（画像認識）</title>
+
+<!-- MindAR + A-Frame（ローカル） -->
+<script src="aframe.min.js"></script>
+<script src="mindar-image-aframe.prod.js"></script>
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; background:#000; }
+
+/* ── AR Scene（フルスクリーン） ── */
+#ar-scene { position:fixed; inset:0; display:none; }
+#ar-scene.active { display:block; }
+
+/* ── UI オーバーレイ ── */
+#ui-overlay {
+  position:fixed; inset:0; pointer-events:none; z-index:100;
+  display:none; flex-direction:column;
+}
+#ui-overlay.active { display:flex; }
+
+/* ナビバー */
+#nav-bar {
+  pointer-events:all;
+  background:rgba(10,12,18,0.85); backdrop-filter:blur(8px);
+  padding:10px 14px; display:flex; align-items:center; gap:10px;
+  border-bottom:0.5px solid rgba(255,255,255,0.1);
+}
+#btn-back { width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.12); border:none; color:#fff; font-size:20px; cursor:pointer; }
+#nav-title { font-size:14px; font-weight:600; color:#fff; flex:1; }
+#nav-sub   { font-size:11px; color:rgba(255,255,255,0.55); }
+#detect-badge { display:flex; align-items:center; gap:5px; background:rgba(0,0,0,0.4); border-radius:10px; padding:4px 10px; font-size:11px; font-weight:500; color:#fff; }
+#detect-dot { width:8px; height:8px; border-radius:50%; background:#f59e0b; transition:background .3s; }
+
+/* ヒント */
+#scan-hint {
+  pointer-events:none; position:absolute;
+  bottom:220px; left:50%; transform:translateX(-50%);
+  background:rgba(10,12,18,0.82); backdrop-filter:blur(6px);
+  border-radius:14px; padding:14px 22px; text-align:center; white-space:nowrap;
+  transition:opacity .3s;
+}
+#scan-hint .hint-icon { font-size:28px; margin-bottom:6px; }
+#scan-hint .hint-text { font-size:13px; font-weight:500; color:#fff; }
+#scan-hint .hint-sub  { font-size:11px; color:#22d3ee; margin-top:3px; }
+
+/* 手順カード */
+#step-card {
+  pointer-events:all;
+  position:absolute; bottom:0; left:0; right:0;
+  background:rgba(10,12,18,0.92); backdrop-filter:blur(10px);
+  border-top:0.5px solid rgba(255,255,255,0.12);
+  padding:14px 16px 28px;
+  transform:translateY(100%); transition:transform .35s ease;
+}
+#step-card.visible { transform:translateY(0); }
+
+.card-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+#step-badge  { padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+#step-title  { font-size:15px; font-weight:600; color:#fff; flex:1; line-height:1.3; }
+#warn-icon   { font-size:18px; flex-shrink:0; }
+.progress-wrap { height:3px; background:rgba(255,255,255,0.1); border-radius:2px; margin-bottom:10px; }
+#progress-fill { height:3px; border-radius:2px; transition:width .3s; }
+#step-detail { font-size:13px; color:rgba(255,255,255,0.85); line-height:1.7; margin-bottom:8px; white-space:pre-line; }
+#ar-hint     { font-size:11px; color:#22d3ee; margin-bottom:10px; }
+.btn-row { display:flex; gap:10px; }
+.nav-btn { flex:1; padding:12px 0; border-radius:11px; border:none; font-size:14px; font-weight:600; cursor:pointer; color:#fff; }
+#btn-prev { background:rgba(255,255,255,0.12); }
+#btn-next { background:#1d4ed8; }
+#btn-done { background:#15803d; display:none; }
+
+/* ── セットアップ画面 ── */
+#screen-setup {
+  position:fixed; inset:0; background:linear-gradient(160deg,#0f1117,#151a24);
+  display:flex; flex-direction:column; overflow-y:auto;
+  color:#fff;
+}
+#screen-setup.hidden { display:none; }
+.setup-header { text-align:center; padding:40px 20px 20px; }
+.setup-icon   { font-size:48px; margin-bottom:10px; }
+.setup-title  { font-size:22px; font-weight:600; }
+.setup-sub    { font-size:13px; color:rgba(255,255,255,0.5); margin-top:6px; }
+.setup-body   { padding:0 20px 40px; display:flex; flex-direction:column; gap:16px; }
+
+.scenario-card {
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+  border-radius:16px; padding:16px; cursor:pointer;
+  -webkit-tap-highlight-color:transparent; transition:background .15s;
+}
+.scenario-card:hover { background:rgba(255,255,255,0.1); }
+.sc-row { display:flex; align-items:center; gap:12px; }
+.sc-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+.sc-name { font-size:15px; font-weight:600; }
+.sc-sub  { font-size:12px; color:rgba(255,255,255,0.5); margin-top:2px; }
+.sc-steps { font-size:11px; color:rgba(255,255,255,0.3); margin-top:3px; }
+.sc-target { margin-top:10px; padding:10px 12px; background:rgba(255,255,255,0.05); border-radius:8px; font-size:12px; color:rgba(255,255,255,0.6); display:flex; align-items:center; gap:8px; }
+.sc-target.ok { color:#4ade80; background:rgba(74,222,128,0.08); }
+.sc-target.ng { color:#f87171; background:rgba(248,113,113,0.08); }
+
+.info-box { background:rgba(34,211,238,0.08); border:1px solid rgba(34,211,238,0.25); border-radius:12px; padding:14px 16px; }
+.info-box p { font-size:13px; color:rgba(255,255,255,0.8); line-height:1.7; }
+.info-box a { color:#22d3ee; }
+.info-box h3 { font-size:14px; font-weight:600; color:#22d3ee; margin-bottom:8px; }
+.step-list { list-style:none; counter-reset:step; }
+.step-list li { counter-increment:step; font-size:13px; color:rgba(255,255,255,0.8); line-height:1.7; padding:4px 0 4px 28px; position:relative; }
+.step-list li::before { content:counter(step); position:absolute; left:0; top:4px; width:20px; height:20px; background:#22d3ee; color:#000; border-radius:50%; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════ セットアップ画面 ════════════════ -->
+<div id="screen-setup">
+  <div class="setup-header">
+    <div class="setup-icon">📡</div>
+    <div class="setup-title">AR設備ガイダンス</div>
+    <div class="setup-sub">画像認識モード</div>
+  </div>
+  <div class="setup-body">
+
+    <!-- シナリオ一覧 -->
+    <div id="scenario-list"></div>
+
+    <!-- .mindファイル作成手順 -->
+    <div class="info-box">
+      <h3>📋 .mindファイルの作り方（初回のみ）</h3>
+      <ol class="step-list">
+        <li>設備の前面パネルをiPhoneで撮影（JPG/PNG、鮮明に）</li>
+        <li>PC のブラウザで MindAR Image Target Compiler を開く<br><span style="font-size:11px;color:rgba(255,255,255,0.4);">検索：「MindAR compiler」</span></li>
+        <li>撮影した写真をアップロード → 「Start」をクリック</li>
+        <li>処理完了後「Export」→ <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">targets.mind</code> をダウンロード</li>
+        <li>ダウンロードした <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">.mind</code> ファイルと元の写真を<br><code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">WebDemo/targets/</code> フォルダに配置</li>
+        <li>下のシナリオカードのファイル名を設定して「開始」</li>
+      </ol>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════ AR Scene（シナリオ選択後に動的生成） ════════════════ -->
+<div id="ar-scene"></div>
+
+<!-- ════════════════ UIオーバーレイ ════════════════ -->
+<div id="ui-overlay">
+  <div id="nav-bar">
+    <button id="btn-back" onclick="stopAR()">‹</button>
+    <div style="flex:1;">
+      <div id="nav-title"></div>
+      <div id="nav-sub" style="font-size:11px;color:rgba(255,255,255,.55);"></div>
+    </div>
+    <div id="detect-badge">
+      <div id="detect-dot"></div>
+      <span id="detect-text">認識待ち</span>
+    </div>
+  </div>
+
+  <div id="scan-hint">
+    <div class="hint-icon">📷</div>
+    <div class="hint-text">設備の前面にカメラを向けてください</div>
+    <div class="hint-sub">認識すると自動でAR表示されます</div>
+  </div>
+
+  <div id="step-card">
+    <div class="card-header">
+      <div id="step-badge"></div>
+      <div id="step-title"></div>
+      <div id="warn-icon"></div>
+    </div>
+    <div class="progress-wrap"><div id="progress-fill"></div></div>
+    <div id="step-detail"></div>
+    <div id="ar-hint"></div>
+    <div class="btn-row">
+      <button class="nav-btn" id="btn-prev" onclick="prevStep()">‹ 戻る</button>
+      <button class="nav-btn" id="btn-next" onclick="nextStep()">次へ ›</button>
+      <button class="nav-btn" id="btn-done" onclick="stopAR()">✓ 作業完了</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// シナリオデータ
+// ══════════════════════════════════════════
+// ※ mindFile / imageFile は targets/ フォルダ内のファイル名に変更してください
+const SCENARIOS = [
+  {
+    id: 'crossing',
+    name: '踏切制御器',
+    subtitle: '踏切復旧操作手順',
+    icon: '🚦',
+    iconBg: 'rgba(251,146,60,0.2)',
+    borderColor: 'rgba(251,146,60,0.4)',
+    mindFile:  'targets/crossing.mind',
+    imageFile: 'targets/crossing.jpg',
+    steps: [
+      {
+        title: '赤ランプの確認',
+        detail: '画面右上のランプが赤色に点灯していることを確認してください。',
+        warn: 'caution',
+        ar: [
+          { type:'box', pos:[0.38, 0.50, 0], color:'#ef4444', size:0.10, label:'赤色が点灯', labelBelow:true, textColor:'#ef4444', textBg:'#facc15' },
+        ]
+      },
+      {
+        title: 'つまみを左右に回す',
+        detail: '左側のつまみを左へ、右側のつまみを右へ回してください。',
+        warn: 'normal',
+        ar: [
+          { type:'curvedArrow', pos:[-0.35, 0.55, 0], color:'#60a5fa', dir:'left',  label:'左へ回す', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.13, 0.55, 0], color:'#60a5fa', dir:'right', label:'右へ回す', scale:2.4 },
+        ]
+      },
+      {
+        title: 'ボタンを1回ずつ押す',
+        detail: '中央左・中央のボタンをそれぞれ1回押してください。',
+        warn: 'normal',
+        ar: [
+          { type:'arrow', pos:[-0.35, 0.02, 0], color:'#60a5fa', label:'1回押す' },
+          { type:'arrow', pos:[ 0.10, 0.02, 0], color:'#60a5fa', label:'1回押す' },
+        ]
+      },
+      {
+        title: 'レバーを操作する',
+        detail: '左下レバーを上に、右下レバーを下に押してください。',
+        warn: 'caution',
+        ar: [
+          { type:'arrow',      pos:[-0.23, -0.31, 0], color:'#facc15', label:'上に押す', labelAbove:true },
+          { type:'arrowDown',  pos:[ 0.25, -0.41, 0], color:'#facc15', label:'下に押す' },
+        ]
+      },
+      {
+        title: '青ランプの点灯確認',
+        detail: '中央のランプが青色に点灯したことを確認して作業完了です。',
+        warn: 'normal',
+        ar: [
+          { type:'box', pos:[0.055, 0.50, 0], color:'#3b82f6', size:0.10, label:'青の点灯を確認', labelBelow:true, textColor:'#3b82f6', textBg:'#facc15' },
+        ]
+      },
+    ]
+  },
+  {
+    id: 'ats',
+    name: 'ATS装置',
+    subtitle: 'ATS地上子 脱着手順',
+    icon: '📦',
+    iconBg: 'rgba(34,211,238,0.15)',
+    borderColor: 'rgba(34,211,238,0.4)',
+    mindFile:  'targets/ats.mind',
+    imageFile: 'targets/ats.jpg',
+    steps: [
+      { title:'列車接近確認', detail:'作業前に列車の接近がないことを確認し、\n見張り員の配置を確認してください。', warn:'danger',
+        ar:[{type:'text', pos:[0, 0.18, 0], color:'#f87171', label:'⚠ 列車接近確認中'}]},
+      { title:'固定ボルト（左前）を緩める', detail:'左前固定ボルト（M12）を緩めます。\n締付トルク 9.8 N·m', warn:'normal',
+        ar:[{type:'arrow', pos:[-0.08, 0.12, 0], color:'#60a5fa', label:'ボルト①'},
+            {type:'ring',  pos:[-0.08, 0.00, 0], color:'#60a5fa', label:'9.8 N·m'}]},
+      { title:'固定ボルト（右前）を緩める', detail:'右前固定ボルト（M12）を緩めます。\n締付トルク 9.8 N·m', warn:'normal',
+        ar:[{type:'arrow', pos:[0.08, 0.12, 0], color:'#60a5fa', label:'ボルト②'},
+            {type:'ring',  pos:[0.08, 0.00, 0], color:'#60a5fa', label:'9.8 N·m'}]},
+      { title:'固定ボルト（後方2本）を緩める', detail:'後方左右のボルト（M12）を緩めます。\n締付トルク 9.8 N·m', warn:'normal',
+        ar:[{type:'arrow', pos:[-0.08,-0.06, 0], color:'#60a5fa', label:'ボルト③'},
+            {type:'ring',  pos:[-0.08,-0.16, 0], color:'#60a5fa', label:'9.8 N·m'},
+            {type:'arrow', pos:[ 0.08,-0.06, 0], color:'#60a5fa', label:'ボルト④'},
+            {type:'ring',  pos:[ 0.08,-0.16, 0], color:'#60a5fa', label:'9.8 N·m'}]},
+      { title:'コネクタを外す', detail:'ケーブルコネクタをロック解除してから引き抜いてください。\n強引に引っ張らないこと。', warn:'caution',
+        ar:[{type:'arrow', pos:[0.13, 0.05, 0], color:'#facc15', label:'コネクタ'},
+            {type:'ring',  pos:[0.13,-0.05, 0], color:'#facc15', label:'ロック解除→引抜'}]},
+      { title:'ATS本体を取り外す', detail:'ATS地上子本体を軌道から取り外してください。\n重量に注意（約5kg）。', warn:'caution',
+        ar:[{type:'box',  pos:[0, 0, 0], color:'#facc15', label:'ATS本体を取り外す'}]},
+    ]
+  },
+  {
+    id: 'point',
+    name: '転てつ機',
+    subtitle: 'トング線路入替作業',
+    icon: '🔀',
+    iconBg: 'rgba(250,204,21,0.15)',
+    borderColor: 'rgba(250,204,21,0.4)',
+    mindFile:  'targets/point.mind',
+    imageFile: 'targets/point.jpg',
+    steps: [
+      { title:'列車接近確認・現場保護', detail:'列車の接近がないことを確認し、\n転てつ機操作に必要な工具を準備してください。', warn:'danger',
+        ar:[{type:'text', pos:[0, 0.18, 0], color:'#f87171', label:'⚠ 列車接近確認'}]},
+      { title:'前面カバーを外す', detail:'前面固定ボルト（M10 ×4本）を外してカバーを取り外します。', warn:'normal',
+        ar:[{type:'arrow', pos:[-0.09, 0.10, 0], color:'#a78bfa', label:'ボルト①'},
+            {type:'ring',  pos:[-0.09,-0.01, 0], color:'#a78bfa', label:'M10'},
+            {type:'arrow', pos:[ 0.09, 0.10, 0], color:'#a78bfa', label:'ボルト②'},
+            {type:'ring',  pos:[ 0.09,-0.01, 0], color:'#a78bfa', label:'M10'}]},
+      { title:'トング固定ボルトを緩める', detail:'トングレールの固定ボルト（M16 ×2本）を緩めます。\n締付トルク 9.8 N·m', warn:'caution',
+        ar:[{type:'arrow', pos:[-0.06,-0.05, 0], color:'#facc15', label:'トングボルト L'},
+            {type:'ring',  pos:[-0.06,-0.15, 0], color:'#facc15', label:'9.8 N·m'},
+            {type:'arrow', pos:[ 0.06,-0.05, 0], color:'#facc15', label:'トングボルト R'},
+            {type:'ring',  pos:[ 0.06,-0.15, 0], color:'#facc15', label:'9.8 N·m'}]},
+      { title:'トング線路を入れ替える', detail:'旧トングを取り外し、新トングを正しい向きで挿入してください。\n向きに注意（刻印「L/R」を確認）。', warn:'caution',
+        ar:[{type:'box',  pos:[0,-0.05, 0], color:'#facc15', label:'トング交換エリア'},
+            {type:'text', pos:[0, 0.14, 0], color:'#facc15', label:'刻印 L/R を確認'}]},
+      { title:'トング固定ボルトを本締め', detail:'固定ボルト（M16 ×2本）をトルクレンチで本締めします。\n締付トルク 9.8 N·m', warn:'danger',
+        ar:[{type:'arrow', pos:[-0.06,-0.05, 0], color:'#f87171', label:'本締め L'},
+            {type:'ring',  pos:[-0.06,-0.15, 0], color:'#f87171', label:'9.8 N·m ★'},
+            {type:'arrow', pos:[ 0.06,-0.05, 0], color:'#f87171', label:'本締め R'},
+            {type:'ring',  pos:[ 0.06,-0.15, 0], color:'#f87171', label:'9.8 N·m ★'}]},
+      { title:'動作確認・カバー取付', detail:'転てつ機を手動で切り替えてトング動作を確認後、\n前面カバーを取り付けてください。', warn:'normal',
+        ar:[{type:'arrow', pos:[0.12, 0.05, 0], color:'#a78bfa', label:'動作確認'},
+            {type:'text',  pos:[0,    0.17, 0], color:'#a78bfa', label:'カバーをボルト4本で固定'}]},
+    ]
+  },
+];
+
+// ══════════════════════════════════════════
+// 状態
+// ══════════════════════════════════════════
+let scenario  = null;
+let stepIdx   = 0;
+let detected  = false;
+let _arAssets = null; // 現在のシーンの <a-assets> への参照
+
+// ══════════════════════════════════════════
+// セットアップ画面 描画
+// ══════════════════════════════════════════
+async function renderSetup() {
+  const container = document.getElementById('scenario-list');
+  container.innerHTML = '';
+
+  for (const sc of SCENARIOS) {
+    // .mindファイルの存在確認
+    const mindOk = await fileExists(sc.mindFile);
+    const card = document.createElement('div');
+    card.className = 'scenario-card';
+    card.style.borderColor = sc.borderColor;
+    card.innerHTML = `
+      <div class="sc-row">
+        <div class="sc-icon" style="background:${sc.iconBg}">${sc.icon}</div>
+        <div style="flex:1">
+          <div class="sc-name">${sc.name}</div>
+          <div class="sc-sub">${sc.subtitle}</div>
+          <div class="sc-steps">📋 ${sc.steps.length}ステップ</div>
+        </div>
+        <div style="font-size:20px;color:rgba(255,255,255,.3)">›</div>
+      </div>
+      <div class="sc-target ${mindOk?'ok':'ng'}">
+        ${mindOk
+          ? `✅ ${sc.mindFile} 認識ファイルあり`
+          : `❌ ${sc.mindFile} 未配置（下記の手順で作成してください）`
+        }
+      </div>`;
+    if (mindOk) {
+      card.onclick = () => startAR(sc);
+    } else {
+      card.style.opacity = '0.65';
+      card.style.cursor  = 'default';
+    }
+    container.appendChild(card);
+  }
+}
+
+async function fileExists(path) {
+  try {
+    const res = await fetch(path, { method:'HEAD' });
+    return res.ok;
+  } catch { return false; }
+}
+
+// ══════════════════════════════════════════
+// AR 開始（a-scene を動的生成）
+// ══════════════════════════════════════════
+async function startAR(sc) {
+  scenario = sc;
+  stepIdx  = 0;
+  detected = false;
+
+  // UI更新
+  document.getElementById('nav-title').textContent = sc.name;
+  document.getElementById('nav-sub').textContent   = sc.subtitle;
+  document.getElementById('scan-hint').style.opacity = '0';
+  document.getElementById('step-card').classList.remove('visible');
+  setDetected(false);
+
+  // 画面切り替え
+  document.getElementById('screen-setup').classList.add('hidden');
+  document.getElementById('ar-scene').classList.add('active');
+  document.getElementById('ui-overlay').classList.add('active');
+
+  // a-scene を動的生成（既存があれば先に破棄）
+  const container = document.getElementById('ar-scene');
+  container.innerHTML = '';
+
+  const scene = document.createElement('a-scene');
+  scene.id = 'a-scene';
+  scene.setAttribute('mindar-image',
+    `imageTargetSrc: ${sc.mindFile}; filterMinCF:0.001; filterBeta:0.001; maxTrack:1`);
+  scene.setAttribute('color-space', 'sRGB');
+  scene.setAttribute('renderer', 'colorManagement: true, physicallyCorrectLights');
+  scene.setAttribute('vr-mode-ui', 'enabled: false');
+  scene.setAttribute('device-orientation-permission-ui', 'enabled: false');
+  scene.setAttribute('loading-screen', 'enabled: false');
+  scene.setAttribute('embedded', '');
+  scene.style.cssText = 'width:100%;height:100%;';
+
+  // assets
+  const assets = document.createElement('a-assets');
+  _arAssets = assets; // makeTextPanel から参照できるようにグローバルにセット
+  const img = document.createElement('img');
+  img.id  = 'ref-img';
+  img.src = sc.imageFile;
+  assets.appendChild(img);
+  scene.appendChild(assets);
+
+  // camera
+  const cam = document.createElement('a-camera');
+  cam.setAttribute('position', '0 0 0');
+  cam.setAttribute('look-controls', 'enabled: false');
+  scene.appendChild(cam);
+
+  // target entity
+  const targetEnt = document.createElement('a-entity');
+  targetEnt.id = 'ar-target';
+  targetEnt.setAttribute('mindar-image-target', 'targetIndex: 0');
+  const stepRoot = document.createElement('a-entity');
+  stepRoot.id = 'ar-step-root';
+  targetEnt.appendChild(stepRoot);
+  scene.appendChild(targetEnt);
+
+  container.appendChild(scene);
+
+  // 認識イベントを登録（scene loaded後）
+  scene.addEventListener('loaded', () => {
+    targetEnt.addEventListener('targetFound', onTargetFound);
+    targetEnt.addEventListener('targetLost',  onTargetLost);
+    // ヒントを表示（scene起動後）
+    setTimeout(() => { document.getElementById('scan-hint').style.opacity = '1'; }, 1000);
+  }, { once: true });
+
+  // 初回ステップのARオブジェクトをビルド
+  buildARObjects(sc.steps[stepIdx]);
+}
+
+// ══════════════════════════════════════════
+// 認識イベント
+// ══════════════════════════════════════════
+function onTargetFound() {
+  detected = true;
+  setDetected(true);
+  document.getElementById('scan-hint').style.opacity = '0';
+  document.getElementById('step-card').classList.add('visible');
+  updateCard();
+}
+
+function onTargetLost() {
+  detected = false;
+  setDetected(false);
+  // ARオブジェクトは表示したまま（認識が戻れば再表示）
+  // ステップカードは残す（カメラを戻せば続きから）
+}
+
+function setDetected(yes) {
+  document.getElementById('detect-dot').style.background  = yes ? '#22c55e' : '#f59e0b';
+  document.getElementById('detect-text').textContent = yes ? '認識済み' : '認識待ち';
+}
+
+// ══════════════════════════════════════════
+// ARオブジェクト生成（A-Frame エンティティ）
+// ══════════════════════════════════════════
+// Canvas でテキストを描画 → <img> を <a-assets> に登録 → #id で参照
+// （DataURL を material src に直書きすると ";" でパースが壊れるため）
+// bgColor: 背景色（省略時は黒半透明）、labelW: 横幅（省略時0.22）
+function makeTextPanel(value, color, px, py, pz, bgColor, labelW) {
+  const CW = 512, CH = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = CW; canvas.height = CH;
+  const ctx = canvas.getContext('2d');
+
+  // 背景
+  ctx.fillStyle = bgColor || 'rgba(0,0,0,0.80)';
+  ctx.fillRect(0, 0, CW, CH);
+
+  // テキスト
+  ctx.fillStyle = color;
+  ctx.font = 'bold 116px Arial, Helvetica, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(value, CW / 2, CH / 2);
+
+  // <img> を <a-assets> に登録してセレクタ参照（DataURL の ; 問題を回避）
+  const uid = 'tx' + (Math.random() * 1e9 | 0);
+  if (_arAssets) {
+    const img = document.createElement('img');
+    img.id  = uid;
+    img.src = canvas.toDataURL('image/png');
+    _arAssets.appendChild(img);
+  }
+
+  const plane = document.createElement('a-plane');
+  plane.setAttribute('width',  String(labelW || 0.22));
+  plane.setAttribute('height', '0.11');
+  plane.setAttribute('position', `${px} ${py} ${pz}`);
+  plane.setAttribute('material',
+    `src: #${uid}; transparent: true; shader: flat; side: double`);
+  return plane;
+}
+
+// ワイヤーフレーム矩形を4辺の薄板で作成
+function makeWireBox(x, y, z, w, h, color) {
+  const g = document.createElement('a-entity');
+  g.setAttribute('position', `${x} ${y} ${z}`);
+  const T = 0.004; // 辺の太さ
+  const mat = `color:${color}; emissive:${color}; emissiveIntensity:0.6; shader:flat`;
+  // 上辺・下辺・左辺・右辺
+  const sides = [
+    { w: w,   h: T,   px: 0,      py: h/2  },
+    { w: w,   h: T,   px: 0,      py: -h/2 },
+    { w: T,   h: h,   px: -w/2,   py: 0    },
+    { w: T,   h: h,   px:  w/2,   py: 0    },
+  ];
+  sides.forEach(s => {
+    const pl = document.createElement('a-plane');
+    pl.setAttribute('width',  String(s.w));
+    pl.setAttribute('height', String(s.h));
+    pl.setAttribute('position', `${s.px} ${s.py} 0`);
+    pl.setAttribute('material', mat);
+    g.appendChild(pl);
+  });
+  return g;
+}
+
+function buildARObjects(step) {
+  const root = document.getElementById('ar-step-root');
+  root.innerHTML = '';
+
+  step.ar.forEach(p => {
+    const [x, y, z] = p.pos;
+    const hexColor   = p.color;
+
+    // ── 上向き矢印 ──────────────────────────────
+    if (p.type === 'arrow') {
+      const g = document.createElement('a-entity');
+      g.setAttribute('position', `${x} ${y} ${z}`);
+      const mat = `color:${hexColor}; emissive:${hexColor}; emissiveIntensity:0.5; shader:flat`;
+      const shaft = document.createElement('a-cylinder');
+      shaft.setAttribute('radius', '0.005'); shaft.setAttribute('height', '0.05');
+      shaft.setAttribute('position', '0 -0.025 0'); shaft.setAttribute('material', mat);
+      const head = document.createElement('a-cone');
+      head.setAttribute('radius-bottom', '0.012'); head.setAttribute('radius-top', '0');
+      head.setAttribute('height', '0.03'); head.setAttribute('position', '0 0.015 0');
+      head.setAttribute('material', mat);
+      g.appendChild(shaft); g.appendChild(head);
+      if (p.label) g.appendChild(makeTextPanel(p.label, hexColor, 0, p.labelAbove ? 0.11 : -0.11, 0));
+      root.appendChild(g);
+    }
+
+    // ── 下向き矢印 ──────────────────────────────
+    if (p.type === 'arrowDown') {
+      const g = document.createElement('a-entity');
+      g.setAttribute('position', `${x} ${y} ${z}`);
+      const mat = `color:${hexColor}; emissive:${hexColor}; emissiveIntensity:0.5; shader:flat`;
+      const shaft = document.createElement('a-cylinder');
+      shaft.setAttribute('radius', '0.005'); shaft.setAttribute('height', '0.05');
+      shaft.setAttribute('position', '0 0.025 0'); shaft.setAttribute('material', mat);
+      const head = document.createElement('a-cone');
+      head.setAttribute('radius-bottom', '0.012'); head.setAttribute('radius-top', '0');
+      head.setAttribute('height', '0.03'); head.setAttribute('position', '0 -0.015 0');
+      head.setAttribute('rotation', '0 0 180'); head.setAttribute('material', mat);
+      g.appendChild(shaft); g.appendChild(head);
+      if (p.label) g.appendChild(makeTextPanel(p.label, hexColor, 0, p.labelAbove ? 0.11 : -0.11, 0));
+      root.appendChild(g);
+    }
+
+    // ── リング ──────────────────────────────────
+    if (p.type === 'ring') {
+      const ring = document.createElement('a-torus');
+      ring.setAttribute('radius', '0.025'); ring.setAttribute('radius-tubular', '0.003');
+      ring.setAttribute('position', `${x} ${y} ${z}`);
+      ring.setAttribute('material', `color:${hexColor}; emissive:${hexColor}; emissiveIntensity:0.5; shader:flat`);
+      root.appendChild(ring);
+      if (p.label) root.appendChild(makeTextPanel(p.label, hexColor, x + 0.05, y, z));
+    }
+
+    // ── テキストパネル ────────────────────────────
+    if (p.type === 'text') {
+      root.appendChild(makeTextPanel(p.label, hexColor, x, y, z));
+    }
+
+    // ── ワイヤーボックス ─────────────────────────
+    if (p.type === 'box') {
+      const W = p.size || 0.18;
+      const H = p.size || 0.12; // size 指定時は正方形、未指定は従来値
+      root.appendChild(makeWireBox(x, y, z, W, H, hexColor));
+      if (p.label) {
+        const labelY = p.labelBelow ? y - H/2 - 0.065 : y + H/2 + 0.065;
+        const tColor = p.textColor || hexColor;
+        const tBg    = p.textBg    || null;
+        root.appendChild(makeTextPanel(p.label, tColor, x, labelY, z, tBg));
+      }
+    }
+
+    // ── カーブ矢印（Canvas で弧を描画 → テクスチャ） ──
+    if (p.type === 'curvedArrow') {
+      const sc   = p.scale || 1;
+      const CW = 256, CH = 256;
+      const cv   = document.createElement('canvas');
+      cv.width   = CW; cv.height = CH;
+      const ctx  = cv.getContext('2d');
+      const cx   = CW / 2, cy = CH * 0.62;
+      const r    = CW * 0.36;
+      const lw   = 14;
+      const as_  = 20; // arrowhead size
+
+      ctx.strokeStyle = hexColor;
+      ctx.fillStyle   = hexColor;
+      ctx.lineWidth   = lw;
+      ctx.lineCap     = 'round';
+
+      // 半円弧（上を通る）
+      ctx.beginPath();
+      if (p.dir === 'left') {
+        ctx.arc(cx, cy, r, 0, Math.PI, true);          // 右→上→左
+      } else {
+        ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI, false); // 左→上→右
+      }
+      ctx.stroke();
+
+      // 矢じり
+      ctx.beginPath();
+      if (p.dir === 'left') {
+        const ax = cx - r, ay = cy;
+        ctx.moveTo(ax - as_, ay - as_);
+        ctx.lineTo(ax,       ay + as_);
+        ctx.lineTo(ax + as_, ay - as_);
+      } else {
+        const ax = cx + r, ay = cy;
+        ctx.moveTo(ax - as_, ay - as_);
+        ctx.lineTo(ax,       ay + as_);
+        ctx.lineTo(ax + as_, ay - as_);
+      }
+      ctx.fill();
+
+      // assets に登録
+      const uid = 'ca' + (Math.random() * 1e9 | 0);
+      if (_arAssets) {
+        const img = document.createElement('img');
+        img.id = uid; img.src = cv.toDataURL('image/png');
+        _arAssets.appendChild(img);
+      }
+
+      const pw = 0.09 * sc;
+      const plane = document.createElement('a-plane');
+      plane.setAttribute('width',  String(pw));
+      plane.setAttribute('height', String(pw));
+      plane.setAttribute('position', `${x} ${y} ${z}`);
+      plane.setAttribute('material',
+        `src: #${uid}; transparent: true; shader: flat; side: double`);
+      root.appendChild(plane);
+
+      if (p.label) root.appendChild(
+        makeTextPanel(p.label, hexColor, x, y - pw * 0.70, z, null, p.labelW || 0.22));
+    }
+  });
+}
+
+// ══════════════════════════════════════════
+// ステップ操作
+// ══════════════════════════════════════════
+function nextStep() {
+  if (!scenario || stepIdx >= scenario.steps.length - 1) return;
+  stepIdx++;
+  buildARObjects(scenario.steps[stepIdx]);
+  updateCard();
+}
+
+function prevStep() {
+  if (!scenario || stepIdx <= 0) return;
+  stepIdx--;
+  buildARObjects(scenario.steps[stepIdx]);
+  updateCard();
+}
+
+function updateCard() {
+  if (!scenario) return;
+  const step  = scenario.steps[stepIdx];
+  const total = scenario.steps.length;
+  const isLast = stepIdx === total - 1;
+  const colors = {
+    normal:  { bg:'#1e3a8a', tx:'#93c5fd', fill:'#2563eb' },
+    caution: { bg:'#78350f', tx:'#fcd34d', fill:'#d97706' },
+    danger:  { bg:'#7f1d1d', tx:'#fca5a5', fill:'#dc2626' },
+  };
+  const c = colors[step.warn];
+
+  const badge = document.getElementById('step-badge');
+  badge.textContent = `${stepIdx+1} / ${total}`;
+  badge.style.background = c.bg;
+  badge.style.color      = c.tx;
+
+  document.getElementById('step-title').textContent  = step.title;
+  document.getElementById('step-detail').textContent = step.detail;
+  // ARラベルを下段カードにも列挙（オプションC: AR上+カード両方に表示）
+  const labels = step.ar.filter(a => a.label).map(a => `・${a.label}`).join('　');
+  document.getElementById('ar-hint').textContent = labels ? `📍 ${labels}` : '';
+  document.getElementById('warn-icon').textContent   = { normal:'', caution:'⚠️', danger:'🚫' }[step.warn];
+
+  const fill = document.getElementById('progress-fill');
+  fill.style.width      = `${(stepIdx+1)/total*100}%`;
+  fill.style.background = c.fill;
+
+  document.getElementById('btn-next').style.background = c.fill;
+  document.getElementById('btn-prev').style.display = stepIdx > 0    ? 'block' : 'none';
+  document.getElementById('btn-next').style.display = isLast         ? 'none'  : 'block';
+  document.getElementById('btn-done').style.display = isLast         ? 'block' : 'none';
+}
+
+// ══════════════════════════════════════════
+// AR 停止・終了
+// ══════════════════════════════════════════
+function stopAR() {
+  // MindAR を停止してからa-sceneを破棄
+  const aScene = document.getElementById('a-scene');
+  if (aScene) {
+    try { aScene.systems['mindar-image-system']?.stop?.(); } catch(e) {}
+    try { aScene.destroy?.(); } catch(e) {}
+  }
+  // a-scene を完全に削除（カメラストリームを解放）
+  document.getElementById('ar-scene').innerHTML = '';
+  document.getElementById('ar-scene').classList.remove('active');
+  document.getElementById('ui-overlay').classList.remove('active');
+  document.getElementById('screen-setup').classList.remove('hidden');
+  document.getElementById('step-card').classList.remove('visible');
+
+  scenario  = null;
+  _arAssets = null;
+  renderSetup();
+}
+
+// ══════════════════════════════════════════
+// 起動
+// ══════════════════════════════════════════
+renderSetup();
+</script>
+</body>
+</html>
