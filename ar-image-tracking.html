@@ -541,8 +541,9 @@ function classifyLamp(rgb, type) {
     return (h <= 33 || h >= 330) ? 'on' : 'off';
   }
   if (type === 'yellow') {
-    // 黄の色相: 30°-70°
-    return (h >= 30 && h <= 70) ? 'on' : 'off';
+    // 黄の色相: 38°-65°（実測H:48°を中心に±余裕）、彩度30%以上
+    if (s < 0.28) return 'off'; // 彩度が低い場合は消灯扱い（点灯43% / 消灯13% の中間値）
+    return (h >= 38 && h <= 65) ? 'on' : 'off';
   }
   return 'unknown';
 }
