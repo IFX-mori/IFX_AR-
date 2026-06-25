@@ -356,6 +356,7 @@ const SCENARIOS = [
 // ══════════════════════════════════════════
 let scenario  = null;
 let stepIdx   = 0;
+let stepOrder = [0,1,2,3,4]; // ルートによるステップ順（赤:1→2→3→4→5 / 黄:1→3→2→4→5）
 let detected  = false;
 let _arAssets = null; // 現在のシーンの <a-assets> への参照
 
@@ -411,7 +412,8 @@ async function fileExists(path) {
 async function startAR(sc) {
   scenario = sc;
   stepIdx  = 0;
-  detected = false;
+  detected  = false;
+  stepOrder = sc.steps.map((_, i) => i); // デフォルト順にリセット
 
   // UI更新
   document.getElementById('nav-title').textContent = sc.name;
@@ -856,9 +858,23 @@ function buildARObjects(step) {
 // ステップ操作
 // ══════════════════════════════════════════
 function nextStep() {
-  if (!scenario || stepIdx >= scenario.steps.length - 1) return;
+  if (!scenario || stepIdx >= stepOrder.length - 1) return;
+
+  // ステップ1（crossing）の「次へ」でルートを確定
+  if (scenario.id === 'crossing' && stepIdx === 0) {
+    const redOn = _lampHistory.red.filter(s => s === 'on').length > _lampHistory.red.length / 2;
+    const yelOn = _lampHistory.yel.filter(s => s === 'on').length > _lampHistory.yel.length / 2;
+    if (yelOn && !redOn) {
+      stepOrder = [0, 2, 1, 3, 4]; // 黄ルート: 1→3→2→4→5
+      document.getElementById('nav-sub').textContent = '🟡 黄ランプルート';
+    } else {
+      stepOrder = [0, 1, 2, 3, 4]; // 赤ルート（デフォルト）
+      document.getElementById('nav-sub').textContent = '🔴 赤ランプルート';
+    }
+  }
+
   stepIdx++;
-  buildARObjects(scenario.steps[stepIdx]);
+  buildARObjects(scenario.steps[stepOrder[stepIdx]]);
   updateCard();
   syncLampDetection();
 }
@@ -866,7 +882,7 @@ function nextStep() {
 function prevStep() {
   if (!scenario || stepIdx <= 0) return;
   stepIdx--;
-  buildARObjects(scenario.steps[stepIdx]);
+  buildARObjects(scenario.steps[stepOrder[stepIdx]]);
   updateCard();
   syncLampDetection();
 }
@@ -882,8 +898,8 @@ function syncLampDetection() {
 
 function updateCard() {
   if (!scenario) return;
-  const step  = scenario.steps[stepIdx];
-  const total = scenario.steps.length;
+  const step   = scenario.steps[stepOrder[stepIdx]];
+  const total  = stepOrder.length;
   const isLast = stepIdx === total - 1;
   const colors = {
     normal:  { bg:'#1e3a8a', tx:'#93c5fd', fill:'#2563eb' },
@@ -899,19 +915,18 @@ function updateCard() {
 
   document.getElementById('step-title').textContent  = step.title;
   document.getElementById('step-detail').textContent = step.detail;
-  // ARラベルを下段カードにも列挙（オプションC: AR上+カード両方に表示）
   const labels = step.ar.filter(a => a.label).map(a => `・${a.label}`).join('　');
   document.getElementById('ar-hint').textContent = labels ? `📍 ${labels}` : '';
-  document.getElementById('warn-icon').textContent   = { normal:'', caution:'⚠️', danger:'🚫' }[step.warn];
+  document.getElementById('warn-icon').textContent = { normal:'', caution:'⚠️', danger:'🚫' }[step.warn];
 
   const fill = document.getElementById('progress-fill');
   fill.style.width      = `${(stepIdx+1)/total*100}%`;
   fill.style.background = c.fill;
 
   document.getElementById('btn-next').style.background = c.fill;
-  document.getElementById('btn-prev').style.display = stepIdx > 0    ? 'block' : 'none';
-  document.getElementById('btn-next').style.display = isLast         ? 'none'  : 'block';
-  document.getElementById('btn-done').style.display = isLast         ? 'block' : 'none';
+  document.getElementById('btn-prev').style.display = stepIdx > 0 ? 'block' : 'none';
+  document.getElementById('btn-next').style.display = isLast      ? 'none'  : 'block';
+  document.getElementById('btn-done').style.display = isLast      ? 'block' : 'none';
 }
 
 // ══════════════════════════════════════════
