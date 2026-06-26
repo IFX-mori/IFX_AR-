@@ -618,9 +618,26 @@ function updateLampUI(type, state, rgb) {
   }
 }
 
+let _lastARLampType = null; // 直前にAR表示したランプ種別（不要な再描画を防ぐ）
+
+// 判定結果に応じてステップ1のARボックスを更新
+function updateStep1ARBox(lampType) {
+  if (_lastARLampType === lampType) return; // 変化なければ再描画しない
+  _lastARLampType = lampType;
+
+  const arData = lampType === 'yellow'
+    ? { type:'box', pos:[LAMP_YEL_POS.x, LAMP_YEL_POS.y, 0], color:'#facc15', size:0.10,
+        label:'黄色が点灯', labelBelow:true, textColor:'#facc15', textBg:'#1e3a8a' }
+    : { type:'box', pos:[LAMP_RED_POS.x, LAMP_RED_POS.y, 0], color:'#ef4444', size:0.10,
+        label:'赤色が点灯', labelBelow:true, textColor:'#ef4444', textBg:'#facc15' };
+
+  buildARObjects({ ar: [arData] });
+}
+
 function startLampDetection() {
   stopLampDetection();
-  _lampHistory = { red: [], yel: [] };
+  _lampHistory    = { red: [], yel: [] };
+  _lastARLampType = null;
   document.getElementById('lamp-detect-panel').style.display = 'flex';
   document.getElementById('lamp-dbg-red').style.display = 'block';
   document.getElementById('lamp-dbg-yel').style.display = 'block';
@@ -639,6 +656,13 @@ function startLampDetection() {
     updateLampUI('yel', yelState, yelSample?.rgb);
     if (redSample) updateDebugDot('lamp-dbg-red', redSample.sx, redSample.sy, redState);
     if (yelSample) updateDebugDot('lamp-dbg-yel', yelSample.sx, yelSample.sy, yelState);
+
+    // 判定結果に応じてAR図形を更新
+    if (yelState === 'on') {
+      updateStep1ARBox('yellow');
+    } else if (redState === 'on') {
+      updateStep1ARBox('red');
+    }
   }, 600);
 }
 
