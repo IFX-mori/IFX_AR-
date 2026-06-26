@@ -625,6 +625,10 @@ function updateStep1ARBox(lampType) {
   if (_lastARLampType === lampType) return; // 変化なければ再描画しない
   _lastARLampType = lampType;
 
+  if (lampType === 'none') {
+    buildARObjects({ ar: [] }); // 消灯時はAR図形なし
+    return;
+  }
   const arData = lampType === 'yellow'
     ? { type:'box', pos:[LAMP_YEL_POS.x, LAMP_YEL_POS.y, 0], color:'#facc15', size:0.10,
         label:'黄色が点灯', labelBelow:true, textColor:'#facc15', textBg:'#1e3a8a' }
@@ -638,6 +642,7 @@ function startLampDetection() {
   stopLampDetection();
   _lampHistory    = { red: [], yel: [] };
   _lastARLampType = null;
+  buildARObjects({ ar: [] }); // 検出開始時はAR図形をクリア
   document.getElementById('lamp-detect-panel').style.display = 'flex';
   document.getElementById('lamp-dbg-red').style.display = 'block';
   document.getElementById('lamp-dbg-yel').style.display = 'block';
@@ -662,6 +667,8 @@ function startLampDetection() {
       updateStep1ARBox('yellow');
     } else if (redState === 'on') {
       updateStep1ARBox('red');
+    } else {
+      updateStep1ARBox('none'); // 両方消灯→AR図形なし
     }
   }, 600);
 }
