@@ -75,6 +75,17 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 #btn-next { background:#1d4ed8; }
 #btn-done { background:#15803d; display:none; }
 
+/* ドキュメントボタン */
+#doc-btn-row { display:flex; gap:8px; margin-bottom:10px; }
+.doc-btn {
+  flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+  padding:9px 0; border-radius:10px; border:1.5px solid; font-size:13px; font-weight:600;
+  cursor:pointer; background:#fff; -webkit-tap-highlight-color:transparent;
+}
+.doc-btn-pdf   { color:#dc2626; border-color:#fca5a5; }
+.doc-btn-video { color:#2563eb; border-color:#93c5fd; }
+.doc-btn:active { opacity:0.7; }
+
 /* ── ランプ検出パネル ── */
 #lamp-detect-panel {
   display:none; flex-direction:column; gap:6px;
@@ -218,6 +229,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
     <div class="progress-wrap"><div id="progress-fill"></div></div>
     <div id="step-detail"></div>
     <div id="ar-hint"></div>
+    <div id="doc-btn-row"></div>
     <div class="btn-row">
       <button class="nav-btn" id="btn-prev" onclick="prevStep()">‹ 戻る</button>
       <button class="nav-btn" id="btn-next" onclick="nextStep()">次へ ›</button>
@@ -241,6 +253,7 @@ const SCENARIOS = [
     borderColor: 'rgba(251,146,60,0.4)',
     mindFile:  'targets/crossing.mind',
     imageFile: 'targets/crossing.jpg',
+    docs: { pdf: 'docs/crossing.pdf', video: 'docs/crossing.mp4' },
     steps: [
       {
         title: 'ランプ点灯色の確認',
@@ -296,6 +309,7 @@ const SCENARIOS = [
     borderColor: 'rgba(34,211,238,0.4)',
     mindFile:  'targets/ats.mind',
     imageFile: 'targets/ats.jpg',
+    docs: { pdf: 'docs/ats.pdf', video: 'docs/ats.mp4' },
     steps: [
       { title:'列車接近確認', detail:'作業前に列車の接近がないことを確認し、\n見張り員の配置を確認してください。', warn:'danger',
         ar:[{type:'text', pos:[0, 0.18, 0], color:'#f87171', label:'⚠ 列車接近確認中'}]},
@@ -326,6 +340,7 @@ const SCENARIOS = [
     borderColor: 'rgba(250,204,21,0.4)',
     mindFile:  'targets/point.mind',
     imageFile: 'targets/point.jpg',
+    docs: { pdf: 'docs/point.pdf', video: 'docs/point.mp4' },
     steps: [
       { title:'列車接近確認・現場保護', detail:'列車の接近がないことを確認し、\n転てつ機操作に必要な工具を準備してください。', warn:'danger',
         ar:[{type:'text', pos:[0, 0.18, 0], color:'#f87171', label:'⚠ 列車接近確認'}]},
@@ -938,6 +953,28 @@ function syncLampDetection() {
   }
 }
 
+function updateDocButtons() {
+  const row = document.getElementById('doc-btn-row');
+  if (!row) return;
+  row.innerHTML = '';
+  const docs = scenario && scenario.docs;
+  if (!docs) return;
+  if (docs.pdf) {
+    const btn = document.createElement('button');
+    btn.className = 'doc-btn doc-btn-pdf';
+    btn.innerHTML = '📄 作業手順書';
+    btn.onclick = () => window.open(docs.pdf, '_blank');
+    row.appendChild(btn);
+  }
+  if (docs.video) {
+    const btn = document.createElement('button');
+    btn.className = 'doc-btn doc-btn-video';
+    btn.innerHTML = '🎬 操作動画';
+    btn.onclick = () => window.open(docs.video, '_blank');
+    row.appendChild(btn);
+  }
+}
+
 function updateCard() {
   if (!scenario) return;
   const step   = scenario.steps[stepOrder[stepIdx]];
@@ -976,6 +1013,7 @@ function updateCard() {
   document.getElementById('btn-prev').style.display = stepIdx > 0 ? 'block' : 'none';
   document.getElementById('btn-next').style.display = isLast      ? 'none'  : 'block';
   document.getElementById('btn-done').style.display = isLast      ? 'block' : 'none';
+  updateDocButtons();
 }
 
 // ══════════════════════════════════════════
