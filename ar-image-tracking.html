@@ -891,7 +891,7 @@ function buildARObjects(step) {
       root.appendChild(plane);
 
       if (p.label) root.appendChild(
-        makeTextPanel(p.label, hexColor, x, y - pw * 0.70, z, null, p.labelW || 0.22));
+        makeTextPanel(p.label, hexColor, x, y - pw * 0.70, z + 0.01, null, p.labelW || 0.22));
     }
   });
 }
