@@ -75,6 +75,20 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 #btn-next { background:#1d4ed8; }
 #btn-done { background:#15803d; display:none; }
 
+/* ターゲットサムネイル */
+#target-thumb {
+  display:none; position:absolute; top:68px; left:12px;
+  width:80px; border-radius:10px; overflow:hidden;
+  box-shadow:0 2px 10px rgba(0,0,0,0.25); pointer-events:none;
+  border:2px solid rgba(255,255,255,0.8);
+}
+#target-thumb img { width:100%; display:block; }
+#target-thumb-label {
+  background:rgba(0,0,0,0.55); color:#fff;
+  font-size:9px; font-weight:600; text-align:center;
+  padding:3px 4px; letter-spacing:.3px;
+}
+
 /* ドキュメントボタン */
 #doc-btn-row { display:flex; gap:8px; margin-bottom:10px; }
 .doc-btn {
@@ -191,6 +205,12 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
       <div id="detect-dot"></div>
       <span id="detect-text">認識待ち</span>
     </div>
+  </div>
+
+  <!-- ターゲットサムネイル -->
+  <div id="target-thumb">
+    <img id="target-thumb-img" src="" alt="撮影対象">
+    <div id="target-thumb-label">撮影対象</div>
   </div>
 
   <!-- ② サンプリング位置デバッグドット -->
@@ -440,6 +460,11 @@ async function startAR(sc) {
   document.getElementById('step-card').classList.remove('visible');
   setDetected(false);
 
+  // サムネイル表示
+  const thumbImg = document.getElementById('target-thumb-img');
+  if (thumbImg) thumbImg.src = sc.imageFile;
+  setTargetThumb(true);
+
   // 画面切り替え
   document.getElementById('screen-setup').classList.add('hidden');
   document.getElementById('ar-scene').classList.add('active');
@@ -505,6 +530,7 @@ async function startAR(sc) {
 function onTargetFound() {
   detected = true;
   setDetected(true);
+  setTargetThumb(false); // 認識したらサムネイルを隠す
   document.getElementById('scan-hint').style.opacity = '0';
   document.getElementById('step-card').classList.add('visible');
   updateCard();
@@ -514,13 +540,17 @@ function onTargetFound() {
 function onTargetLost() {
   detected = false;
   setDetected(false);
-  // ARオブジェクトは表示したまま（認識が戻れば再表示）
-  // ステップカードは残す（カメラを戻せば続きから）
+  setTargetThumb(true); // 認識が外れたらサムネイルを再表示
 }
 
 function setDetected(yes) {
   document.getElementById('detect-dot').style.background  = yes ? '#22c55e' : '#f59e0b';
   document.getElementById('detect-text').textContent = yes ? '認識済み' : '認識待ち';
+}
+
+function setTargetThumb(visible) {
+  const thumb = document.getElementById('target-thumb');
+  if (thumb) thumb.style.display = visible ? 'block' : 'none';
 }
 
 // ══════════════════════════════════════════
