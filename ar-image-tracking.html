@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AR設備ガイダンス（画像認識）</title>
+<title>AR操作ナビ</title>
 
 <!-- MindAR + A-Frame（ローカル） -->
 <script src="aframe.min.js"></script>
@@ -11,7 +11,7 @@
 
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; background:#000; }
+body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; background:#f1f5f9; }
 
 /* ── AR Scene（フルスクリーン） ── */
 #ar-scene { position:fixed; inset:0; display:none; }
@@ -27,50 +27,51 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 /* ナビバー */
 #nav-bar {
   pointer-events:all;
-  background:rgba(10,12,18,0.85); backdrop-filter:blur(8px);
+  background:rgba(255,255,255,0.92); backdrop-filter:blur(8px);
   padding:10px 14px; display:flex; align-items:center; gap:10px;
-  border-bottom:0.5px solid rgba(255,255,255,0.1);
+  border-bottom:0.5px solid rgba(0,0,0,0.1);
 }
-#btn-back { width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.12); border:none; color:#fff; font-size:20px; cursor:pointer; }
-#nav-title { font-size:14px; font-weight:600; color:#fff; flex:1; }
-#nav-sub   { font-size:11px; color:rgba(255,255,255,0.55); }
-#detect-badge { display:flex; align-items:center; gap:5px; background:rgba(0,0,0,0.4); border-radius:10px; padding:4px 10px; font-size:11px; font-weight:500; color:#fff; }
+#btn-back { width:34px; height:34px; border-radius:50%; background:rgba(0,0,0,0.08); border:none; color:#1e293b; font-size:20px; cursor:pointer; }
+#nav-title { font-size:14px; font-weight:600; color:#1e293b; flex:1; }
+#nav-sub   { font-size:11px; color:rgba(0,0,0,0.45); }
+#detect-badge { display:flex; align-items:center; gap:5px; background:rgba(0,0,0,0.07); border-radius:10px; padding:4px 10px; font-size:11px; font-weight:500; color:#1e293b; }
 #detect-dot { width:8px; height:8px; border-radius:50%; background:#f59e0b; transition:background .3s; }
 
 /* ヒント */
 #scan-hint {
   pointer-events:none; position:absolute;
   bottom:220px; left:50%; transform:translateX(-50%);
-  background:rgba(10,12,18,0.82); backdrop-filter:blur(6px);
+  background:rgba(255,255,255,0.92); backdrop-filter:blur(6px);
   border-radius:14px; padding:14px 22px; text-align:center; white-space:nowrap;
-  transition:opacity .3s;
+  transition:opacity .3s; box-shadow:0 4px 16px rgba(0,0,0,0.12);
 }
 #scan-hint .hint-icon { font-size:28px; margin-bottom:6px; }
-#scan-hint .hint-text { font-size:13px; font-weight:500; color:#fff; }
-#scan-hint .hint-sub  { font-size:11px; color:#22d3ee; margin-top:3px; }
+#scan-hint .hint-text { font-size:13px; font-weight:500; color:#1e293b; }
+#scan-hint .hint-sub  { font-size:11px; color:#0891b2; margin-top:3px; }
 
 /* 手順カード */
 #step-card {
   pointer-events:all;
   position:absolute; bottom:0; left:0; right:0;
-  background:rgba(10,12,18,0.92); backdrop-filter:blur(10px);
-  border-top:0.5px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.96); backdrop-filter:blur(10px);
+  border-top:0.5px solid rgba(0,0,0,0.08);
   padding:14px 16px 28px;
   transform:translateY(100%); transition:transform .35s ease;
+  box-shadow:0 -4px 20px rgba(0,0,0,0.08);
 }
 #step-card.visible { transform:translateY(0); }
 
 .card-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 #step-badge  { padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; }
-#step-title  { font-size:15px; font-weight:600; color:#fff; flex:1; line-height:1.3; }
+#step-title  { font-size:15px; font-weight:600; color:#1e293b; flex:1; line-height:1.3; }
 #warn-icon   { font-size:18px; flex-shrink:0; }
-.progress-wrap { height:3px; background:rgba(255,255,255,0.1); border-radius:2px; margin-bottom:10px; }
+.progress-wrap { height:3px; background:rgba(0,0,0,0.08); border-radius:2px; margin-bottom:10px; }
 #progress-fill { height:3px; border-radius:2px; transition:width .3s; }
-#step-detail { font-size:13px; color:rgba(255,255,255,0.85); line-height:1.7; margin-bottom:8px; white-space:pre-line; }
-#ar-hint     { font-size:11px; color:#22d3ee; margin-bottom:10px; }
+#step-detail { font-size:13px; color:#374151; line-height:1.7; margin-bottom:8px; white-space:pre-line; }
+#ar-hint     { font-size:11px; color:#0891b2; margin-bottom:10px; }
 .btn-row { display:flex; gap:10px; }
 .nav-btn { flex:1; padding:12px 0; border-radius:11px; border:none; font-size:14px; font-weight:600; cursor:pointer; color:#fff; }
-#btn-prev { background:rgba(255,255,255,0.12); }
+#btn-prev { background:rgba(0,0,0,0.12); color:#1e293b; }
 #btn-next { background:#1d4ed8; }
 #btn-done { background:#15803d; display:none; }
 
@@ -79,57 +80,59 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
   display:none; flex-direction:column; gap:6px;
   pointer-events:none;
   position:absolute; top:70px; right:12px;
-  background:rgba(10,12,18,0.90); backdrop-filter:blur(8px);
-  border:1px solid rgba(255,255,255,0.15); border-radius:12px;
+  background:rgba(255,255,255,0.95); backdrop-filter:blur(8px);
+  border:1px solid rgba(0,0,0,0.10); border-radius:12px;
   padding:10px 14px; min-width:200px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.10);
 }
 #lamp-detect-panel .lamp-title {
-  font-size:11px; font-weight:600; color:rgba(255,255,255,0.5);
+  font-size:11px; font-weight:600; color:rgba(0,0,0,0.4);
   text-transform:uppercase; letter-spacing:.5px; margin-bottom:2px;
 }
-.lamp-row { display:flex; align-items:center; gap:8px; font-size:13px; color:#fff; }
-.lamp-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; border:2px solid rgba(255,255,255,0.3); }
+.lamp-row { display:flex; align-items:center; gap:8px; font-size:13px; color:#1e293b; }
+.lamp-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; border:2px solid rgba(0,0,0,0.15); }
 .lamp-dot.on-red    { background:#ef4444; border-color:#ef4444; box-shadow:0 0 6px #ef4444; }
 .lamp-dot.on-yellow { background:#facc15; border-color:#facc15; box-shadow:0 0 6px #facc15; }
-.lamp-dot.off       { background:rgba(255,255,255,0.1); }
+.lamp-dot.off       { background:rgba(0,0,0,0.08); }
 .lamp-state { font-weight:600; }
-.lamp-rgb   { font-size:10px; color:rgba(255,255,255,0.35); margin-left:auto; }
+.lamp-rgb   { font-size:10px; color:rgba(0,0,0,0.3); margin-left:auto; }
 
 /* ── セットアップ画面 ── */
 #screen-setup {
-  position:fixed; inset:0; background:linear-gradient(160deg,#0f1117,#151a24);
+  position:fixed; inset:0; background:linear-gradient(160deg,#f8fafc,#e2e8f0);
   display:flex; flex-direction:column; overflow-y:auto;
-  color:#fff;
+  color:#1e293b;
 }
 #screen-setup.hidden { display:none; }
 .setup-header { text-align:center; padding:40px 20px 20px; }
 .setup-icon   { font-size:48px; margin-bottom:10px; }
-.setup-title  { font-size:22px; font-weight:600; }
-.setup-sub    { font-size:13px; color:rgba(255,255,255,0.5); margin-top:6px; }
+.setup-title  { font-size:22px; font-weight:600; color:#1e293b; }
+.setup-sub    { font-size:13px; color:rgba(0,0,0,0.4); margin-top:6px; }
 .setup-body   { padding:0 20px 40px; display:flex; flex-direction:column; gap:16px; }
 
 .scenario-card {
-  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+  background:#fff; border:1px solid rgba(0,0,0,0.10);
   border-radius:16px; padding:16px; cursor:pointer;
   -webkit-tap-highlight-color:transparent; transition:background .15s;
+  box-shadow:0 2px 8px rgba(0,0,0,0.06);
 }
-.scenario-card:hover { background:rgba(255,255,255,0.1); }
+.scenario-card:hover { background:#f8fafc; }
 .sc-row { display:flex; align-items:center; gap:12px; }
 .sc-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
-.sc-name { font-size:15px; font-weight:600; }
-.sc-sub  { font-size:12px; color:rgba(255,255,255,0.5); margin-top:2px; }
-.sc-steps { font-size:11px; color:rgba(255,255,255,0.3); margin-top:3px; }
-.sc-target { margin-top:10px; padding:10px 12px; background:rgba(255,255,255,0.05); border-radius:8px; font-size:12px; color:rgba(255,255,255,0.6); display:flex; align-items:center; gap:8px; }
-.sc-target.ok { color:#4ade80; background:rgba(74,222,128,0.08); }
-.sc-target.ng { color:#f87171; background:rgba(248,113,113,0.08); }
+.sc-name { font-size:15px; font-weight:600; color:#1e293b; }
+.sc-sub  { font-size:12px; color:rgba(0,0,0,0.45); margin-top:2px; }
+.sc-steps { font-size:11px; color:rgba(0,0,0,0.3); margin-top:3px; }
+.sc-target { margin-top:10px; padding:10px 12px; background:#f1f5f9; border-radius:8px; font-size:12px; color:rgba(0,0,0,0.5); display:flex; align-items:center; gap:8px; }
+.sc-target.ok { color:#16a34a; background:rgba(22,163,74,0.08); }
+.sc-target.ng { color:#dc2626; background:rgba(220,38,38,0.08); }
 
-.info-box { background:rgba(34,211,238,0.08); border:1px solid rgba(34,211,238,0.25); border-radius:12px; padding:14px 16px; }
-.info-box p { font-size:13px; color:rgba(255,255,255,0.8); line-height:1.7; }
-.info-box a { color:#22d3ee; }
-.info-box h3 { font-size:14px; font-weight:600; color:#22d3ee; margin-bottom:8px; }
+.info-box { background:rgba(8,145,178,0.06); border:1px solid rgba(8,145,178,0.25); border-radius:12px; padding:14px 16px; }
+.info-box p { font-size:13px; color:#374151; line-height:1.7; }
+.info-box a { color:#0891b2; }
+.info-box h3 { font-size:14px; font-weight:600; color:#0891b2; margin-bottom:8px; }
 .step-list { list-style:none; counter-reset:step; }
-.step-list li { counter-increment:step; font-size:13px; color:rgba(255,255,255,0.8); line-height:1.7; padding:4px 0 4px 28px; position:relative; }
-.step-list li::before { content:counter(step); position:absolute; left:0; top:4px; width:20px; height:20px; background:#22d3ee; color:#000; border-radius:50%; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.step-list li { counter-increment:step; font-size:13px; color:#374151; line-height:1.7; padding:4px 0 4px 28px; position:relative; }
+.step-list li::before { content:counter(step); position:absolute; left:0; top:4px; width:20px; height:20px; background:#0891b2; color:#fff; border-radius:50%; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
 </style>
 </head>
 <body>
@@ -137,8 +140,8 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 <!-- ════════════════ セットアップ画面 ════════════════ -->
 <div id="screen-setup">
   <div class="setup-header">
-    <div class="setup-icon">📡</div>
-    <div class="setup-title">AR設備ガイダンス</div>
+    <div class="setup-icon">🔧⚙️</div>
+    <div class="setup-title">AR操作ナビ</div>
     <div class="setup-sub">画像認識モード</div>
   </div>
   <div class="setup-body">
