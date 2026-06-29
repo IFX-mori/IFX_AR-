@@ -623,12 +623,18 @@ function updateLampUI(type, state, rgb) {
 let _lastARLampType = null; // 直前にAR表示したランプ種別（不要な再描画を防ぐ）
 
 // 判定結果に応じてステップ1のARボックスを更新
+function setArHint(text, color) {
+  const el = document.getElementById('ar-hint');
+  if (el) el.innerHTML = `<span style="color:${color};font-size:14px">●</span> ${text}`;
+}
+
 function updateStep1ARBox(lampType) {
   if (_lastARLampType === lampType) return; // 変化なければ再描画しない
   _lastARLampType = lampType;
 
   if (lampType === 'none') {
-    buildARObjects({ ar: [] }); // 消灯時はAR図形なし
+    buildARObjects({ ar: [] });
+    setArHint('・判定中', '#84cc16');
     return;
   }
   const arData = lampType === 'yellow'
@@ -638,6 +644,8 @@ function updateStep1ARBox(lampType) {
         label:'赤色が点灯', labelBelow:true, textColor:'#ef4444', textBg:'#facc15' };
 
   buildARObjects({ ar: [arData] });
+  if (lampType === 'yellow') setArHint('・黄色が点灯', '#facc15');
+  else                        setArHint('・赤色が点灯', '#ef4444');
 }
 
 function startLampDetection() {
@@ -949,8 +957,15 @@ function updateCard() {
 
   document.getElementById('step-title').textContent  = step.title;
   document.getElementById('step-detail').textContent = step.detail;
-  const labels = step.ar.filter(a => a.label).map(a => `・${a.label}`).join('　');
-  document.getElementById('ar-hint').textContent = labels ? `📍 ${labels}` : '';
+  // ステップ1（ランプ判定）は検出結果で動的に更新するため「判定中」を初期表示
+  const isLampStep = scenario && scenario.id === 'crossing' && stepIdx === 0;
+  if (isLampStep) {
+    setArHint('・判定中', '#84cc16');
+  } else {
+    const labels = step.ar.filter(a => a.label).map(a => `・${a.label}`).join('　');
+    document.getElementById('ar-hint').innerHTML = labels
+      ? `<span style="color:#0891b2;font-size:14px">●</span> ${labels}` : '';
+  }
   document.getElementById('warn-icon').textContent = { normal:'', caution:'⚠️', danger:'🚫' }[step.warn];
 
   const fill = document.getElementById('progress-fill');
