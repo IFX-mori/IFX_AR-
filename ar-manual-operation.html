@@ -90,11 +90,12 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 }
 
 /* ドキュメントボタン */
-#doc-btn-row { display:flex; gap:8px; margin-bottom:10px; }
+#doc-btn-row { display:none; gap:6px; }
 .doc-btn {
-  flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
-  padding:9px 0; border-radius:10px; border:1.5px solid; font-size:13px; font-weight:600;
-  cursor:pointer; background:#fff; -webkit-tap-highlight-color:transparent;
+  display:flex; align-items:center; justify-content:center; gap:4px;
+  padding:6px 10px; border-radius:8px; border:1.5px solid; font-size:12px; font-weight:600;
+  cursor:pointer; background:#fff; white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;
 }
 .doc-btn-pdf   { color:#dc2626; border-color:#fca5a5; }
 .doc-btn-video { color:#2563eb; border-color:#93c5fd; }
@@ -201,6 +202,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
       <div id="nav-title"></div>
       <div id="nav-sub" style="font-size:11px;color:rgba(255,255,255,.55);"></div>
     </div>
+    <div id="doc-btn-row"></div>
     <div id="detect-badge">
       <div id="detect-dot"></div>
       <span id="detect-text">認識待ち</span>
@@ -249,7 +251,6 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
     <div class="progress-wrap"><div id="progress-fill"></div></div>
     <div id="step-detail"></div>
     <div id="ar-hint"></div>
-    <div id="doc-btn-row"></div>
     <div id="lamp-select-row" style="display:none; gap:10px; margin-bottom:8px;">
       <button class="nav-btn lamp-sel-btn" id="btn-lamp-yel" onclick="selectLampRoute('yellow')"
         style="background:#d97706; flex:1; padding:13px 0;">🟡 黄ランプ点灯</button>
