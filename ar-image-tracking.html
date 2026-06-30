@@ -285,11 +285,11 @@ const SCENARIOS = [
       },
       {
         title: 'つまみを左右に回す',
-        detail: '左側のつまみを左へ、右側のつまみを右へ回してください。',
+        detail: '左側のつまみを左へ30、右側のつまみを右へ70回してください。',
         warn: 'normal',
         ar: [
-          { type:'curvedArrow', pos:[-0.35, 0.55, 0], color:'#60a5fa', dir:'left',  label:'左へ回す', scale:2.4 },
-          { type:'curvedArrow', pos:[-0.13, 0.55, 0], color:'#60a5fa', dir:'right', label:'右へ回す', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.35, 0.55, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n30', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.13, 0.55, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', scale:2.4 },
         ]
       },
       {
@@ -316,6 +316,16 @@ const SCENARIOS = [
         warn: 'normal',
         ar: [
           { type:'box', pos:[0.055, 0.50, 0], color:'#3b82f6', size:0.10, label:'青の点灯を確認', labelBelow:true, textColor:'#3b82f6', textBg:'#facc15' },
+        ]
+      },
+      // index 5: 黄ルート専用「つまみを左右に回す」
+      {
+        title: 'つまみを左右に回す',
+        detail: '左側のつまみを右へ80、右側のつまみを左へ20回してください。',
+        warn: 'normal',
+        ar: [
+          { type:'curvedArrow', pos:[-0.35, 0.55, 0], color:'#60a5fa', dir:'left',  label:'右へ回す\n80', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.13, 0.55, 0], color:'#60a5fa', dir:'right', label:'左へ回す\n20', scale:2.4 },
         ]
       },
     ]
@@ -757,13 +767,27 @@ function makeTextPanel(value, color, px, py, pz, bgColor, labelW) {
   ctx.fillStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  let fontSize = 116;
-  ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
-  while (ctx.measureText(value).width > CW * 0.92 && fontSize > 40) {
-    fontSize -= 4;
+  const lines = value.split('\n');
+  if (lines.length === 1) {
+    let fontSize = 116;
     ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
+    while (ctx.measureText(value).width > CW * 0.92 && fontSize > 40) {
+      fontSize -= 4;
+      ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
+    }
+    ctx.fillText(value, CW / 2, CH / 2);
+  } else {
+    const lineH = CH / lines.length;
+    lines.forEach((line, i) => {
+      let fontSize = 90;
+      ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
+      while (ctx.measureText(line).width > CW * 0.92 && fontSize > 30) {
+        fontSize -= 4;
+        ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
+      }
+      ctx.fillText(line, CW / 2, lineH * (i + 0.5));
+    });
   }
-  ctx.fillText(value, CW / 2, CH / 2);
 
   // <img> を <a-assets> に登録してセレクタ参照（DataURL の ; 問題を回避）
   const uid = 'tx' + (Math.random() * 1e9 | 0);
@@ -952,7 +976,7 @@ function nextStep() {
     const redOn = _lampHistory.red.filter(s => s === 'on').length > _lampHistory.red.length / 2;
     const yelOn = _lampHistory.yel.filter(s => s === 'on').length > _lampHistory.yel.length / 2;
     if (yelOn && !redOn) {
-      stepOrder = [0, 2, 1, 3, 4]; // 黄ルート: 1→3→2→4→5
+      stepOrder = [0, 2, 5, 3, 4]; // 黄ルート: 1→3→2→4→5
       document.getElementById('nav-sub').textContent = '🟡 黄ランプルート';
     } else {
       stepOrder = [0, 1, 2, 3, 4]; // 赤ルート（デフォルト）
