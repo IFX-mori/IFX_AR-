@@ -846,10 +846,10 @@ function buildARObjects(step) {
       g.setAttribute('position', `${x} ${y} ${z}`);
       const mat = `color:${hexColor}; emissive:${hexColor}; emissiveIntensity:0.5; shader:flat`;
       const shaft = document.createElement('a-cylinder');
-      shaft.setAttribute('radius', '0.005'); shaft.setAttribute('height', '0.05');
+      shaft.setAttribute('radius', '0.0075'); shaft.setAttribute('height', '0.05');
       shaft.setAttribute('position', '0 -0.025 0'); shaft.setAttribute('material', mat);
       const head = document.createElement('a-cone');
-      head.setAttribute('radius-bottom', '0.012'); head.setAttribute('radius-top', '0');
+      head.setAttribute('radius-bottom', '0.018'); head.setAttribute('radius-top', '0');
       head.setAttribute('height', '0.03'); head.setAttribute('position', '0 0.015 0');
       head.setAttribute('material', mat);
       g.appendChild(shaft); g.appendChild(head);
@@ -863,10 +863,10 @@ function buildARObjects(step) {
       g.setAttribute('position', `${x} ${y} ${z}`);
       const mat = `color:${hexColor}; emissive:${hexColor}; emissiveIntensity:0.5; shader:flat`;
       const shaft = document.createElement('a-cylinder');
-      shaft.setAttribute('radius', '0.005'); shaft.setAttribute('height', '0.05');
+      shaft.setAttribute('radius', '0.0075'); shaft.setAttribute('height', '0.05');
       shaft.setAttribute('position', '0 0.025 0'); shaft.setAttribute('material', mat);
       const head = document.createElement('a-cone');
-      head.setAttribute('radius-bottom', '0.012'); head.setAttribute('radius-top', '0');
+      head.setAttribute('radius-bottom', '0.018'); head.setAttribute('radius-top', '0');
       head.setAttribute('height', '0.03'); head.setAttribute('position', '0 -0.015 0');
       head.setAttribute('rotation', '0 0 180'); head.setAttribute('material', mat);
       g.appendChild(shaft); g.appendChild(head);
@@ -911,8 +911,8 @@ function buildARObjects(step) {
       const ctx  = cv.getContext('2d');
       const cx   = CW / 2, cy = CH * 0.62;
       const r    = CW * 0.36;
-      const lw   = 14;
-      const as_  = 20; // arrowhead size
+      const lw   = 21;
+      const as_  = 30; // arrowhead size
 
       ctx.strokeStyle = hexColor;
       ctx.fillStyle   = hexColor;
