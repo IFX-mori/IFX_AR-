@@ -591,7 +591,7 @@ const LAMP_RED_POS  = { x: 0.38, y: 0.50 }; // 赤ランプ AR座標
 const LAMP_YEL_POS  = { x: 0.235, y: 0.50 }; // 黄ランプ AR座標（要キャリブレーション）
 const LAMP_SAMPLE_R = 16;  // サンプリング半径（ピクセル）
 const LAMP_HISTORY  = 5;   // 時間平均の履歴数
-const LAMP_LUM_FLOOR = 70; // この輝度未満なら「消灯（判定中）」とみなす（0-255）
+const LAMP_LUM_FLOOR = 220; // この輝度未満なら「消灯（判定中）」とみなす（0-255）
 const LAMP_LUM_RATIO = 1.25; // 明るい方がこの倍率以上で「点灯」と判定
 
 let _lampTimer   = null;
