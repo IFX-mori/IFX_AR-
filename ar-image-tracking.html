@@ -1013,7 +1013,7 @@ function updateDocButtons() {
   if (!row) return;
   row.innerHTML = '';
   const docs = scenario && scenario.docs;
-  if (!docs) return;
+  if (!docs) { row.style.display = 'none'; return; }
   if (docs.pdf) {
     const btn = document.createElement('button');
     btn.className = 'doc-btn doc-btn-pdf';
@@ -1028,6 +1028,7 @@ function updateDocButtons() {
     btn.onclick = () => window.open(docs.video, '_blank');
     row.appendChild(btn);
   }
+  row.style.display = row.children.length > 0 ? 'flex' : 'none';
 }
 
 function updateCard() {
