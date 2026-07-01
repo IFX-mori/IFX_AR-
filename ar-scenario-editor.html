@@ -199,6 +199,20 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
     </div>
 
     <div class="form-card">
+      <h3>① 写真を撮影 / 選択</h3>
+      <input id="photo-input" type="file" accept="image/*" capture="environment" style="display:none" onchange="onPhotoSelected(event)">
+      <button class="secondary-btn" onclick="document.getElementById('photo-input').click()">📷 写真を撮影 / 選択</button>
+      <img id="photo-preview" style="display:none;width:100%;border-radius:10px;margin-top:10px;max-height:200px;object-fit:contain;background:#f8fafc;">
+    </div>
+
+    <div class="form-card">
+      <h3>② この写真から .mind を生成</h3>
+      <button class="secondary-btn" id="btn-gen-mind" onclick="generateMind()">🎯 .mind を生成</button>
+      <div style="height:6px;background:#e2e8f0;border-radius:3px;margin-top:10px;display:none;" id="mind-bar-wrap"><div id="mind-bar" style="height:6px;border-radius:3px;background:#1d4ed8;width:0%;transition:width .2s;"></div></div>
+      <div id="mind-status" style="font-size:12px;color:#64748b;margin-top:8px;"></div>
+    </div>
+
+    <div class="form-card">
       <h3>既存シナリオを読み込む</h3>
       <p style="font-size:12px;color:#64748b;margin-bottom:10px">以前エクスポートしたJSONを読み込んで続きを編集できます</p>
       <button class="secondary-btn" onclick="openImport()">📋 JSONをインポート</button>
@@ -280,6 +294,14 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
   <div class="modal-box">
     <div class="modal-title" id="modal-title-text">JSONエクスポート</div>
     <textarea id="json-ta" spellcheck="false"></textarea>
+    <div id="gh-section" style="display:none;margin-top:14px;border-top:1px solid #e2e8f0;padding-top:12px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px;color:#1e293b;">☁️ GitHubへアップロード</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">写真・.mind・シナリオJSONをまとめて送信します（fine-grainedトークン推奨）</div>
+      <input id="gh-token" type="password" placeholder="GitHubトークン (contents: write)" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:6px;box-sizing:border-box;">
+      <input id="gh-repo" type="text" value="ifx-mori/IFX_AR-" placeholder="owner/repo" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:8px;box-sizing:border-box;">
+      <button class="mbtn mbtn-primary" style="width:100%;background:#15803d;" onclick="githubUpload()">☁️ 写真・.mind・シナリオをアップロード</button>
+      <div id="gh-status" style="font-size:12px;color:#64748b;margin-top:8px;white-space:pre-wrap;"></div>
+    </div>
     <div class="modal-btns">
       <button class="mbtn mbtn-primary" id="modal-ok-btn" onclick="modalOK()">📋 コピー</button>
       <button class="mbtn mbtn-secondary" onclick="closeModal()">閉じる</button>
@@ -306,6 +328,10 @@ let nudgeStep = 0.01;
 let isExport  = true;
 let _assets   = null;
 let detected  = false;
+let _photoBlob    = null; // 撮影/選択した写真（Blob）
+let _photoDataURL = null; // 写真の DataURL（プレビュー・参照画像・アップロード用）
+let _mindBuffer   = null; // 生成した .mind（ArrayBuffer）
+let _mindBlobURL  = null; // .mind の Blob URL（編集中トラッキング用）
 
 const TYPE_LABEL = {
   arrow:'↑上矢印', arrowDown:'↓下矢印',
@@ -362,8 +388,9 @@ function launchAR() {
 
   const scene = document.createElement('a-scene');
   scene.id = 'a-scene';
+  const _mindSrc = _mindBlobURL || ED.mindFile; // 生成直後はメモリ上の .mind を使用
   scene.setAttribute('mindar-image',
-    `imageTargetSrc:${ED.mindFile};filterMinCF:0.001;filterBeta:0.001;maxTrack:1`);
+    `imageTargetSrc:${_mindSrc};filterMinCF:0.005;filterBeta:0.01;maxTrack:1`);
   scene.setAttribute('color-space','sRGB');
   scene.setAttribute('renderer','colorManagement:true');
   scene.setAttribute('vr-mode-ui','enabled:false');
@@ -375,7 +402,7 @@ function launchAR() {
   const assets = document.createElement('a-assets');
   _assets = assets;
   const img = document.createElement('img');
-  img.id='ref-img'; img.src=ED.imageFile;
+  img.id='ref-img'; img.src=(_photoDataURL || ED.imageFile);
   assets.appendChild(img);
   scene.appendChild(assets);
 
@@ -828,6 +855,7 @@ function openExport() {
   document.getElementById('modal-title-text').textContent='📤 JSONエクスポート';
   document.getElementById('modal-ok-btn').textContent='📋 コピー';
   document.getElementById('json-ta').value=buildJSON();
+  document.getElementById('gh-section').style.display='block';
   document.getElementById('json-modal').classList.add('active');
 }
 function openImport() {
@@ -835,6 +863,7 @@ function openImport() {
   document.getElementById('modal-title-text').textContent='📋 JSONインポート';
   document.getElementById('modal-ok-btn').textContent='✅ インポート';
   document.getElementById('json-ta').value='';
+  document.getElementById('gh-section').style.display='none';
   document.getElementById('json-modal').classList.add('active');
 }
 function closeModal() {
@@ -870,6 +899,156 @@ function modalOK() {
     }
   }
 }
+
+// ══════════════════════════════════════════
+// ① 写真撮影/選択  ② .mind生成  ④ GitHubアップロード
+// ══════════════════════════════════════════
+function scenarioId() {
+  return (document.getElementById('cfg-name').value.trim() || 'scenario')
+    .replace(/\s+/g,'_').toLowerCase().replace(/[^a-z0-9_\-]/g,'');
+}
+
+function onPhotoSelected(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  _photoBlob = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    _photoDataURL = ev.target.result;
+    const prev = document.getElementById('photo-preview');
+    prev.src = _photoDataURL; prev.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+  const id = scenarioId();
+  document.getElementById('cfg-image').value = `targets/${id}.jpg`;
+  ED.imageFile = `targets/${id}.jpg`;
+  // 生成済み .mind は写真が変わったら無効化
+  _mindBuffer = null;
+  if (_mindBlobURL) { URL.revokeObjectURL(_mindBlobURL); _mindBlobURL = null; }
+  const st = document.getElementById('mind-status');
+  st.style.color = '#64748b';
+  st.textContent = '写真を選択しました。② で .mind を生成してください。';
+}
+
+function loadImageEl(dataURL) {
+  return new Promise((res, rej) => {
+    const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = dataURL;
+  });
+}
+
+async function generateMind() {
+  if (!_photoDataURL) { alert('先に①で写真を撮影/選択してください'); return; }
+  const btn    = document.getElementById('btn-gen-mind');
+  const bar    = document.getElementById('mind-bar');
+  const wrap   = document.getElementById('mind-bar-wrap');
+  const status = document.getElementById('mind-status');
+  btn.disabled = true; wrap.style.display = 'block'; bar.style.width = '0%';
+  status.style.color = '#64748b'; status.textContent = 'コンパイラ準備中…';
+  try {
+    // ローカルの MindAR に Compiler があればそれを、無ければCDNを動的import
+    let Compiler = window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler;
+    if (!Compiler) {
+      const mod = await import('https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js');
+      Compiler = mod.Compiler || (mod.default && mod.default.Compiler);
+    }
+    if (!Compiler) throw new Error('Compilerを読み込めませんでした');
+
+    const img = await loadImageEl(_photoDataURL);
+    status.textContent = `画像 ${img.width}×${img.height} をコンパイル中…（数十秒かかります）`;
+    const compiler = new Compiler();
+    await compiler.compileImageTargets([img], p => { bar.style.width = Math.round(p) + '%'; });
+    _mindBuffer = await compiler.exportData();
+    bar.style.width = '100%';
+
+    if (_mindBlobURL) URL.revokeObjectURL(_mindBlobURL);
+    _mindBlobURL = URL.createObjectURL(new Blob([_mindBuffer]));
+    const id = scenarioId();
+    document.getElementById('cfg-mind').value = `targets/${id}.mind`;
+    ED.mindFile = `targets/${id}.mind`;
+
+    status.style.color = '#15803d';
+    status.textContent = '✅ .mind 生成完了。「編集を開始」で図形を配置できます。';
+  } catch(err) {
+    status.style.color = '#dc2626';
+    status.textContent = '❌ 生成失敗: ' + err.message;
+  }
+  btn.disabled = false;
+}
+
+// ── GitHub アップロード（方式A：実行時トークン） ──
+function abToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+function dataURLToBase64(u) { return u.split(',')[1]; }
+function utf8ToBase64(s)   { return btoa(unescape(encodeURIComponent(s))); }
+
+async function ghPutFile(owner, repo, token, path, contentB64, message) {
+  const api = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+  const headers = { Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' };
+  // 既存ファイルがあれば sha を取得（更新のため）
+  let sha;
+  const getRes = await fetch(api + '?ref=main', { headers });
+  if (getRes.ok) { const j = await getRes.json(); sha = j.sha; }
+  const body = { message, content: contentB64, branch: 'main' };
+  if (sha) body.sha = sha;
+  const putRes = await fetch(api, {
+    method:'PUT',
+    headers: { ...headers, 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!putRes.ok) {
+    const t = await putRes.text();
+    throw new Error(`${path} → ${putRes.status} ${t.slice(0,140)}`);
+  }
+}
+
+async function githubUpload() {
+  const status  = document.getElementById('gh-status');
+  const token   = document.getElementById('gh-token').value.trim();
+  const repoStr = document.getElementById('gh-repo').value.trim();
+  if (!token)              { status.style.color='#dc2626'; status.textContent='❌ トークンを入力してください'; return; }
+  if (!repoStr.includes('/')) { status.style.color='#dc2626'; status.textContent='❌ リポジトリは owner/repo 形式で入力してください'; return; }
+  const [owner, repo] = repoStr.split('/');
+  localStorage.setItem('gh_token', token);
+  localStorage.setItem('gh_repo', repoStr);
+
+  const id = scenarioId();
+  ED.name      = document.getElementById('cfg-name').value.trim() || '新規シナリオ';
+  ED.mindFile  = `targets/${id}.mind`;
+  ED.imageFile = `targets/${id}.jpg`;
+
+  status.style.color = '#64748b';
+  try {
+    if (_photoDataURL) {
+      status.textContent = '写真をアップロード中…';
+      await ghPutFile(owner, repo, token, `targets/${id}.jpg`, dataURLToBase64(_photoDataURL), `Add photo ${id}`);
+    }
+    if (_mindBuffer) {
+      status.textContent = '.mind をアップロード中…';
+      await ghPutFile(owner, repo, token, `targets/${id}.mind`, abToBase64(_mindBuffer), `Add mind ${id}`);
+    }
+    status.textContent = 'シナリオJSONをアップロード中…';
+    await ghPutFile(owner, repo, token, `scenarios/${id}.json`, utf8ToBase64(buildJSON()), `Add scenario ${id}`);
+
+    status.style.color = '#15803d';
+    status.textContent = `✅ アップロード完了！\n・targets/${id}.jpg\n・targets/${id}.mind\n・scenarios/${id}.json`;
+  } catch(err) {
+    status.style.color = '#dc2626';
+    status.textContent = '❌ 失敗: ' + err.message;
+  }
+}
+
+// 起動時：保存済みトークン/リポジトリを復元
+(function initGh(){
+  const t = localStorage.getItem('gh_token'); const te = document.getElementById('gh-token'); if (t && te) te.value = t;
+  const r = localStorage.getItem('gh_repo');  const re = document.getElementById('gh-repo');  if (r && re) re.value = r;
+})();
 </script>
 </body>
 </html>
