@@ -289,8 +289,8 @@ const SCENARIOS = [
     icon: '⚡',
     iconBg: 'rgba(251,146,60,0.2)',
     borderColor: 'rgba(251,146,60,0.4)',
-    mindFile:  'targets/crossing.mind',
-    imageFile: 'targets/crossing.jpg',
+    mindFile:  'targets/crossing2.mind',
+    imageFile: 'targets/crossing2.jpg',
     docs: { pdf: 'docs/crossing.pdf', video: 'docs/crossing.mp4' },
     steps: [
       {
@@ -298,7 +298,7 @@ const SCENARIOS = [
         detail: '盤面右上のランプを確認してください。\n自動判定の推奨ボタンが光ります。目視で確認し、点灯している色のボタンを押してください。',
         warn: 'caution',
         ar: [
-          { type:'box', pos:[0.308, 0.50, 0], color:'#ef4444', sizeW:0.30, sizeH:0.14, lineThick:0.008, label:'ランプ点灯色を確認', labelAbove:true, textColor:'#fff', textBg:'#ef4444' },
+          { type:'box', pos:[0.02, -0.05, 0], color:'#ef4444', sizeW:0.92, sizeH:0.24, lineThick:0.008, label:'ランプ点灯色を確認', labelAbove:true, textColor:'#fff', textBg:'#ef4444' },
         ]
       },
       {
@@ -306,8 +306,8 @@ const SCENARIOS = [
         detail: '左側のつまみを左へ30、右側のつまみを右へ70回してください。',
         warn: 'normal',
         ar: [
-          { type:'curvedArrow', pos:[-0.35, 0.55, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n30', scale:2.4 },
-          { type:'curvedArrow', pos:[-0.13, 0.55, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.32, 0.50, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n30', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.09, 0.50, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', scale:2.4 },
         ]
       },
       {
@@ -315,8 +315,8 @@ const SCENARIOS = [
         detail: '中央左・中央のボタンをそれぞれ1回押してください。',
         warn: 'normal',
         ar: [
-          { type:'arrow', pos:[-0.35, 0.02, 0], color:'#60a5fa', label:'1回押す' },
-          { type:'arrow', pos:[ 0.10, 0.02, 0], color:'#60a5fa', label:'1回押す' },
+          { type:'arrow', pos:[-0.10, -0.05, 0], color:'#60a5fa', label:'1回押す' },
+          { type:'arrow', pos:[ 0.15, -0.05, 0], color:'#60a5fa', label:'1回押す' },
         ]
       },
       {
@@ -324,8 +324,8 @@ const SCENARIOS = [
         detail: '左下レバーを上に、右下レバーを下に押してください。',
         warn: 'caution',
         ar: [
-          { type:'arrow',      pos:[-0.23, -0.31, 0], color:'#60a5fa', label:'上に押す', labelAbove:true },
-          { type:'arrowDown',  pos:[ 0.25, -0.41, 0], color:'#60a5fa', label:'下に押す' },
+          { type:'arrow',      pos:[-0.24, -0.44, 0], color:'#60a5fa', label:'上に押す', labelAbove:true },
+          { type:'arrowDown',  pos:[ 0.30, -0.42, 0], color:'#60a5fa', label:'下に押す' },
         ]
       },
       {
@@ -333,7 +333,7 @@ const SCENARIOS = [
         detail: '中央のランプが青色に点灯したことを確認して作業完了です。',
         warn: 'normal',
         ar: [
-          { type:'box', pos:[0.055, 0.50, 0], color:'#3b82f6', size:0.10, label:'青の点灯を確認', labelBelow:true, textColor:'#3b82f6', textBg:'#facc15' },
+          { type:'box', pos:[0.15, -0.05, 0], color:'#3b82f6', size:0.14, label:'青の点灯を確認', labelBelow:true, textColor:'#3b82f6', textBg:'#facc15' },
         ]
       },
       // index 5: 黄ルート専用「つまみを左右に回す」
@@ -342,8 +342,8 @@ const SCENARIOS = [
         detail: '左側のつまみを右へ80、右側のつまみを左へ20回してください。',
         warn: 'normal',
         ar: [
-          { type:'curvedArrow', pos:[-0.35, 0.55, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n80', scale:2.4 },
-          { type:'curvedArrow', pos:[-0.13, 0.55, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n20', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.32, 0.50, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n80', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.09, 0.50, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n20', scale:2.4 },
         ]
       },
     ]
@@ -587,8 +587,8 @@ function setTargetThumb(visible) {
 // 赤・黄は同時に光らない前提。2つの固定位置の「明るい方」を点灯と推定する。
 // 色味ではなく輝度の相対比較なので、環境光・露出変化に強い。
 // ※ 最終決定は使用者のタップ（手動）で確定 → 誤判定リスクをゼロにする
-const LAMP_RED_POS  = { x: 0.38, y: 0.50 }; // 赤ランプ AR座標
-const LAMP_YEL_POS  = { x: 0.210, y: 0.50 }; // 黄ランプ AR座標（要キャリブレーション）
+const LAMP_RED_POS  = { x: -0.35, y: -0.07 }; // 赤ランプ（EMERGENCY STOP）AR座標
+const LAMP_YEL_POS  = { x: 0.40,  y: -0.05 }; // 黄ランプ（黄ボタン）AR座標
 const LAMP_SAMPLE_R = 16;  // サンプリング半径（ピクセル）
 const LAMP_HISTORY  = 5;   // 時間平均の履歴数
 const LAMP_LUM_FLOOR = 220; // この輝度未満なら「消灯（判定中）」とみなす（0-255）
