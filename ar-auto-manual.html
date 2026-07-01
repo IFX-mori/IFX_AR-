@@ -505,7 +505,7 @@ async function startAR(sc) {
   const scene = document.createElement('a-scene');
   scene.id = 'a-scene';
   scene.setAttribute('mindar-image',
-    `imageTargetSrc: ${sc.mindFile}; filterMinCF:0.001; filterBeta:0.001; maxTrack:1`);
+    `imageTargetSrc: ${sc.mindFile}; filterMinCF:0.005; filterBeta:0.01; maxTrack:1`);
   scene.setAttribute('color-space', 'sRGB');
   scene.setAttribute('renderer', 'colorManagement: true, physicallyCorrectLights');
   scene.setAttribute('vr-mode-ui', 'enabled: false');
