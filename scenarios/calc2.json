@@ -1,0 +1,85 @@
+{
+  "id": "calc2",
+  "name": "Calc2",
+  "subtitle": "Calc2",
+  "icon": "⚡",
+  "iconBg": "rgba(251,146,60,0.2)",
+  "borderColor": "rgba(251,146,60,0.4)",
+  "mindFile": "targets/calc2.mind",
+  "imageFile": "targets/calc2.jpg",
+  "docs": {},
+  "steps": [
+    {
+      "title": "ステップ 1",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "pos": [
+            -0.225,
+            -0.396,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "1",
+          "type": "arrow"
+        }
+      ]
+    },
+    {
+      "title": "ステップ 2",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "pos": [
+            -0.073,
+            -0.462,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "00",
+          "type": "arrowDown"
+        }
+      ]
+    },
+    {
+      "title": "ステップ 3",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "pos": [
+            0.256,
+            -0.214,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "X",
+          "type": "box",
+          "size": 0.1,
+          "labelBelow": true
+        }
+      ]
+    },
+    {
+      "title": "ステップ 4",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "pos": [
+            0.474,
+            0.239,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "Off",
+          "type": "curvedArrow",
+          "dir": "left",
+          "scale": 2.4
+        }
+      ]
+    }
+  ]
+}
