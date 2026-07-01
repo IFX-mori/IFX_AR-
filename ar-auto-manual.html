@@ -184,7 +184,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
     <div id="scenario-list"></div>
 
     <!-- 作成シナリオの読込（展示会デモ用） -->
-    <button id="btn-refresh-sc" onclick="refreshRemote()" style="width:100%; padding:12px; border-radius:14px; border:2px solid #1d4ed8; background:rgba(29,78,216,0.06); color:#1d4ed8; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:10px; -webkit-tap-highlight-color:transparent;">🔄 GitHubから再読込</button>
+    <button id="btn-refresh-sc" onclick="refreshRemote()" style="width:100%; padding:12px; border-radius:14px; border:2px solid #1d4ed8; background:rgba(29,78,216,0.06); color:#1d4ed8; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:10px; -webkit-tap-highlight-color:transparent;">🔄 シナリオをサーバから再読込</button>
     <button id="btn-import-sc" onclick="openImport()" style="width:100%; padding:14px; border-radius:14px; border:2px dashed #15803d; background:rgba(21,128,61,0.06); color:#15803d; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:16px; -webkit-tap-highlight-color:transparent;">📋 作成したシナリオを読込（JSON貼り付け）</button>
 
     <!-- .mindファイル作成手順 -->
@@ -521,7 +521,7 @@ async function refreshRemote() {
   const btn = document.getElementById('btn-refresh-sc');
   if (btn) { btn.disabled = true; btn.textContent = '🔄 GitHubから読込中…'; }
   remoteScenarios = await fetchRemoteScenarios();
-  if (btn) { btn.disabled = false; btn.textContent = '🔄 GitHubから再読込'; }
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 シナリオをサーバから再読込'; }
   await renderSetup();
 }
 
