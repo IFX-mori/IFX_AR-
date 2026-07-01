@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AR操作ナビ</title>
+<title>AR操作ナビ（自動検出） v1.0</title>
 
 <!-- MindAR + A-Frame（ローカル） -->
 <script src="aframe.min.js"></script>
@@ -168,7 +168,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
   <div class="setup-header">
     <div class="setup-icon">🔧⚙️</div>
     <div class="setup-title">AR操作ナビ</div>
-    <div class="setup-sub">画像認識モード</div>
+    <div class="setup-sub">画像認識モード（自動検出） &nbsp;<b id="setup-ver" style="color:#1d4ed8;"></b></div>
   </div>
   <div class="setup-body">
 
@@ -203,6 +203,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
       <div id="nav-sub" style="font-size:11px;color:rgba(255,255,255,.55);"></div>
     </div>
     <div id="doc-btn-row"></div>
+    <div id="app-ver" style="font-size:10px;font-weight:700;color:#1d4ed8;background:rgba(29,78,216,0.1);padding:2px 7px;border-radius:8px;"></div>
     <div id="detect-badge">
       <div id="detect-dot"></div>
       <span id="detect-text">認識待ち</span>
@@ -221,7 +222,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 
   <!-- ランプ検出パネル（ステップ1のみ表示） -->
   <div id="lamp-detect-panel">
-    <div class="lamp-title">🔍 ランプ自動検出</div>
+    <div class="lamp-title">🔍 ランプ自動判定（輝度）</div>
     <div class="lamp-row">
       <div class="lamp-dot off" id="lamp-red-dot"></div>
       <span id="lamp-red-label" style="color:rgba(255,255,255,0.6)">赤ランプ</span>
@@ -261,6 +262,11 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 
 <script>
 // ══════════════════════════════════════════
+// アプリ バージョン（更新のたびに番号を上げる）
+// ══════════════════════════════════════════
+const APP_VERSION = 'v1.1';
+
+// ══════════════════════════════════════════
 // シナリオデータ
 // ══════════════════════════════════════════
 // ※ mindFile / imageFile は targets/ フォルダ内のファイル名に変更してください
@@ -272,8 +278,8 @@ const SCENARIOS = [
     icon: '⚡',
     iconBg: 'rgba(251,146,60,0.2)',
     borderColor: 'rgba(251,146,60,0.4)',
-    mindFile:  'targets/crossing.mind',
-    imageFile: 'targets/crossing.jpg',
+    mindFile:  'targets/crossing2.mind',
+    imageFile: 'targets/crossing2.jpg',
     docs: { pdf: 'docs/crossing.pdf', video: 'docs/crossing.mp4' },
     steps: [
       {
@@ -281,7 +287,7 @@ const SCENARIOS = [
         detail: '盤面右上のランプ点灯色とガイダンスの色が合っていることを確認して次の手順に進みます',
         warn: 'caution',
         ar: [
-          { type:'box', pos:[0.38, 0.50, 0], color:'#ef4444', size:0.10, label:'赤色が点灯', labelBelow:true, textColor:'#ef4444', textBg:'#facc15' },
+          { type:'box', pos:[0.44, 0.46, 0], color:'#ef4444', size:0.10, label:'赤色が点灯', labelBelow:true, textColor:'#ef4444', textBg:'#facc15' },
         ]
       },
       {
@@ -289,8 +295,8 @@ const SCENARIOS = [
         detail: '左側のつまみを左へ30、右側のつまみを右へ70回してください。',
         warn: 'normal',
         ar: [
-          { type:'curvedArrow', pos:[-0.35, 0.55, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n30', scale:2.4 },
-          { type:'curvedArrow', pos:[-0.13, 0.55, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.395, 0.525, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n30', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.115, 0.525, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', scale:2.4 },
         ]
       },
       {
@@ -298,8 +304,8 @@ const SCENARIOS = [
         detail: '中央左・中央のボタンをそれぞれ1回押してください。',
         warn: 'normal',
         ar: [
-          { type:'arrow', pos:[-0.35, 0.02, 0], color:'#60a5fa', label:'1回押す' },
-          { type:'arrow', pos:[ 0.10, 0.02, 0], color:'#60a5fa', label:'1回押す' },
+          { type:'arrow', pos:[-0.125, -0.05, 0], color:'#60a5fa', label:'1回押す' },
+          { type:'arrow', pos:[ 0.125, -0.05, 0], color:'#60a5fa', label:'1回押す' },
         ]
       },
       {
@@ -307,8 +313,8 @@ const SCENARIOS = [
         detail: '左下レバーを上に、右下レバーを下に押してください。',
         warn: 'caution',
         ar: [
-          { type:'arrow',      pos:[-0.23, -0.31, 0], color:'#60a5fa', label:'上に押す', labelAbove:true },
-          { type:'arrowDown',  pos:[ 0.25, -0.41, 0], color:'#60a5fa', label:'下に押す' },
+          { type:'arrow',      pos:[-0.24, -0.44, 0], color:'#60a5fa', label:'上に押す', labelAbove:true },
+          { type:'arrowDown',  pos:[ 0.30, -0.42, 0], color:'#60a5fa', label:'下に押す' },
         ]
       },
       {
@@ -316,7 +322,7 @@ const SCENARIOS = [
         detail: '中央のランプが青色に点灯したことを確認して作業完了です。',
         warn: 'normal',
         ar: [
-          { type:'box', pos:[0.055, 0.50, 0], color:'#3b82f6', size:0.10, label:'青の点灯を確認', labelBelow:true, textColor:'#3b82f6', textBg:'#facc15' },
+          { type:'box', pos:[0.085, 0.46, 0], color:'#3b82f6', size:0.10, label:'青の点灯を確認', labelBelow:true, textColor:'#3b82f6', textBg:'#facc15' },
         ]
       },
       // index 5: 黄ルート専用「つまみを左右に回す」
@@ -325,8 +331,8 @@ const SCENARIOS = [
         detail: '左側のつまみを右へ80、右側のつまみを左へ20回してください。',
         warn: 'normal',
         ar: [
-          { type:'curvedArrow', pos:[-0.35, 0.55, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n80', scale:2.4 },
-          { type:'curvedArrow', pos:[-0.13, 0.55, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n20', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.395, 0.525, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n80', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.115, 0.525, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n20', scale:2.4 },
         ]
       },
     ]
@@ -488,7 +494,7 @@ async function startAR(sc) {
   const scene = document.createElement('a-scene');
   scene.id = 'a-scene';
   scene.setAttribute('mindar-image',
-    `imageTargetSrc: ${sc.mindFile}; filterMinCF:0.001; filterBeta:0.001; maxTrack:1`);
+    `imageTargetSrc: ${sc.mindFile}; filterMinCF:0.005; filterBeta:0.01; maxTrack:1`);
   scene.setAttribute('color-space', 'sRGB');
   scene.setAttribute('renderer', 'colorManagement: true, physicallyCorrectLights');
   scene.setAttribute('vr-mode-ui', 'enabled: false');
@@ -565,45 +571,24 @@ function setTargetThumb(visible) {
 }
 
 // ══════════════════════════════════════════
-// ランプ色検出（HSV変換 + 位置可視化 + 時間平均）
+// ランプ自動判定（輝度比較方式）
 // ══════════════════════════════════════════
-const LAMP_RED_POS  = { x: 0.38, y: 0.50 }; // 赤ランプ AR座標
-const LAMP_YEL_POS  = { x: 0.235, y: 0.50 }; // 黄ランプ AR座標（要キャリブレーション）
-const LAMP_SAMPLE_R = 16; // サンプリング半径（ピクセル）
-const LAMP_HISTORY  = 5;  // 時間平均の履歴数
+// 赤・黄は同時に光らない前提。2つの固定位置の「明るい方」を点灯と推定する。
+// 色味ではなく輝度の相対比較なので、環境光・露出変化に強い。
+const LAMP_RED_POS  = { x: 0.44, y: 0.46 }; // 赤ランプ（右上LED・右）AR座標
+const LAMP_YEL_POS  = { x: 0.255, y: 0.46 }; // 黄ランプ（右上LED・中央）AR座標
+const LAMP_SAMPLE_R = 16;  // サンプリング半径（ピクセル）
+const LAMP_HISTORY  = 5;   // 時間平均の履歴数
+const LAMP_LUM_FLOOR = 200; // この輝度未満なら「消灯（判定中）」とみなす（0-255）
+const LAMP_LUM_MARGIN = 15; // 明るい方がもう片方より この輝度差以上 で「点灯」と判定
 
 let _lampTimer   = null;
 let _lampHistory = { red: [], yel: [] }; // 時間平均用履歴
 
-// ① RGB → HSV変換（h:0-360, s:0-1, v:0-1）
-function rgbToHsv(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
-  let h = 0;
-  if (d > 0) {
-    if (max === r)      h = ((g - b) / d + 6) % 6 * 60;
-    else if (max === g) h = ((b - r) / d + 2) * 60;
-    else                h = ((r - g) / d + 4) * 60;
-  }
-  return { h, s: max > 0 ? d / max : 0, v: max };
-}
-
-// ① HSVによるランプ判定
-function classifyLamp(rgb, type) {
-  if (!rgb) return 'unknown';
-  const { h, s, v } = rgbToHsv(rgb.r, rgb.g, rgb.b);
-  if (v < 0.15) return 'off'; // 暗すぎる（消灯）
-  if (type === 'red') {
-    // 点灯: H:23° S:28% / 消灯: H:42° S:14%
-    // 中間値: H≤32° かつ S≥21% で点灯判定
-    return (h <= 32 || h >= 330) && s >= 0.21 ? 'on' : 'off';
-  }
-  if (type === 'yellow') {
-    // 点灯: H:20° S:30% / 消灯: H:36° S:8%
-    // 中間値: H≤28° かつ S≥19% で点灯判定
-    return h <= 28 && s >= 0.19 ? 'on' : 'off';
-  }
-  return 'unknown';
+// 輝度（明度）：LEDは飽和しやすいので最大チャンネルを採用（0-255）
+function lampBrightness(rgb) {
+  if (!rgb) return 0;
+  return Math.max(rgb.r, rgb.g, rgb.b);
 }
 
 // ③ 時間平均：直近N回の多数決
@@ -660,7 +645,7 @@ function updateDebugDot(id, sx, sy, state) {
   el.style.opacity = state === 'on' ? '1' : '0.5';
 }
 
-function updateLampUI(type, state, rgb) {
+function updateLampUI(type, state, lum) {
   const dot   = document.getElementById(`lamp-${type}-dot`);
   const stEl  = document.getElementById(`lamp-${type}-state`);
   const rgbEl = document.getElementById(`lamp-${type}-rgb`);
@@ -670,10 +655,7 @@ function updateLampUI(type, state, rgb) {
   dot.className    = 'lamp-dot ' + (isOn ? `on-${type === 'red' ? 'red' : 'yellow'}` : 'off');
   stEl.textContent = isOn ? '点灯' : '消灯';
   stEl.style.color = isOn ? color : 'rgba(255,255,255,0.4)';
-  if (rgb) {
-    const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
-    rgbEl.textContent = `H:${Math.round(hsv.h)}° S:${(hsv.s*100).toFixed(0)}% V:${(hsv.v*100).toFixed(0)}%`;
-  }
+  rgbEl.textContent = `輝度:${Math.round(lum)}`;
 }
 
 let _lastARLampType = null; // 直前にAR表示したランプ種別（不要な再描画を防ぐ）
@@ -718,13 +700,20 @@ function startLampDetection() {
     const redSample = sampleARPosition(LAMP_RED_POS.x, LAMP_RED_POS.y, LAMP_SAMPLE_R);
     const yelSample = sampleARPosition(LAMP_YEL_POS.x, LAMP_YEL_POS.y, LAMP_SAMPLE_R);
 
-    const rawRed = classifyLamp(redSample?.rgb, 'red');
-    const rawYel = classifyLamp(yelSample?.rgb, 'yellow');
-    const redState = smoothedState(_lampHistory.red, rawRed);
-    const yelState = smoothedState(_lampHistory.yel, rawYel);
+    const redLum = lampBrightness(redSample?.rgb);
+    const yelLum = lampBrightness(yelSample?.rgb);
 
-    updateLampUI('red', redState, redSample?.rgb);
-    updateLampUI('yel', yelState, yelSample?.rgb);
+    // 輝度差で「明るい方」を点灯と判定（同時点灯なし前提）
+    let raw = 'none';
+    if (Math.max(redLum, yelLum) >= LAMP_LUM_FLOOR) {
+      if (redLum >= yelLum + LAMP_LUM_MARGIN)      raw = 'red';
+      else if (yelLum >= redLum + LAMP_LUM_MARGIN) raw = 'yellow';
+    }
+    const redState = smoothedState(_lampHistory.red, raw === 'red'    ? 'on' : 'off');
+    const yelState = smoothedState(_lampHistory.yel, raw === 'yellow' ? 'on' : 'off');
+
+    updateLampUI('red', redState, redLum);
+    updateLampUI('yel', yelState, yelLum);
     if (redSample) updateDebugDot('lamp-dbg-red', redSample.sx, redSample.sy, redState);
     if (yelSample) updateDebugDot('lamp-dbg-yel', yelSample.sx, yelSample.sy, yelState);
 
@@ -1098,6 +1087,8 @@ function stopAR() {
 // ══════════════════════════════════════════
 // 起動
 // ══════════════════════════════════════════
+document.getElementById('setup-ver').textContent = APP_VERSION;
+document.getElementById('app-ver').textContent    = APP_VERSION;
 renderSetup();
 </script>
 </body>
