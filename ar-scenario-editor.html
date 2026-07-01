@@ -202,8 +202,12 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 
     <div class="form-card">
       <h3>① 写真を撮影 / 選択</h3>
-      <input id="photo-input" type="file" accept="image/*" capture="environment" style="display:none" onchange="onPhotoSelected(event)">
-      <button class="secondary-btn" onclick="document.getElementById('photo-input').click()">📷 写真を撮影 / 選択</button>
+      <input id="photo-input-cam" type="file" accept="image/*" capture="environment" style="display:none" onchange="onPhotoSelected(event)">
+      <input id="photo-input-lib" type="file" accept="image/*" style="display:none" onchange="onPhotoSelected(event)">
+      <div style="display:flex;gap:8px;">
+        <button class="secondary-btn" style="flex:1" onclick="document.getElementById('photo-input-cam').click()">📷 撮影</button>
+        <button class="secondary-btn" style="flex:1" onclick="document.getElementById('photo-input-lib').click()">🖼 写真から選択</button>
+      </div>
       <img id="photo-preview" style="display:none;width:100%;border-radius:10px;margin-top:10px;max-height:200px;object-fit:contain;background:#f8fafc;">
     </div>
 
