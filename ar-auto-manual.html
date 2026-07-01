@@ -184,6 +184,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
     <div id="scenario-list"></div>
 
     <!-- 作成シナリオの読込（展示会デモ用） -->
+    <button id="btn-refresh-sc" onclick="refreshRemote()" style="width:100%; padding:12px; border-radius:14px; border:2px solid #1d4ed8; background:rgba(29,78,216,0.06); color:#1d4ed8; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:10px; -webkit-tap-highlight-color:transparent;">🔄 GitHubから再読込</button>
     <button id="btn-import-sc" onclick="openImport()" style="width:100%; padding:14px; border-radius:14px; border:2px dashed #15803d; background:rgba(21,128,61,0.06); color:#15803d; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:16px; -webkit-tap-highlight-color:transparent;">📋 作成したシナリオを読込（JSON貼り付け）</button>
 
     <!-- .mindファイル作成手順 -->
@@ -284,7 +285,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.3';
+const APP_VERSION = 'v1.4';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -435,6 +436,7 @@ let stepOrder = [0,1,2,3,4]; // ルートによるステップ順（赤:1→2→
 let detected  = false;
 let _arAssets = null; // 現在のシーンの <a-assets> への参照
 let userScenarios = loadUserScenarios(); // 読込済みの作成シナリオ（端末に保存）
+let remoteScenarios = []; // GitHub上のシナリオ（起動時に自動取得）
 
 // ══════════════════════════════════════════
 // セットアップ画面 描画
@@ -443,22 +445,26 @@ async function renderSetup() {
   const container = document.getElementById('scenario-list');
   container.innerHTML = '';
 
-  // 組み込みシナリオ + 読込済みの作成シナリオ
+  // 組み込み + GitHub上のシナリオ + 端末ローカル（GitHubと重複するローカルは除外）
+  const remoteIds = new Set(remoteScenarios.map(s => s.id));
+  const localOnly = userScenarios.filter(s => !remoteIds.has(s.id));
   const all = [
-    ...SCENARIOS.map(sc => ({ sc, user:false })),
-    ...userScenarios.map(sc => ({ sc, user:true })),
+    ...SCENARIOS.map(sc => ({ sc, source:'builtin' })),
+    ...remoteScenarios.map(sc => ({ sc, source:'remote' })),
+    ...localOnly.map(sc => ({ sc, source:'local' })),
   ];
 
-  for (const { sc, user } of all) {
+  for (const { sc, source } of all) {
     // .mindファイルの存在確認
     const mindOk = await fileExists(sc.mindFile);
     const card = document.createElement('div');
     card.className = 'scenario-card';
     card.style.borderColor = sc.borderColor || 'rgba(0,0,0,0.12)';
-    const badge = user
-      ? '<span style="font-size:10px;color:#15803d;background:rgba(21,128,61,.12);padding:1px 6px;border-radius:6px;margin-left:6px;">作成</span>'
-      : '';
-    const rightIcon = user
+    const badge =
+      source === 'remote' ? '<span style="font-size:10px;color:#1d4ed8;background:rgba(29,78,216,.12);padding:1px 6px;border-radius:6px;margin-left:6px;">GitHub</span>'
+    : source === 'local'  ? '<span style="font-size:10px;color:#15803d;background:rgba(21,128,61,.12);padding:1px 6px;border-radius:6px;margin-left:6px;">作成(端末)</span>'
+    : '';
+    const rightIcon = source === 'local'
       ? '<button class="sc-del" title="削除" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(220,38,38,0.1);color:#dc2626;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">✕</button>'
       : '<div style="font-size:20px;color:rgba(0,0,0,.2)">›</div>';
     card.innerHTML = `
@@ -483,12 +489,37 @@ async function renderSetup() {
       card.style.opacity = '0.65';
       card.style.cursor  = 'default';
     }
-    if (user) {
+    if (source === 'local') {
       const del = card.querySelector('.sc-del');
       if (del) del.onclick = (e) => { e.stopPropagation(); deleteUserScenario(sc.id); };
     }
     container.appendChild(card);
   }
+}
+
+// ── GitHub上のシナリオを自動読込（scenarios/*.json） ──
+const GH_OWNER = 'ifx-mori';
+const GH_REPO  = 'IFX_AR-';
+async function fetchRemoteScenarios() {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/scenarios?ref=main`,
+      { headers: { Accept: 'application/vnd.github+json' } });
+    if (!res.ok) return [];
+    const list = await res.json();
+    if (!Array.isArray(list)) return [];
+    const jsons = await Promise.all(
+      list.filter(f => f.name.endsWith('.json') && f.download_url)
+          .map(f => fetch(f.download_url).then(r => r.ok ? r.json() : null).catch(() => null))
+    );
+    return jsons.filter(s => s && s.id && Array.isArray(s.steps));
+  } catch { return []; }
+}
+async function refreshRemote() {
+  const btn = document.getElementById('btn-refresh-sc');
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 GitHubから読込中…'; }
+  remoteScenarios = await fetchRemoteScenarios();
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 GitHubから再読込'; }
+  await renderSetup();
 }
 
 // ── 作成シナリオの保存・読込（localStorage） ──
@@ -1162,7 +1193,8 @@ function stopAR() {
 // ══════════════════════════════════════════
 document.getElementById('setup-ver').textContent = APP_VERSION;
 document.getElementById('app-ver').textContent    = APP_VERSION;
-renderSetup();
+renderSetup();      // まず組み込みシナリオを即表示
+refreshRemote();    // GitHub上のシナリオを取得して再描画
 </script>
 <!-- ════════════════ シナリオ読込モーダル ════════════════ -->
 <div id="import-modal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; padding:20px;">
