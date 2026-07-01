@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>ARシナリオエディタ</title>
+<title>ARシナリオエディタ v1.0</title>
 <script src="aframe.min.js"></script>
 <script src="mindar-image-aframe.prod.js"></script>
 <style>
@@ -180,7 +180,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
   <div class="setup-header">
     <div class="setup-icon">✏️</div>
     <div class="setup-title">ARシナリオエディタ</div>
-    <div class="setup-sub">タップで図形を配置・編集してJSONを書き出し</div>
+    <div class="setup-sub">タップで図形を配置・編集してJSONを書き出し &nbsp;<b id="setup-ver" style="color:#1d4ed8;"></b></div>
   </div>
   <div class="setup-body">
 
@@ -319,6 +319,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
+const APP_VERSION = 'v1.0'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -1063,6 +1064,7 @@ async function githubUpload() {
 (function initGh(){
   const t = localStorage.getItem('gh_token'); const te = document.getElementById('gh-token'); if (t && te) te.value = t;
   const r = localStorage.getItem('gh_repo');  const re = document.getElementById('gh-repo');  if (r && re) re.value = r;
+  const ve = document.getElementById('setup-ver'); if (ve) ve.textContent = APP_VERSION;
 })();
 </script>
 </body>
