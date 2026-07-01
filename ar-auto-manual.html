@@ -285,7 +285,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.4';
+const APP_VERSION = 'v1.5';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -464,7 +464,7 @@ async function renderSetup() {
       source === 'remote' ? '<span style="font-size:10px;color:#1d4ed8;background:rgba(29,78,216,.12);padding:1px 6px;border-radius:6px;margin-left:6px;">GitHub</span>'
     : source === 'local'  ? '<span style="font-size:10px;color:#15803d;background:rgba(21,128,61,.12);padding:1px 6px;border-radius:6px;margin-left:6px;">作成(端末)</span>'
     : '';
-    const rightIcon = source === 'local'
+    const rightIcon = (source === 'local' || source === 'remote')
       ? '<button class="sc-del" title="削除" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(220,38,38,0.1);color:#dc2626;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">✕</button>'
       : '<div style="font-size:20px;color:rgba(0,0,0,.2)">›</div>';
     card.innerHTML = `
@@ -492,6 +492,9 @@ async function renderSetup() {
     if (source === 'local') {
       const del = card.querySelector('.sc-del');
       if (del) del.onclick = (e) => { e.stopPropagation(); deleteUserScenario(sc.id); };
+    } else if (source === 'remote') {
+      const del = card.querySelector('.sc-del');
+      if (del) del.onclick = (e) => { e.stopPropagation(); deleteRemoteScenario(sc); };
     }
     container.appendChild(card);
   }
@@ -520,6 +523,48 @@ async function refreshRemote() {
   remoteScenarios = await fetchRemoteScenarios();
   if (btn) { btn.disabled = false; btn.textContent = '🔄 GitHubから再読込'; }
   await renderSetup();
+}
+
+// ── GitHub上のシナリオを削除（関連ファイルもまとめて削除） ──
+async function ghDeleteFile(owner, repo, token, path, message) {
+  const api = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+  const headers = { Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' };
+  const getRes = await fetch(api + '?ref=main', { headers });
+  if (getRes.status === 404) return; // 既に無い→スキップ
+  if (!getRes.ok) throw new Error(`${path} GET ${getRes.status}`);
+  const j = await getRes.json();
+  const delRes = await fetch(api, {
+    method:'DELETE',
+    headers: { ...headers, 'Content-Type':'application/json' },
+    body: JSON.stringify({ message, sha: j.sha, branch:'main' })
+  });
+  if (!delRes.ok) { const t = await delRes.text(); throw new Error(`${path} DELETE ${delRes.status} ${t.slice(0,120)}`); }
+}
+
+async function deleteRemoteScenario(sc) {
+  if (!confirm(`「${sc.name}」をGitHubから削除しますか？\nシナリオJSON・.mind・写真を削除します（元に戻せません）`)) return;
+  let token = localStorage.getItem('gh_token');
+  if (!token) {
+    token = prompt('GitHubトークンを入力してください（Contents: Read and write）');
+    if (!token) return;
+    localStorage.setItem('gh_token', token);
+  }
+  const repoStr = localStorage.getItem('gh_repo') || `${GH_OWNER}/${GH_REPO}`;
+  const [owner, repo] = repoStr.split('/');
+
+  const paths = [`scenarios/${sc.id}.json`];
+  if (sc.mindFile)  paths.push(sc.mindFile);
+  if (sc.imageFile) paths.push(sc.imageFile);
+
+  try {
+    for (const p of paths) {
+      await ghDeleteFile(owner, repo, token, p, `Delete scenario ${sc.id} (${p})`);
+    }
+    alert('削除しました。GitHub Pagesへの反映に1〜2分かかる場合があります。');
+    await refreshRemote();
+  } catch(e) {
+    alert('削除に失敗: ' + e.message);
+  }
 }
 
 // ── 作成シナリオの保存・読込（localStorage） ──
