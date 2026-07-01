@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MindAR .mind コンパイラ</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,'Helvetica Neue',sans-serif; background:#f1f5f9; color:#1e293b; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+.card { background:#fff; border-radius:20px; padding:32px; max-width:480px; width:100%; box-shadow:0 4px 24px rgba(0,0,0,0.10); }
+h1 { font-size:20px; font-weight:700; margin-bottom:6px; }
+.sub { font-size:13px; color:#64748b; margin-bottom:28px; }
+.drop-zone {
+  border:2px dashed #93c5fd; border-radius:14px; padding:40px 20px;
+  text-align:center; cursor:pointer; background:#eff6ff;
+  transition:background .15s; margin-bottom:20px;
+}
+.drop-zone:hover, .drop-zone.over { background:#dbeafe; border-color:#3b82f6; }
+.drop-icon { font-size:40px; margin-bottom:10px; }
+.drop-text { font-size:14px; font-weight:600; color:#1d4ed8; }
+.drop-sub  { font-size:12px; color:#64748b; margin-top:4px; }
+#file-input { display:none; }
+#preview { display:none; width:100%; border-radius:10px; margin-bottom:16px; max-height:200px; object-fit:contain; background:#f8fafc; }
+.btn {
+  width:100%; padding:14px; border-radius:12px; border:none;
+  font-size:15px; font-weight:700; cursor:pointer; transition:opacity .15s;
+}
+.btn-primary { background:#1d4ed8; color:#fff; }
+.btn-primary:disabled { background:#93c5fd; cursor:not-allowed; }
+.btn-dl { background:#15803d; color:#fff; display:none; margin-top:10px; }
+#log {
+  margin-top:16px; background:#f8fafc; border-radius:10px;
+  padding:12px 14px; font-size:12px; font-family:monospace;
+  color:#374151; min-height:48px; white-space:pre-wrap;
+  display:none;
+}
+.progress-wrap { height:6px; background:#e2e8f0; border-radius:3px; margin-top:12px; display:none; }
+#progress-bar { height:6px; border-radius:3px; background:#1d4ed8; width:0%; transition:width .2s; }
+#status { font-size:12px; color:#64748b; margin-top:8px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎯 .mind コンパイラ</h1>
+  <p class="sub">画像ファイルを選択すると .mind ファイルを生成します</p>
+
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div class="drop-icon">📁</div>
+    <div class="drop-text">クリックして画像を選択</div>
+    <div class="drop-sub">JPG / PNG をドラッグ＆ドロップも可</div>
+  </div>
+  <input type="file" id="file-input" accept="image/*">
+
+  <img id="preview">
+
+  <button class="btn btn-primary" id="btn-compile" disabled onclick="startCompile()">
+    コンパイル開始
+  </button>
+  <div id="status">ライブラリ読み込み中...</div>
+  <div class="progress-wrap" id="progress-wrap">
+    <div id="progress-bar"></div>
+  </div>
+  <button class="btn btn-dl" id="btn-dl" onclick="download()">
+    ⬇️ .mind ファイルをダウンロード
+  </button>
+  <div id="log"></div>
+</div>
+
+<!-- MindAR を ES module として読み込み、Compiler をグローバルに公開 -->
+<script type="module">
+  const CDN = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js';
+  const statusEl = document.getElementById('status');
+  try {
+    statusEl.textContent = 'MindARライブラリ読み込み中...';
+    const mod = await import(CDN);
+    // 公開されているエクスポート名を確認
+    const keys = Object.keys(mod);
+    console.log('[mindar] module exports:', keys);
+    // Compiler を探す
+    const Compiler = mod.Compiler ?? mod.default?.Compiler ?? mod.IMAGE?.Compiler;
+    if (Compiler) {
+      window._MindARCompiler = Compiler;
+      statusEl.textContent = '準備完了';
+    } else {
+      statusEl.textContent = '⚠️ Compilerが見つかりません。exports: ' + keys.join(', ');
+      console.warn('[mindar] exports:', mod);
+    }
+  } catch(e) {
+    statusEl.textContent = '❌ ライブラリ読み込みエラー: ' + e.message;
+    console.error('[mindar] load error:', e);
+  }
+</script>
+
+<script>
+let selectedFile = null;
+let resultBuffer = null;
+
+// ── ファイル選択 ──
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+// ── ドラッグ＆ドロップ ──
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+  selectedFile = file;
+  resultBuffer = null;
+  document.getElementById('btn-dl').style.display = 'none';
+  document.getElementById('log').style.display = 'none';
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const prev = document.getElementById('preview');
+    prev.src = ev.target.result;
+    prev.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+
+  document.getElementById('btn-compile').disabled = false;
+  log(`ファイル選択: ${file.name} (${(file.size/1024).toFixed(0)} KB)`);
+}
+
+// ── コンパイル ──
+async function startCompile() {
+  if (!selectedFile) return;
+
+  const Compiler = window._MindARCompiler;
+  if (!Compiler) {
+    log('❌ ライブラリがまだ読み込まれていません。ページをリロードして再試行してください。');
+    return;
+  }
+
+  document.getElementById('btn-compile').disabled = true;
+  document.getElementById('btn-dl').style.display = 'none';
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('progress-bar').style.width = '0%';
+  resultBuffer = null;
+
+  log('コンパイル開始...');
+
+  try {
+    const img = await loadImageElement(selectedFile);
+    log(`画像サイズ: ${img.width} x ${img.height}`);
+
+    log('Compilerインスタンス作成中...');
+    const compiler = new Compiler();
+    log('コンパイル処理開始（数十秒かかります）...');
+
+    await compiler.compileImageTargets([img], (progress) => {
+      const pct = Math.round(progress * 10) / 10;
+      document.getElementById('progress-bar').style.width = pct + '%';
+      document.title = `${pct}% - コンパイル中`;
+      log(`進捗: ${pct}%`);
+    });
+
+    log('データ書き出し中...');
+    const exported = await compiler.exportData();
+    resultBuffer = exported;
+
+    document.getElementById('progress-bar').style.width = '100%';
+    document.title = '完了 - MindAR コンパイラ';
+    log('✅ 完了！ダウンロードボタンを押してください。');
+    document.getElementById('btn-dl').style.display = 'block';
+    document.getElementById('status').textContent = '完了';
+
+  } catch(e) {
+    log('❌ エラー: ' + e.message);
+    console.error(e);
+  }
+
+  document.getElementById('btn-compile').disabled = false;
+}
+
+function loadImageElement(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// ── ダウンロード ──
+function download() {
+  if (!resultBuffer || !selectedFile) return;
+  const name = selectedFile.name.replace(/\.[^.]+$/, '') + '.mind';
+  const blob = new Blob([resultBuffer]);
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+  log('ダウンロード: ' + name);
+}
+
+// ── ログ ──
+function log(msg) {
+  const el = document.getElementById('log');
+  el.style.display = 'block';
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+window.startCompile = startCompile;
+window.download     = download;
+</script>
+</body>
+</html>
