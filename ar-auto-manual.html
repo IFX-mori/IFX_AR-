@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AR操作ナビ（自動＋手動）</title>
+<title>AR操作ナビ v1.0</title>
 
 <!-- MindAR + A-Frame（ローカル） -->
 <script src="aframe.min.js"></script>
@@ -176,7 +176,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
   <div class="setup-header">
     <div class="setup-icon">🔧⚙️</div>
     <div class="setup-title">AR操作ナビ</div>
-    <div class="setup-sub">画像認識モード ＋ ランプ自動判定</div>
+    <div class="setup-sub">画像認識モード ＋ ランプ自動判定 &nbsp;<b id="setup-ver" style="color:#1d4ed8;"></b></div>
   </div>
   <div class="setup-body">
 
@@ -211,6 +211,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
       <div id="nav-sub" style="font-size:11px;color:rgba(255,255,255,.55);"></div>
     </div>
     <div id="doc-btn-row"></div>
+    <div id="app-ver" style="font-size:10px;font-weight:700;color:#1d4ed8;background:rgba(29,78,216,0.1);padding:2px 7px;border-radius:8px;"></div>
     <div id="detect-badge">
       <div id="detect-dot"></div>
       <span id="detect-text">認識待ち</span>
@@ -278,6 +279,11 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 
 <script>
 // ══════════════════════════════════════════
+// アプリ バージョン（更新のたびに番号を上げる）
+// ══════════════════════════════════════════
+const APP_VERSION = 'v1.0';
+
+// ══════════════════════════════════════════
 // シナリオデータ
 // ══════════════════════════════════════════
 // ※ mindFile / imageFile は targets/ フォルダ内のファイル名に変更してください
@@ -306,8 +312,8 @@ const SCENARIOS = [
         detail: '左側のつまみを左へ30、右側のつまみを右へ70回してください。',
         warn: 'normal',
         ar: [
-          { type:'curvedArrow', pos:[-0.345, 0.50, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n30', scale:2.4 },
-          { type:'curvedArrow', pos:[-0.115, 0.50, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.370, 0.525, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n30', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.115, 0.525, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', scale:2.4 },
         ]
       },
       {
@@ -342,8 +348,8 @@ const SCENARIOS = [
         detail: '左側のつまみを右へ80、右側のつまみを左へ20回してください。',
         warn: 'normal',
         ar: [
-          { type:'curvedArrow', pos:[-0.345, 0.50, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n80', scale:2.4 },
-          { type:'curvedArrow', pos:[-0.115, 0.50, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n20', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.370, 0.525, 0], color:'#60a5fa', dir:'right', label:'右へ回す\n80', scale:2.4 },
+          { type:'curvedArrow', pos:[-0.115, 0.525, 0], color:'#60a5fa', dir:'left',  label:'左へ回す\n20', scale:2.4 },
         ]
       },
     ]
@@ -1086,6 +1092,8 @@ function stopAR() {
 // ══════════════════════════════════════════
 // 起動
 // ══════════════════════════════════════════
+document.getElementById('setup-ver').textContent = APP_VERSION;
+document.getElementById('app-ver').textContent    = APP_VERSION;
 renderSetup();
 </script>
 </body>
