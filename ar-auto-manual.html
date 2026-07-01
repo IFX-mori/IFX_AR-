@@ -588,10 +588,10 @@ function setTargetThumb(visible) {
 // 色味ではなく輝度の相対比較なので、環境光・露出変化に強い。
 // ※ 最終決定は使用者のタップ（手動）で確定 → 誤判定リスクをゼロにする
 const LAMP_RED_POS  = { x: 0.44, y: 0.46 }; // 赤ランプ（右上LED・右）AR座標
-const LAMP_YEL_POS  = { x: 0.28, y: 0.46 }; // 黄ランプ（右上LED・中央）AR座標
+const LAMP_YEL_POS  = { x: 0.255, y: 0.46 }; // 黄ランプ（右上LED・中央）AR座標
 const LAMP_SAMPLE_R = 16;  // サンプリング半径（ピクセル）
 const LAMP_HISTORY  = 5;   // 時間平均の履歴数
-const LAMP_LUM_FLOOR = 220; // この輝度未満なら「消灯（判定中）」とみなす（0-255）
+const LAMP_LUM_FLOOR = 200; // この輝度未満なら「消灯（判定中）」とみなす（0-255）
 const LAMP_LUM_RATIO = 1.25; // 明るい方がこの倍率以上で「点灯」と判定
 
 let _lampTimer   = null;
