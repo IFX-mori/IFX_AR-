@@ -188,6 +188,8 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
       <h3>シナリオ設定</h3>
       <div class="field"><label>シナリオ名</label>
         <input id="cfg-name" type="text" value="新規シナリオ"></div>
+      <div class="field"><label>ファイルID（半角英数字。日本語名の場合は必須）</label>
+        <input id="cfg-id" type="text" placeholder="例: calendar2"></div>
       <div class="field"><label>認識ファイル (.mind)</label>
         <input id="cfg-mind" type="text" value="targets/crossing.mind"></div>
       <div class="field"><label>ターゲット画像</label>
@@ -837,7 +839,7 @@ function setNudge(v) {
 // ══════════════════════════════════════════
 function buildJSON() {
   return JSON.stringify({
-    id: ED.name.replace(/\s+/g,'_').toLowerCase(),
+    id: scenarioId(),
     name: ED.name,
     subtitle: ED.name,
     icon: '⚡',
@@ -903,9 +905,18 @@ function modalOK() {
 // ══════════════════════════════════════════
 // ① 写真撮影/選択  ② .mind生成  ④ GitHubアップロード
 // ══════════════════════════════════════════
+function makeSafeId(str) {
+  return (str || '').trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'');
+}
+// ファイル名に使う安全なID。cfg-id優先→名前から生成→それも空なら自動採番。
+// 生成した場合は cfg-id 欄に表示して、以降ぶれないように固定する。
 function scenarioId() {
-  return (document.getElementById('cfg-name').value.trim() || 'scenario')
-    .replace(/\s+/g,'_').toLowerCase().replace(/[^a-z0-9_\-]/g,'');
+  const el = document.getElementById('cfg-id');
+  let id = makeSafeId(el && el.value);
+  if (!id) id = makeSafeId(document.getElementById('cfg-name').value);
+  if (!id) id = 'scenario_' + Date.now().toString(36);
+  if (el && !makeSafeId(el.value)) el.value = id;
+  return id;
 }
 
 function onPhotoSelected(e) {
