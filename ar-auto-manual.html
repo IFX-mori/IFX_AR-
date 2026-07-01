@@ -183,6 +183,9 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
     <!-- シナリオ一覧 -->
     <div id="scenario-list"></div>
 
+    <!-- 作成シナリオの読込（展示会デモ用） -->
+    <button id="btn-import-sc" onclick="openImport()" style="width:100%; padding:14px; border-radius:14px; border:2px dashed #15803d; background:rgba(21,128,61,0.06); color:#15803d; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:16px; -webkit-tap-highlight-color:transparent;">📋 作成したシナリオを読込（JSON貼り付け）</button>
+
     <!-- .mindファイル作成手順 -->
     <div class="info-box">
       <h3>📋 .mindファイルの作り方（初回のみ）</h3>
@@ -281,7 +284,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.2';
+const APP_VERSION = 'v1.3';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -431,6 +434,7 @@ let stepIdx   = 0;
 let stepOrder = [0,1,2,3,4]; // ルートによるステップ順（赤:1→2→3→4→5 / 黄:1→3→2→4→5）
 let detected  = false;
 let _arAssets = null; // 現在のシーンの <a-assets> への参照
+let userScenarios = loadUserScenarios(); // 読込済みの作成シナリオ（端末に保存）
 
 // ══════════════════════════════════════════
 // セットアップ画面 描画
@@ -439,26 +443,38 @@ async function renderSetup() {
   const container = document.getElementById('scenario-list');
   container.innerHTML = '';
 
-  for (const sc of SCENARIOS) {
+  // 組み込みシナリオ + 読込済みの作成シナリオ
+  const all = [
+    ...SCENARIOS.map(sc => ({ sc, user:false })),
+    ...userScenarios.map(sc => ({ sc, user:true })),
+  ];
+
+  for (const { sc, user } of all) {
     // .mindファイルの存在確認
     const mindOk = await fileExists(sc.mindFile);
     const card = document.createElement('div');
     card.className = 'scenario-card';
-    card.style.borderColor = sc.borderColor;
+    card.style.borderColor = sc.borderColor || 'rgba(0,0,0,0.12)';
+    const badge = user
+      ? '<span style="font-size:10px;color:#15803d;background:rgba(21,128,61,.12);padding:1px 6px;border-radius:6px;margin-left:6px;">作成</span>'
+      : '';
+    const rightIcon = user
+      ? '<button class="sc-del" title="削除" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(220,38,38,0.1);color:#dc2626;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">✕</button>'
+      : '<div style="font-size:20px;color:rgba(0,0,0,.2)">›</div>';
     card.innerHTML = `
       <div class="sc-row">
-        <div class="sc-icon" style="background:${sc.iconBg}">${sc.icon}</div>
+        <div class="sc-icon" style="background:${sc.iconBg || 'rgba(251,146,60,0.2)'}">${sc.icon || '⚡'}</div>
         <div style="flex:1">
-          <div class="sc-name">${sc.name}</div>
-          <div class="sc-sub">${sc.subtitle}</div>
+          <div class="sc-name">${sc.name}${badge}</div>
+          <div class="sc-sub">${sc.subtitle || ''}</div>
           <div class="sc-steps">📋 ${sc.steps.length}ステップ</div>
         </div>
-        <div style="font-size:20px;color:rgba(255,255,255,.3)">›</div>
+        ${rightIcon}
       </div>
       <div class="sc-target ${mindOk?'ok':'ng'}">
         ${mindOk
           ? `✅ ${sc.mindFile} 認識ファイルあり`
-          : `❌ ${sc.mindFile} 未配置（下記の手順で作成してください）`
+          : `❌ ${sc.mindFile} 未配置`
         }
       </div>`;
     if (mindOk) {
@@ -467,8 +483,60 @@ async function renderSetup() {
       card.style.opacity = '0.65';
       card.style.cursor  = 'default';
     }
+    if (user) {
+      const del = card.querySelector('.sc-del');
+      if (del) del.onclick = (e) => { e.stopPropagation(); deleteUserScenario(sc.id); };
+    }
     container.appendChild(card);
   }
+}
+
+// ── 作成シナリオの保存・読込（localStorage） ──
+function loadUserScenarios() {
+  try { return JSON.parse(localStorage.getItem('ar_user_scenarios') || '[]'); }
+  catch { return []; }
+}
+function saveUserScenarios() {
+  localStorage.setItem('ar_user_scenarios', JSON.stringify(userScenarios));
+}
+
+// ── 読込モーダル操作 ──
+function openImport() {
+  document.getElementById('import-ta').value = '';
+  document.getElementById('import-msg').textContent = '';
+  document.getElementById('import-modal').style.display = 'flex';
+}
+function closeImport() {
+  document.getElementById('import-modal').style.display = 'none';
+}
+function doImport() {
+  const msg = document.getElementById('import-msg');
+  let data;
+  try {
+    data = JSON.parse(document.getElementById('import-ta').value);
+  } catch(e) {
+    msg.style.color = '#dc2626';
+    msg.textContent = '❌ JSONの形式が正しくありません';
+    return;
+  }
+  if (!data || !data.id || !Array.isArray(data.steps)) {
+    msg.style.color = '#dc2626';
+    msg.textContent = '❌ シナリオ形式ではありません（id と steps が必要です）';
+    return;
+  }
+  // 同じidがあれば置き換え、なければ追加
+  const idx = userScenarios.findIndex(s => s.id === data.id);
+  if (idx >= 0) userScenarios[idx] = data;
+  else          userScenarios.push(data);
+  saveUserScenarios();
+  closeImport();
+  renderSetup();
+}
+function deleteUserScenario(id) {
+  if (!confirm('この作成シナリオを削除しますか？')) return;
+  userScenarios = userScenarios.filter(s => s.id !== id);
+  saveUserScenarios();
+  renderSetup();
 }
 
 async function fileExists(path) {
@@ -1096,5 +1164,19 @@ document.getElementById('setup-ver').textContent = APP_VERSION;
 document.getElementById('app-ver').textContent    = APP_VERSION;
 renderSetup();
 </script>
+<!-- ════════════════ シナリオ読込モーダル ════════════════ -->
+<div id="import-modal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#fff; border-radius:16px; padding:20px; max-width:480px; width:100%; box-shadow:0 8px 32px rgba(0,0,0,0.25);">
+    <div style="font-size:16px; font-weight:700; margin-bottom:6px; color:#1e293b;">📋 シナリオを読込</div>
+    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">シナリオ編集モードで「📤 書出」したJSONを貼り付けてください</div>
+    <textarea id="import-ta" style="width:100%; height:180px; border:1px solid #cbd5e1; border-radius:10px; padding:10px; font-family:monospace; font-size:12px; resize:vertical; box-sizing:border-box;" placeholder='{ &quot;id&quot;: &quot;...&quot;, &quot;name&quot;: &quot;...&quot;, &quot;steps&quot;: [...] }'></textarea>
+    <div id="import-msg" style="font-size:12px; margin-top:8px; min-height:16px;"></div>
+    <div style="display:flex; gap:10px; margin-top:12px;">
+      <button onclick="closeImport()" style="flex:1; padding:12px; border-radius:10px; border:none; background:rgba(0,0,0,0.1); color:#1e293b; font-weight:600; cursor:pointer;">キャンセル</button>
+      <button onclick="doImport()" style="flex:1; padding:12px; border-radius:10px; border:none; background:#15803d; color:#fff; font-weight:700; cursor:pointer;">✅ 読込</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
