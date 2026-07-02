@@ -66,6 +66,16 @@
           "type": "box",
           "size": 0.1,
           "labelBelow": true
+        },
+        {
+          "pos": [
+            0.018,
+            0.288,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "R",
+          "type": "arrowDown"
         }
       ]
     },
