@@ -76,13 +76,13 @@
         },
         {
           "pos": [
-            -0.253,
-            0.243,
+            -0.258,
+            0.273,
             0
           ],
           "color": "#60a5fa",
           "label": "C",
-          "type": "arrow"
+          "type": "arrowDown"
         }
       ]
     }
