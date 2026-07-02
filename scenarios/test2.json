@@ -73,6 +73,16 @@
           "type": "curvedArrow",
           "dir": "right",
           "scale": 2.4
+        },
+        {
+          "pos": [
+            -0.253,
+            0.243,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "C",
+          "type": "arrow"
         }
       ]
     }
