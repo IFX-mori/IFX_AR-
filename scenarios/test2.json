@@ -23,6 +23,18 @@
           "color": "#60a5fa",
           "label": "Red",
           "type": "arrowDown"
+        },
+        {
+          "pos": [
+            -0.293,
+            0.125,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "M",
+          "type": "box",
+          "size": 0.1,
+          "labelBelow": true
         }
       ]
     },
