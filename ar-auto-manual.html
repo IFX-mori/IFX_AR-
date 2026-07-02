@@ -285,7 +285,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.9';
+const APP_VERSION = 'v2.0';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -505,14 +505,16 @@ const GH_OWNER = 'ifx-mori';
 const GH_REPO  = 'IFX_AR-';
 async function fetchRemoteScenarios() {
   try {
-    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/scenarios?ref=main`,
-      { headers: { Accept: 'application/vnd.github+json' } });
+    const bust = 't=' + Date.now(); // GitHub CDNキャッシュ回避（最新を取得）
+    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/scenarios?ref=main&${bust}`,
+      { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
     if (!res.ok) return [];
     const list = await res.json();
     if (!Array.isArray(list)) return [];
     const jsons = await Promise.all(
       list.filter(f => f.name.endsWith('.json') && f.download_url)
-          .map(f => fetch(f.download_url).then(r => r.ok ? r.json() : null).catch(() => null))
+          .map(f => fetch(f.download_url + (f.download_url.includes('?')?'&':'?') + bust, { cache: 'no-store' })
+                      .then(r => r.ok ? r.json() : null).catch(() => null))
     );
     return jsons.filter(s => s && s.id && Array.isArray(s.steps));
   } catch { return []; }
@@ -529,7 +531,7 @@ async function refreshRemote() {
 async function ghDeleteFile(owner, repo, token, path, message) {
   const api = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
   const headers = { Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' };
-  const getRes = await fetch(api + '?ref=main', { headers });
+  const getRes = await fetch(api + '?ref=main&t=' + Date.now(), { headers, cache: 'no-store' });
   if (getRes.status === 404) return; // 既に無い→スキップ
   if (!getRes.ok) throw new Error(`${path} GET ${getRes.status}`);
   const j = await getRes.json();
