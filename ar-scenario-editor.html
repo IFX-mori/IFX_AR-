@@ -220,7 +220,8 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 
     <div class="form-card">
       <h3>既存シナリオを読み込む</h3>
-      <p style="font-size:12px;color:#64748b;margin-bottom:10px">以前エクスポートしたJSONを読み込んで続きを編集できます</p>
+      <p style="font-size:12px;color:#64748b;margin-bottom:10px">GitHub上のシナリオを読み込んで追加編集し、同じIDで上書き保存できます</p>
+      <button class="secondary-btn" style="margin-bottom:8px;" onclick="openRemotePicker()">☁️ GitHubから読み込む</button>
       <button class="secondary-btn" onclick="openImport()">📋 JSONをインポート</button>
     </div>
 
@@ -319,7 +320,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.0'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v1.1'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -1061,11 +1062,71 @@ async function githubUpload() {
 }
 
 // 起動時：保存済みトークン/リポジトリを復元
+// ── GitHub上のシナリオを読み込んで追加編集 ──
+const GH_OWNER = 'ifx-mori';
+const GH_REPO  = 'IFX_AR-';
+async function openRemotePicker() {
+  const list = document.getElementById('remote-list');
+  document.getElementById('remote-picker').style.display = 'flex';
+  list.innerHTML = '<div style="color:#64748b;font-size:13px;">読み込み中…</div>';
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/scenarios?ref=main`,
+      { headers: { Accept: 'application/vnd.github+json' } });
+    if (!res.ok) throw new Error('一覧取得失敗 ' + res.status);
+    const files = await res.json();
+    const jsons = (await Promise.all(
+      (Array.isArray(files) ? files : []).filter(f => f.name.endsWith('.json') && f.download_url)
+        .map(f => fetch(f.download_url).then(r => r.ok ? r.json() : null).catch(() => null))
+    )).filter(s => s && s.id && Array.isArray(s.steps));
+    if (!jsons.length) { list.innerHTML = '<div style="color:#64748b;font-size:13px;">シナリオがありません</div>'; return; }
+    list.innerHTML = '';
+    jsons.forEach(s => {
+      const b = document.createElement('button');
+      b.style.cssText = 'text-align:left; padding:12px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; cursor:pointer;';
+      b.innerHTML = `<div style="font-weight:700;color:#1e293b;">${s.name || s.id}</div><div style="font-size:11px;color:#64748b;">${s.id}｜${s.steps.length}ステップ</div>`;
+      b.onclick = () => { loadScenarioIntoEditor(s); closeRemotePicker(); };
+      list.appendChild(b);
+    });
+  } catch(e) {
+    list.innerHTML = '<div style="color:#dc2626;font-size:13px;">取得失敗: ' + e.message + '</div>';
+  }
+}
+function closeRemotePicker() {
+  document.getElementById('remote-picker').style.display = 'none';
+}
+function loadScenarioIntoEditor(data) {
+  ED.name     = data.name || 'シナリオ';
+  ED.mindFile = data.mindFile || '';
+  ED.imageFile= data.imageFile || '';
+  ED.docs     = data.docs || {};
+  ED.steps    = data.steps || [];
+  stepIdx = 0; figIdx = -1;
+  // 読込シナリオは既存の.mind/写真をそのまま使う（再生成・再アップ不要）
+  _photoBlob = null; _photoDataURL = null; _mindBuffer = null;
+  if (_mindBlobURL) { URL.revokeObjectURL(_mindBlobURL); _mindBlobURL = null; }
+  document.getElementById('cfg-name').value  = ED.name;
+  document.getElementById('cfg-id').value    = data.id || '';
+  document.getElementById('cfg-mind').value  = ED.mindFile;
+  document.getElementById('cfg-image').value = ED.imageFile;
+  document.getElementById('cfg-pdf').value   = ED.docs.pdf   || '';
+  document.getElementById('cfg-video').value = ED.docs.video || '';
+  alert(`「${ED.name}」を読み込みました（${ED.steps.length}ステップ）。\n「編集を開始」で追加編集できます。\n「書出→アップロード」で同じID(${data.id})に上書き保存されます。`);
+}
+
 (function initGh(){
   const t = localStorage.getItem('gh_token'); const te = document.getElementById('gh-token'); if (t && te) te.value = t;
   const r = localStorage.getItem('gh_repo');  const re = document.getElementById('gh-repo');  if (r && re) re.value = r;
   const ve = document.getElementById('setup-ver'); if (ve) ve.textContent = APP_VERSION;
 })();
 </script>
+<!-- GitHubシナリオ選択モーダル -->
+<div id="remote-picker" style="display:none; position:fixed; inset:0; z-index:400; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div style="background:#fff; border-radius:16px; padding:20px; max-width:420px; width:100%; max-height:80vh; overflow:auto;">
+    <div style="font-size:16px; font-weight:700; margin-bottom:10px; color:#1e293b;">☁️ GitHubのシナリオを選択</div>
+    <div id="remote-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+    <button onclick="closeRemotePicker()" style="margin-top:12px; width:100%; padding:10px; border:none; border-radius:10px; background:rgba(0,0,0,0.1); color:#1e293b; font-weight:600; cursor:pointer;">閉じる</button>
+  </div>
+</div>
+
 </body>
 </html>
