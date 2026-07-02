@@ -320,7 +320,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.1'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v1.2'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -1010,7 +1010,7 @@ async function ghPutFile(owner, repo, token, path, contentB64, message) {
   const headers = { Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' };
   // 既存ファイルがあれば sha を取得（更新のため）
   let sha;
-  const getRes = await fetch(api + '?ref=main', { headers });
+  const getRes = await fetch(api + '?ref=main&t=' + Date.now(), { headers, cache: 'no-store' });
   if (getRes.ok) { const j = await getRes.json(); sha = j.sha; }
   const body = { message, content: contentB64, branch: 'main' };
   if (sha) body.sha = sha;
@@ -1070,13 +1070,15 @@ async function openRemotePicker() {
   document.getElementById('remote-picker').style.display = 'flex';
   list.innerHTML = '<div style="color:#64748b;font-size:13px;">読み込み中…</div>';
   try {
-    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/scenarios?ref=main`,
-      { headers: { Accept: 'application/vnd.github+json' } });
+    const bust = 't=' + Date.now(); // GitHub CDNキャッシュ回避
+    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/scenarios?ref=main&${bust}`,
+      { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
     if (!res.ok) throw new Error('一覧取得失敗 ' + res.status);
     const files = await res.json();
     const jsons = (await Promise.all(
       (Array.isArray(files) ? files : []).filter(f => f.name.endsWith('.json') && f.download_url)
-        .map(f => fetch(f.download_url).then(r => r.ok ? r.json() : null).catch(() => null))
+        .map(f => fetch(f.download_url + (f.download_url.includes('?')?'&':'?') + bust, { cache: 'no-store' })
+                    .then(r => r.ok ? r.json() : null).catch(() => null))
     )).filter(s => s && s.id && Array.isArray(s.steps));
     if (!jsons.length) { list.innerHTML = '<div style="color:#64748b;font-size:13px;">シナリオがありません</div>'; return; }
     list.innerHTML = '';
