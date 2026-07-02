@@ -285,7 +285,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.7';
+const APP_VERSION = 'v1.8';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -1149,6 +1149,7 @@ function selectLampRoute(lampType) {
 
 // ドキュメントをAR画面内のオーバーレイで開く（ARセッションは維持）
 function openDoc(type, url, label) {
+  initDocViewerDragResize(); // 初回に移動/リサイズを有効化
   const body = document.getElementById('doc-viewer-body');
   document.getElementById('doc-viewer-title').textContent = label || '';
   document.getElementById('doc-viewer-ext').href = url;
@@ -1162,6 +1163,56 @@ function openDoc(type, url, label) {
 function closeDoc() {
   document.getElementById('doc-viewer-body').innerHTML = ''; // 動画停止・PDF解放
   document.getElementById('doc-viewer').style.display = 'none';
+}
+
+// フロート窓のドラッグ移動・リサイズ（Pointer Events：マウス/タッチ共通）
+// ※ doc-viewer要素はこのscriptより後に定義されるため、openDoc時に遅延初期化する
+let _docDragInit = false;
+function initDocViewerDragResize(){
+  if (_docDragInit) return;
+  const panel = document.getElementById('doc-viewer');
+  const head  = document.getElementById('doc-viewer-head');
+  const grip  = document.getElementById('doc-viewer-resize');
+  if (!panel || !head || !grip) return;
+  _docDragInit = true;
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  let mode = null, sx = 0, sy = 0, sl = 0, st = 0, sw = 0, sh = 0;
+
+  head.addEventListener('pointerdown', e => {
+    if (e.target.closest('a, button')) return; // リンク・閉じるボタンは除外
+    const r = panel.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY; sl = r.left; st = r.top;
+    mode = 'move';
+    try { head.setPointerCapture(e.pointerId); } catch(_){}
+    e.preventDefault();
+  });
+  grip.addEventListener('pointerdown', e => {
+    const r = panel.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY; sw = r.width; sh = r.height; sl = r.left; st = r.top;
+    mode = 'resize';
+    try { grip.setPointerCapture(e.pointerId); } catch(_){}
+    e.preventDefault();
+  });
+  function onMove(e){
+    if (!mode) return;
+    if (mode === 'move') {
+      const w = panel.offsetWidth, h = panel.offsetHeight;
+      panel.style.left   = clamp(sl + (e.clientX - sx), 0, window.innerWidth  - w) + 'px';
+      panel.style.top    = clamp(st + (e.clientY - sy), 0, window.innerHeight - h) + 'px';
+      panel.style.right  = 'auto'; panel.style.bottom = 'auto';
+    } else {
+      panel.style.width  = clamp(sw + (e.clientX - sx), 160, window.innerWidth  - sl) + 'px';
+      panel.style.height = clamp(sh + (e.clientY - sy), 120, window.innerHeight - st) + 'px';
+    }
+    e.preventDefault();
+  }
+  const end = () => { mode = null; };
+  head.addEventListener('pointermove', onMove);
+  grip.addEventListener('pointermove', onMove);
+  head.addEventListener('pointerup', end);
+  grip.addEventListener('pointerup', end);
+  head.addEventListener('pointercancel', end);
+  grip.addEventListener('pointercancel', end);
 }
 
 function updateDocButtons() {
@@ -1259,14 +1310,16 @@ document.getElementById('app-ver').textContent    = APP_VERSION;
 renderSetup();      // まず組み込みシナリオを即表示
 refreshRemote();    // GitHub上のシナリオを取得して再描画
 </script>
-<!-- ════════════════ ドキュメント閲覧オーバーレイ（AR画面内） ════════════════ -->
-<div id="doc-viewer" style="display:none; position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.55); flex-direction:column; padding:14px; box-sizing:border-box;">
-  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-    <div id="doc-viewer-title" style="flex:1; color:#fff; font-weight:700; font-size:15px;"></div>
-    <a id="doc-viewer-ext" href="#" target="_blank" rel="noopener" style="color:#fff; font-size:12px; text-decoration:underline;">別タブで開く</a>
-    <button onclick="closeDoc()" style="width:40px; height:40px; border-radius:50%; border:none; background:rgba(255,255,255,0.92); color:#1e293b; font-size:20px; font-weight:700; cursor:pointer;">✕</button>
+<!-- ════════════════ ドキュメント閲覧フロート窓（AR画面内・移動/リサイズ可） ════════════════ -->
+<div id="doc-viewer" style="display:none; position:fixed; z-index:300; left:50vw; top:12vh; width:46vw; height:34vh; min-width:160px; min-height:120px; background:#fff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.35); flex-direction:column; overflow:hidden;">
+  <div id="doc-viewer-head" style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:#1e293b; cursor:move; touch-action:none;">
+    <span style="color:#64748b; font-size:14px;">⠿</span>
+    <div id="doc-viewer-title" style="flex:1; color:#fff; font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+    <a id="doc-viewer-ext" href="#" target="_blank" rel="noopener" style="color:#93c5fd; font-size:11px; text-decoration:underline; white-space:nowrap;">別タブ</a>
+    <button onclick="closeDoc()" style="width:28px; height:28px; border-radius:50%; border:none; background:rgba(255,255,255,0.9); color:#1e293b; font-size:16px; font-weight:700; cursor:pointer; flex-shrink:0;">✕</button>
   </div>
-  <div id="doc-viewer-body" style="flex:1; background:#fff; border-radius:12px; overflow:hidden;"></div>
+  <div id="doc-viewer-body" style="flex:1; background:#fff; overflow:hidden;"></div>
+  <div id="doc-viewer-resize" title="サイズ変更" style="position:absolute; right:0; bottom:0; width:28px; height:28px; cursor:nwse-resize; touch-action:none; background:linear-gradient(135deg, transparent 45%, rgba(30,41,59,0.55) 45%); border-bottom-right-radius:12px;"></div>
 </div>
 
 <!-- ════════════════ シナリオ読込モーダル ════════════════ -->
