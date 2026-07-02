@@ -52,15 +52,15 @@
       "ar": [
         {
           "pos": [
-            0.058,
-            0.117,
+            0.223,
+            0.095,
             0
           ],
           "color": "#60a5fa",
-          "label": "Et",
-          "type": "curvedArrow",
-          "dir": "left",
-          "scale": 2.4
+          "label": "Hk",
+          "type": "box",
+          "size": 0.1,
+          "labelBelow": true
         }
       ]
     }
