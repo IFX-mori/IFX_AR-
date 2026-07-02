@@ -61,6 +61,18 @@
           "type": "box",
           "size": 0.1,
           "labelBelow": true
+        },
+        {
+          "pos": [
+            -0.048,
+            0.139,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "Et",
+          "type": "curvedArrow",
+          "dir": "left",
+          "scale": 2.4
         }
       ]
     }
