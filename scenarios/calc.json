@@ -1,0 +1,61 @@
+{
+  "id": "calc",
+  "name": "Calc",
+  "subtitle": "Calc",
+  "icon": "⚡",
+  "iconBg": "rgba(251,146,60,0.2)",
+  "borderColor": "rgba(251,146,60,0.4)",
+  "mindFile": "targets/calc.mind",
+  "imageFile": "targets/calc.jpg",
+  "docs": {},
+  "steps": [
+    {
+      "title": "ステップ 1",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "pos": [
+            -0.224,
+            -0.161,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "7",
+          "type": "arrow"
+        },
+        {
+          "pos": [
+            0.319,
+            -0.459,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "プラス",
+          "type": "curvedArrow",
+          "dir": "left",
+          "scale": 2.4
+        }
+      ]
+    },
+    {
+      "title": "ステップ 2",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "pos": [
+            -0.077,
+            -0.559,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "00",
+          "type": "box",
+          "size": 0.1,
+          "labelBelow": true
+        }
+      ]
+    }
+  ]
+}
