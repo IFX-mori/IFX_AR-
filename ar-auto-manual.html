@@ -285,7 +285,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.6';
+const APP_VERSION = 'v1.7';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -1147,6 +1147,23 @@ function selectLampRoute(lampType) {
   updateCard();
 }
 
+// ドキュメントをAR画面内のオーバーレイで開く（ARセッションは維持）
+function openDoc(type, url, label) {
+  const body = document.getElementById('doc-viewer-body');
+  document.getElementById('doc-viewer-title').textContent = label || '';
+  document.getElementById('doc-viewer-ext').href = url;
+  if (type === 'video') {
+    body.innerHTML = `<video src="${url}" controls autoplay playsinline style="width:100%;height:100%;background:#000;"></video>`;
+  } else {
+    body.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>`;
+  }
+  document.getElementById('doc-viewer').style.display = 'flex';
+}
+function closeDoc() {
+  document.getElementById('doc-viewer-body').innerHTML = ''; // 動画停止・PDF解放
+  document.getElementById('doc-viewer').style.display = 'none';
+}
+
 function updateDocButtons() {
   const row = document.getElementById('doc-btn-row');
   if (!row) return;
@@ -1157,14 +1174,14 @@ function updateDocButtons() {
     const btn = document.createElement('button');
     btn.className = 'doc-btn doc-btn-pdf';
     btn.innerHTML = '📄 作業手順書';
-    btn.onclick = () => window.open(docs.pdf, '_blank');
+    btn.onclick = () => openDoc('pdf', docs.pdf, '作業手順書');
     row.appendChild(btn);
   }
   if (docs.video) {
     const btn = document.createElement('button');
     btn.className = 'doc-btn doc-btn-video';
     btn.innerHTML = '🎬 操作動画';
-    btn.onclick = () => window.open(docs.video, '_blank');
+    btn.onclick = () => openDoc('video', docs.video, '操作動画');
     row.appendChild(btn);
   }
   row.style.display = row.children.length > 0 ? 'flex' : 'none';
@@ -1217,6 +1234,7 @@ function updateCard() {
 // ══════════════════════════════════════════
 function stopAR() {
   stopLampDetection();
+  closeDoc();
   const aScene = document.getElementById('a-scene');
   if (aScene) {
     try { aScene.systems['mindar-image-system']?.stop?.(); } catch(e) {}
@@ -1241,6 +1259,16 @@ document.getElementById('app-ver').textContent    = APP_VERSION;
 renderSetup();      // まず組み込みシナリオを即表示
 refreshRemote();    // GitHub上のシナリオを取得して再描画
 </script>
+<!-- ════════════════ ドキュメント閲覧オーバーレイ（AR画面内） ════════════════ -->
+<div id="doc-viewer" style="display:none; position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.55); flex-direction:column; padding:14px; box-sizing:border-box;">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+    <div id="doc-viewer-title" style="flex:1; color:#fff; font-weight:700; font-size:15px;"></div>
+    <a id="doc-viewer-ext" href="#" target="_blank" rel="noopener" style="color:#fff; font-size:12px; text-decoration:underline;">別タブで開く</a>
+    <button onclick="closeDoc()" style="width:40px; height:40px; border-radius:50%; border:none; background:rgba(255,255,255,0.92); color:#1e293b; font-size:20px; font-weight:700; cursor:pointer;">✕</button>
+  </div>
+  <div id="doc-viewer-body" style="flex:1; background:#fff; border-radius:12px; overflow:hidden;"></div>
+</div>
+
 <!-- ════════════════ シナリオ読込モーダル ════════════════ -->
 <div id="import-modal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; padding:20px;">
   <div style="background:#fff; border-radius:16px; padding:20px; max-width:480px; width:100%; box-shadow:0 8px 32px rgba(0,0,0,0.25);">
