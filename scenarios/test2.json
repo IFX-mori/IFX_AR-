@@ -31,19 +31,19 @@
             0
           ],
           "color": "#60a5fa",
-          "label": "M",
+          "label": "無変換",
           "type": "box",
           "size": 0.1,
           "labelBelow": true
         },
         {
           "pos": [
-            0.236,
+            0.206,
             0.125,
             0
           ],
           "color": "#60a5fa",
-          "label": "H",
+          "label": "変換",
           "type": "box",
           "size": 0.1,
           "labelBelow": true
@@ -62,19 +62,19 @@
             0
           ],
           "color": "#60a5fa",
-          "label": "Bk",
+          "label": "ボタン",
           "type": "box",
           "size": 0.1,
           "labelBelow": true
         },
         {
           "pos": [
-            0.018,
-            0.288,
+            0.008,
+            0.318,
             0
           ],
           "color": "#60a5fa",
-          "label": "R",
+          "label": "マウス",
           "type": "arrowDown"
         }
       ]
@@ -86,12 +86,12 @@
       "ar": [
         {
           "pos": [
-            0.223,
-            0.095,
+            0.213,
+            0.125,
             0
           ],
           "color": "#60a5fa",
-          "label": "Hk",
+          "label": "変換",
           "type": "box",
           "size": 0.1,
           "labelBelow": true
@@ -103,7 +103,7 @@
             0
           ],
           "color": "#60a5fa",
-          "label": "Et",
+          "label": "Enter",
           "type": "curvedArrow",
           "dir": "right",
           "scale": 2.4
@@ -115,7 +115,7 @@
             0
           ],
           "color": "#60a5fa",
-          "label": "C",
+          "label": "変換C",
           "type": "arrowDown"
         }
       ]
