@@ -10,6 +10,8 @@ const CORE = [
   './ar-auto-manual.html',
   './aframe.min.js',
   './mindar-image-aframe.prod.js',
+  './libs/pdf.min.js',
+  './libs/pdf.worker.min.js',
   './targets/crossing2.mind',
   './targets/crossing2.jpg',
   './docs/crossing.pdf',
