@@ -185,6 +185,8 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 
     <!-- 作成シナリオの読込（展示会デモ用） -->
     <button id="btn-refresh-sc" onclick="refreshRemote()" style="width:100%; padding:12px; border-radius:14px; border:2px solid #1d4ed8; background:rgba(29,78,216,0.06); color:#1d4ed8; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:10px; -webkit-tap-highlight-color:transparent;">🔄 シナリオをサーバから再読込</button>
+    <button id="btn-precache" onclick="precacheAll()" style="width:100%; padding:12px; border-radius:14px; border:2px solid #7c3aed; background:rgba(124,58,237,0.06); color:#7c3aed; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:10px; -webkit-tap-highlight-color:transparent;">⬇️ オフライン準備（資料を端末に保存）</button>
+    <div id="precache-status" style="font-size:12px; color:#64748b; text-align:center; margin-bottom:10px; min-height:16px;"></div>
     <button id="btn-import-sc" onclick="openImport()" style="width:100%; padding:14px; border-radius:14px; border:2px dashed #15803d; background:rgba(21,128,61,0.06); color:#15803d; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:16px; -webkit-tap-highlight-color:transparent;">📋 作成したシナリオを読込（JSON貼り付け）</button>
 
     <!-- .mindファイル作成手順 -->
@@ -285,7 +287,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.0';
+const APP_VERSION = 'v2.1';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -525,6 +527,49 @@ async function refreshRemote() {
   remoteScenarios = await fetchRemoteScenarios();
   if (btn) { btn.disabled = false; btn.textContent = '🔄 シナリオをサーバから再読込'; }
   await renderSetup();
+}
+
+// オフライン準備：全シナリオの .mind・画像・資料を端末にキャッシュ
+// （電波が良いうちに1回実行しておけば、会場で電波が悪くても動作）
+async function precacheAll() {
+  const btn = document.getElementById('btn-precache');
+  const status = document.getElementById('precache-status');
+  if (!('caches' in window)) {
+    status.style.color = '#dc2626';
+    status.textContent = '❌ この端末はオフライン保存に対応していません';
+    return;
+  }
+  if (btn) { btn.disabled = true; }
+  status.style.color = '#64748b';
+  status.textContent = 'オフライン準備中…（最新シナリオを取得）';
+  try {
+    remoteScenarios = await fetchRemoteScenarios(); // 最新を反映
+    const scs = [...SCENARIOS, ...remoteScenarios];
+    const urls = new Set([
+      'ar-auto-manual.html', 'aframe.min.js', 'mindar-image-aframe.prod.js',
+    ]);
+    scs.forEach(s => {
+      if (s.mindFile)  urls.add(s.mindFile);
+      if (s.imageFile) urls.add(s.imageFile);
+      if (s.docs && s.docs.pdf)   urls.add(s.docs.pdf);
+      if (s.docs && s.docs.video) urls.add(s.docs.video);
+    });
+    const cache = await caches.open('arnavi-v2');
+    const list = [...urls];
+    let done = 0, ok = 0;
+    for (const u of list) {
+      try { await cache.add(u); ok++; } catch(_) {} // 未配置ファイルは無視
+      done++;
+      status.textContent = `オフライン準備中… ${done}/${list.length}`;
+    }
+    await renderSetup();
+    status.style.color = '#15803d';
+    status.textContent = `✅ オフライン準備完了（${ok}件保存）。電波が悪くても動作します。`;
+  } catch(e) {
+    status.style.color = '#dc2626';
+    status.textContent = '❌ 準備に失敗: ' + e.message;
+  }
+  if (btn) { btn.disabled = false; }
 }
 
 // ── GitHub上のシナリオを削除（関連ファイルもまとめて削除） ──
@@ -1353,6 +1398,10 @@ function stopAR() {
 // ══════════════════════════════════════════
 document.getElementById('setup-ver').textContent = APP_VERSION;
 document.getElementById('app-ver').textContent    = APP_VERSION;
+// オフライン対応：Service Worker を登録（一度取り込んだ資産で電波不良でも動作）
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 renderSetup();      // まず組み込みシナリオを即表示
 refreshRemote();    // GitHub上のシナリオを取得して再描画
 </script>
