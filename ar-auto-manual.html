@@ -287,7 +287,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.2';
+const APP_VERSION = 'v2.3';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -545,26 +545,55 @@ async function precacheAll() {
   try {
     remoteScenarios = await fetchRemoteScenarios(); // 最新を反映
     const scs = [...SCENARIOS, ...remoteScenarios];
-    const urls = new Set([
+    // 必須（軽量・AR動作に必要）と 資料（重い・任意）に分ける
+    const essential = new Set([
       'ar-auto-manual.html', 'aframe.min.js', 'mindar-image-aframe.prod.js',
+      PDFJS_LOCAL, PDFJS_LOCAL_W,
     ]);
+    const heavy = new Set();
     scs.forEach(s => {
-      if (s.mindFile)  urls.add(s.mindFile);
-      if (s.imageFile) urls.add(s.imageFile);
-      if (s.docs && s.docs.pdf)   urls.add(s.docs.pdf);
-      if (s.docs && s.docs.video) urls.add(s.docs.video);
+      if (s.mindFile)  essential.add(s.mindFile);
+      if (s.imageFile) essential.add(s.imageFile);
+      if (s.docs && s.docs.pdf)   heavy.add(s.docs.pdf);
+      if (s.docs && s.docs.video) heavy.add(s.docs.video);
     });
     const cache = await caches.open('arnavi-v2');
-    const list = [...urls];
-    let done = 0, ok = 0;
-    for (const u of list) {
-      try { await cache.add(u); ok++; } catch(_) {} // 未配置ファイルは無視
-      done++;
-      status.textContent = `オフライン準備中… ${done}/${list.length}`;
+
+    // 1ファイル取得（タイムアウト付き。詰まっても次へ進む）
+    async function cacheOne(u, timeoutMs) {
+      try {
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), timeoutMs);
+        const res = await fetch(u, { signal: ctrl.signal });
+        clearTimeout(to);
+        if (res.ok) { await cache.put(u, res.clone()); return true; }
+      } catch(_) {}
+      return false;
     }
+
+    // フェーズ1：必須データ（並列・短めタイムアウト）→ 終わればスキャンはオフライン動作
+    const eList = [...essential];
+    let eDone = 0, eOk = 0;
+    await Promise.all(eList.map(async u => {
+      const r = await cacheOne(u, 20000);
+      if (r) eOk++;
+      eDone++;
+      status.textContent = `AR必須データ保存中… ${eDone}/${eList.length}`;
+    }));
     await renderSetup();
     status.style.color = '#15803d';
-    status.textContent = `✅ オフライン準備完了（${ok}件保存）。電波が悪くても動作します。`;
+    status.textContent = `✅ AR必須データ保存完了（${eOk}件）。スキャンはオフラインで動作します。資料を続けてダウンロード中…`;
+
+    // フェーズ2：資料（PDF/動画。重いので順番に・長めタイムアウト。詰まっても次へ）
+    const hList = [...heavy];
+    let hOk = 0;
+    for (let i = 0; i < hList.length; i++) {
+      status.style.color = '#64748b';
+      status.textContent = `資料をダウンロード中… ${i+1}/${hList.length}（動画は時間がかかります）`;
+      if (await cacheOne(hList[i], 180000)) hOk++;
+    }
+    status.style.color = '#15803d';
+    status.textContent = `✅ オフライン準備完了（必須${eOk}件・資料${hOk}/${hList.length}件）。電波が悪くても動作します。`;
   } catch(e) {
     status.style.color = '#dc2626';
     status.textContent = '❌ 準備に失敗: ' + e.message;
@@ -1211,20 +1240,34 @@ function openDoc(type, url, label) {
 
 // PDF.js を必要時にCDNから読み込む
 let _pdfjsLoading = null;
+const PDFJS_LOCAL   = 'libs/pdf.min.js';
+const PDFJS_LOCAL_W = 'libs/pdf.worker.min.js';
+const PDFJS_CDN     = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_CDN_W   = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+function loadScriptEl(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = res;
+    s.onerror = () => rej(new Error('読み込み失敗: ' + src));
+    document.head.appendChild(s);
+  });
+}
 function loadPdfJs() {
   if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
   if (_pdfjsLoading) return _pdfjsLoading;
-  _pdfjsLoading = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    s.onload = () => {
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      resolve(window.pdfjsLib);
-    };
-    s.onerror = () => reject(new Error('PDF.jsの読み込みに失敗'));
-    document.head.appendChild(s);
-  });
+  _pdfjsLoading = (async () => {
+    // まずローカル（同梱・オフライン可）→ 失敗時のみCDN
+    try {
+      await loadScriptEl(PDFJS_LOCAL);
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_LOCAL_W;
+    } catch(_) {
+      await loadScriptEl(PDFJS_CDN);
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_CDN_W;
+    }
+    if (!window.pdfjsLib) throw new Error('PDF.jsの読み込みに失敗');
+    return window.pdfjsLib;
+  })();
   return _pdfjsLoading;
 }
 
