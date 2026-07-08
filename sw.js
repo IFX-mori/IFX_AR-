@@ -33,7 +33,8 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET') return;
+  // GET と HEAD（存在確認）のみ処理。HEADもキャッシュ照合でオフライン対応する
+  if (req.method !== 'GET' && req.method !== 'HEAD') return;
   const url = new URL(req.url);
 
   const isApi = url.hostname === 'api.github.com';
@@ -44,18 +45,19 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          if (res.ok) { const cp = res.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); }
+          if (res.ok && req.method === 'GET') { const cp = res.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); }
           return res;
         })
-        .catch(() => caches.match(req, { ignoreSearch: true }))
+        .catch(() => caches.match(req, { ignoreSearch: true, ignoreMethod: true }))
     );
   } else {
     // 静的資産（HTML/JS/.mind/画像/PDF/動画）：キャッシュ優先＋背景更新
+    // ignoreMethod:true … HEAD（存在確認）でもキャッシュ済みGETに一致させる
     e.respondWith(
-      caches.match(req, { ignoreSearch: true }).then((cached) => {
+      caches.match(req, { ignoreSearch: true, ignoreMethod: true }).then((cached) => {
         const network = fetch(req)
           .then((res) => {
-            if (res.ok) { const cp = res.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); }
+            if (res.ok && req.method === 'GET') { const cp = res.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); }
             return res;
           })
           .catch(() => cached);
