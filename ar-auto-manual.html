@@ -287,7 +287,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.4';
+const APP_VERSION = 'v2.5';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -1418,15 +1418,31 @@ function updateCard() {
 // ══════════════════════════════════════════
 // AR 停止・終了
 // ══════════════════════════════════════════
-function stopAR() {
-  stopLampDetection();
-  closeDoc();
+// MindAR の後片付け：スキャンUIやカメラ映像は body 直下 / #ar-scene 内に残るため明示的に除去。
+// MindAR標準の stop() はスキャンバー(.mindar-ui-scanning 等)を消さず、_startAR の非同期完了で
+// 再表示されることもあるので、DOMから直接取り除く。
+function cleanupMindarArtifacts() {
   const aScene = document.getElementById('a-scene');
   if (aScene) {
     try { aScene.systems['mindar-image-system']?.stop?.(); } catch(e) {}
     try { aScene.destroy?.(); } catch(e) {}
   }
+  // body 直下に付く UI オーバーレイ（loading / scanning / compatibility）を全撤去
+  document.querySelectorAll('.mindar-ui-overlay').forEach(el => { try { el.remove(); } catch(_) {} });
+  // 取りこぼしたカメラ映像 <video> のトラックを停止してから除去（カメラのランプ消灯）
+  document.querySelectorAll('video').forEach(v => {
+    try { v.srcObject?.getTracks?.().forEach(t => t.stop()); } catch(_) {}
+    try { v.remove(); } catch(_) {}
+  });
+}
+
+function stopAR() {
+  stopLampDetection();
+  closeDoc();
+  cleanupMindarArtifacts();
   document.getElementById('ar-scene').innerHTML = '';
+  // 非同期の _startAR が stop 直後に scanning を再表示する競合対策：少し後にもう一度掃除
+  setTimeout(() => { if (!scenario) document.querySelectorAll('.mindar-ui-overlay').forEach(el => { try { el.remove(); } catch(_) {} }); }, 600);
   document.getElementById('ar-scene').classList.remove('active');
   document.getElementById('ui-overlay').classList.remove('active');
   document.getElementById('screen-setup').classList.remove('hidden');
@@ -1489,9 +1505,7 @@ async function recoverCameraOnResume() {
 async function restartARKeepStep() {
   if (!scenario) return;
   const sc = scenario, keepStep = stepIdx, keepOrder = stepOrder.slice();
-  const aScene = document.getElementById('a-scene');
-  try { aScene?.systems?.['mindar-image-system']?.stop?.(); } catch(_) {}
-  try { aScene?.destroy?.(); } catch(_) {}
+  cleanupMindarArtifacts();       // 旧シーンの停止＋残留UI/カメラを撤去（オーバーレイの積み重ね防止）
   document.getElementById('ar-scene').innerHTML = '';
   await startAR(sc);              // シーン再生成＝カメラ取得やり直し（stepIdx/stepOrder はここで初期化される）
   stepOrder = keepOrder;          // 復元
