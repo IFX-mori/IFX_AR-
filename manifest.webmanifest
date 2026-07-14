@@ -1,0 +1,17 @@
+{
+  "name": "AR操作ナビ",
+  "short_name": "ARナビ",
+  "description": "設備の操作手順をARで案内するナビゲーションアプリ",
+  "start_url": "./ar-auto-manual.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1e3a8a",
+  "theme_color": "#1e3a8a",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ]
+}
