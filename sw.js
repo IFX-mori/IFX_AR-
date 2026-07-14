@@ -8,6 +8,10 @@ const CACHE = 'arnavi-v2';
 // インストール時に確実にキャッシュする中核ファイル（存在しないものは無視）
 const CORE = [
   './ar-auto-manual.html',
+  './manifest.webmanifest',
+  './apple-touch-icon.png',
+  './icon-192.png',
+  './icon-512.png',
   './aframe.min.js',
   './mindar-image-aframe.prod.js',
   './libs/pdf.min.js',
