@@ -5,13 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>AR操作ナビ</title>
 
-<!-- PWA（ホーム画面に追加してオフライン起動を安定化） -->
+<!-- ホーム画面アイコン＋オフライン（SW）。standaloneは使わない：
+     iOSのホーム画面standaloneではカメラ映像が表示されない不具合があるため、
+     apple-mobile-web-app-capable は付けず、アイコンから Safari で開く運用にする。 -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1e3a8a">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ARナビ">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
 <!-- MindAR + A-Frame（ローカル） -->
@@ -296,7 +294,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.6';
+const APP_VERSION = 'v2.7';
 
 // ══════════════════════════════════════════
 // シナリオデータ
