@@ -287,7 +287,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.3';
+const APP_VERSION = 'v2.4';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -704,6 +704,7 @@ async function fileExists(path) {
 async function startAR(sc) {
   scenario = sc;
   stepIdx  = 0;
+  requestWakeLock();      // AR使用中は画面スリープを抑止（iOS 16.4+ / 非対応時は無視）
   detected  = false;
   stepOrder = sc.steps.map((_, i) => i); // デフォルト順にリセット
 
@@ -1433,8 +1434,74 @@ function stopAR() {
 
   scenario  = null;
   _arAssets = null;
+  releaseWakeLock();      // 画面スリープ抑止を解除
   renderSetup();
 }
+
+// ══════════════════════════════════════════
+// スリープ対策（iOS Safari）
+//  ① Wake Lock … AR使用中は画面スリープを抑止（予防）
+//  ② 復帰復旧  … スリープ復帰後にカメラが真っ白になったら復旧（事後）
+// ══════════════════════════════════════════
+let _wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if (_wakeLock) return;      // 既に取得済みなら二重取得しない
+    if ('wakeLock' in navigator) {
+      _wakeLock = await navigator.wakeLock.request('screen');
+      // 何らかで解除されたら参照を捨てる（復帰時に取り直す）
+      _wakeLock.addEventListener?.('release', () => { _wakeLock = null; });
+    }
+  } catch(_) { /* 非対応・拒否時は無視（副作用なし） */ }
+}
+async function releaseWakeLock() {
+  try { await _wakeLock?.release?.(); } catch(_) {}
+  _wakeLock = null;
+}
+
+let _resumeBusy = false;
+async function recoverCameraOnResume() {
+  if (document.visibilityState !== 'visible' || !scenario || _resumeBusy) return;
+  // 使用中に外れた Wake Lock を取り直す
+  if (!_wakeLock) requestWakeLock();
+  const aScene = document.getElementById('a-scene');
+  if (!aScene) return;
+  _resumeBusy = true;
+  try {
+    // MindAR が生成したカメラ映像の <video> を探す
+    const video = aScene.querySelector('video') || document.querySelector('video');
+    const track = video?.srcObject?.getVideoTracks?.()[0];
+    const dead  = !track || track.readyState === 'ended' || track.muted;
+    // トラックが生きていれば再生を促すだけで復帰することが多い
+    if (video && !dead) {
+      try { await video.play(); } catch(_) {}
+      await new Promise(r => setTimeout(r, 400));
+    }
+    // まだ映像が来ていない/トラックが死んでいれば作り直し
+    const stillDead = !track || track.readyState === 'ended' || track.muted;
+    if (stillDead || !video || video.readyState < 2) {
+      await restartARKeepStep();
+    }
+  } finally { _resumeBusy = false; }
+}
+
+// 現在のシナリオ・ステップ位置を保ったままARシーンを作り直す（getUserMedia やり直し）
+async function restartARKeepStep() {
+  if (!scenario) return;
+  const sc = scenario, keepStep = stepIdx, keepOrder = stepOrder.slice();
+  const aScene = document.getElementById('a-scene');
+  try { aScene?.systems?.['mindar-image-system']?.stop?.(); } catch(_) {}
+  try { aScene?.destroy?.(); } catch(_) {}
+  document.getElementById('ar-scene').innerHTML = '';
+  await startAR(sc);              // シーン再生成＝カメラ取得やり直し（stepIdx/stepOrder はここで初期化される）
+  stepOrder = keepOrder;          // 復元
+  stepIdx   = Math.min(keepStep, stepOrder.length - 1);
+  buildARObjects(sc.steps[stepOrder[stepIdx]]);
+  updateCard();
+}
+
+document.addEventListener('visibilitychange', recoverCameraOnResume);
+window.addEventListener('pageshow', recoverCameraOnResume);
 
 // ══════════════════════════════════════════
 // 起動
