@@ -4,7 +4,7 @@
   "description": "設備の操作手順をARで案内するナビゲーションアプリ",
   "start_url": "./ar-auto-manual.html",
   "scope": "./",
-  "display": "standalone",
+  "display": "browser",
   "orientation": "any",
   "background_color": "#1e3a8a",
   "theme_color": "#1e3a8a",
