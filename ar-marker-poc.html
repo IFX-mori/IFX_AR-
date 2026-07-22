@@ -156,7 +156,20 @@ const params = new URLSearchParams(location.search);
 const markerMode  = params.get('marker') === 'barcode' ? 'barcode' : 'hiro';
 const barcodeValue = params.get('value') || '0';
 const S   = parseFloat(params.get('scale') || '3');   // 指示オブジェクト全体の倍率（校正用）
-const ROT = parseFloat(params.get('rot')   || '0');   // マーカー上での向き（校正用）
+const ROT = parseFloat(params.get('rot')   || '0');   // マーカー上での向き（校正用, face=marker時）
+// 表示向き： camera=常にカメラを向く（既定・置き方に依存せず読める）
+//           marker=マーカー面と同一平面（縦パネルに貼る本番向け）
+const faceMode = params.get('face') === 'marker' ? 'marker' : 'camera';
+
+// ビルボード：エンティティを毎フレーム カメラ正面へ向ける
+AFRAME.registerComponent('billboard', {
+  tick: function () {
+    const cam = this.el.sceneEl && this.el.sceneEl.camera;
+    if (!cam) return;
+    cam.getWorldPosition(this._v || (this._v = new THREE.Vector3()));
+    this.el.object3D.lookAt(this._v);
+  }
+});
 
 // ══════════════════════════════════════════
 // マーカーと追従コンテンツ（静的要素の属性を上書き）
@@ -172,9 +185,19 @@ if (markerMode === 'barcode') {
   marker.setAttribute('type', 'barcode');
   marker.setAttribute('value', barcodeValue);
 }
-// 校正（向き・倍率）
-wrapper.setAttribute('rotation', `0 ${ROT} 0`);
+// 倍率
 wrapper.setAttribute('scale', `${S} ${S} ${S}`);
+// 表示向き
+if (faceMode === 'marker') {
+  // マーカー面と同一平面（縦パネル貼付向け）。従来通り寝かせて外向きに。
+  wrapper.setAttribute('rotation', `0 ${ROT} 0`);
+  content.setAttribute('rotation', '-90 0 0');
+} else {
+  // 常にカメラを向く：content自身をビルボード。寝かせない（rotation 0）
+  wrapper.setAttribute('rotation', '0 0 0');
+  content.setAttribute('rotation', '0 0 0');
+  content.setAttribute('billboard', '');
+}
 
 document.getElementById('markerinfo').textContent =
   markerMode === 'barcode' ? `バーコード(matrix 3x3) value=${barcodeValue} ／ scale=${S} rot=${ROT}` : `Hiroマーカー ／ scale=${S} rot=${ROT}`;
