@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ARマーカー認識PoC（発電機）</title>
+
+<!-- ══════════════════════════════════════════════════════════════
+  ARマーカー方式（AR.js）認識PoC ／ 対象：発電機シナリオのみ
+  ・既存環境（ar-auto-manual.html 等）には一切影響しない独立ファイル
+  ・A-Frame と AR.js は CDN から個別に読み込む（既存 aframe.min.js と干渉させない）
+  ・目的：現物の画像認識(MindAR/NFT)に比べ、白黒マーカーが
+          多彩な照明条件下でも高速・確実に認識できるかを検証する
+═══════════════════════════════════════════════════════════════ -->
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.5/aframe/build/aframe-ar.js"></script>
+
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; font-family:-apple-system,'Helvetica Neue',sans-serif; }
+  .a-enter-vr, .a-orientation-modal { display:none !important; }
+
+  /* 2D UI（AR映像の上に重ねる） */
+  #ui { position:fixed; inset:0; pointer-events:none; z-index:10; }
+
+  /* 上部バー */
+  #topbar {
+    position:absolute; top:0; left:0; right:0;
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    background:rgba(255,255,255,0.92); backdrop-filter:blur(8px);
+    box-shadow:0 1px 6px rgba(0,0,0,0.12);
+  }
+  #title { font-size:14px; font-weight:700; color:#1e293b; flex:1; line-height:1.3; }
+  #title small { display:block; font-size:10px; font-weight:500; color:#64748b; }
+  #ver { font-size:10px; font-weight:700; color:#7c3aed; background:rgba(124,58,237,0.12); padding:2px 7px; border-radius:8px; }
+
+  /* 認識インジケータ */
+  #status {
+    position:absolute; top:58px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:8px;
+    background:rgba(0,0,0,0.62); color:#fff; padding:7px 14px; border-radius:20px;
+    font-size:12px; font-weight:600; white-space:nowrap;
+  }
+  #dot { width:10px; height:10px; border-radius:50%; background:#f59e0b; transition:background .2s; box-shadow:0 0 6px rgba(0,0,0,.3); }
+  #dot.on { background:#22c55e; box-shadow:0 0 8px #22c55e; }
+
+  /* 中央ヒント（未認識時） */
+  #hint {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    background:rgba(0,0,0,0.55); color:#fff; padding:16px 22px; border-radius:16px;
+    text-align:center; font-size:14px; font-weight:600; line-height:1.6; transition:opacity .3s;
+    max-width:80%;
+  }
+  #hint small { display:block; margin-top:6px; font-size:11px; font-weight:500; color:#cbd5e1; }
+
+  /* 計測パネル */
+  #metrics {
+    position:absolute; top:58px; right:12px;
+    background:rgba(255,255,255,0.9); backdrop-filter:blur(6px);
+    border-radius:12px; padding:8px 11px; font-size:11px; color:#334155; line-height:1.7;
+    box-shadow:0 2px 8px rgba(0,0,0,.1); pointer-events:auto;
+  }
+  #metrics b { color:#0f172a; }
+  #metrics button {
+    margin-top:5px; width:100%; padding:5px 8px; border:1px solid #cbd5e1; border-radius:8px;
+    background:#fff; color:#334155; font-size:11px; font-weight:600; cursor:pointer;
+  }
+
+  /* 下部ステップカード */
+  #card {
+    position:absolute; left:12px; right:12px; bottom:14px;
+    background:rgba(255,255,255,0.96); backdrop-filter:blur(10px);
+    border-radius:16px; padding:14px 16px; box-shadow:0 6px 20px rgba(0,0,0,0.18);
+    pointer-events:auto;
+  }
+  #card-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  #badge { padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; color:#fff; }
+  #stitle { font-size:15px; font-weight:700; color:#1e293b; flex:1; line-height:1.3; }
+  #sdetail { font-size:12.5px; color:#475569; line-height:1.6; white-space:pre-line; margin-bottom:12px; }
+  #nav { display:flex; gap:8px; }
+  #nav button {
+    flex:1; padding:12px 0; border:none; border-radius:12px; font-size:14px; font-weight:700;
+    color:#fff; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  #btn-prev { background:rgba(0,0,0,0.18); color:#1e293b; }
+  #btn-next { background:#1d4ed8; }
+  #counter { text-align:center; font-size:11px; color:#64748b; margin-top:8px; }
+
+  #err {
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:#0f172a; color:#fff; padding:30px; text-align:center; font-size:14px; line-height:1.8;
+    pointer-events:auto; z-index:20;
+  }
+</style>
+</head>
+<body>
+
+<!-- ARシーン（markerタイプは起動時にJSで挿入） -->
+<a-scene
+  embedded
+  vr-mode-ui="enabled: false"
+  renderer="logarithmicDepthBuffer: true; precision: medium;"
+  arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; debugUIEnabled: false;">
+  <a-entity camera></a-entity>
+</a-scene>
+
+<!-- 2D UI -->
+<div id="ui">
+  <div id="topbar">
+    <div id="title">発電機 ｜ ARマーカー認識PoC<small id="markerinfo"></small></div>
+    <div id="ver">PoC v0.1</div>
+  </div>
+
+  <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
+
+  <div id="metrics">
+    認識回数: <b id="m-count">0</b><br>
+    再認識時間: <b id="m-reacq">–</b><br>
+    <button id="btn-reset">計測リセット</button>
+  </div>
+
+  <div id="hint">
+    マーカーにカメラを向けてください
+    <small id="hint-sub">Hiroマーカーを印刷して使用します</small>
+  </div>
+
+  <div id="card">
+    <div id="card-head">
+      <span id="badge">STEP</span>
+      <span id="stitle">–</span>
+    </div>
+    <div id="sdetail">–</div>
+    <div id="nav">
+      <button id="btn-prev">‹ 戻る</button>
+      <button id="btn-next">次へ ›</button>
+    </div>
+    <div id="counter">– / –</div>
+  </div>
+
+  <div id="err"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// 発電機シナリオ（ar-auto-manual.html から該当ステップを転記）
+// ══════════════════════════════════════════
+const STEPS = [
+  { title:'ランプ点灯色の確認', warn:'caution',
+    detail:'盤面右上のランプを確認してください。\n点灯している色のボタンを押してください。' },
+  { title:'つまみを左右に回す', warn:'normal',
+    detail:'左側のつまみを左へ30、右側のつまみを右へ70回してください。' },
+  { title:'ボタンを1回ずつ押す', warn:'normal',
+    detail:'中央左・中央のボタンをそれぞれ1回押してください。' },
+  { title:'レバーを操作する', warn:'caution',
+    detail:'左下レバーを上に、右下レバーを下に押してください。' },
+  { title:'青ランプの点灯確認', warn:'normal',
+    detail:'中央のランプが青色に点灯したことを確認して作業完了です。' },
+];
+const WARN = {
+  normal:  { c:'#1d4ed8', label:'通常' },
+  caution: { c:'#d97706', label:'注意' },
+  danger:  { c:'#dc2626', label:'危険' },
+};
+
+// ══════════════════════════════════════════
+// マーカー種別（URLパラメータで切替）
+//   既定        : Hiroマーカー（標準・確実）
+//   ?marker=barcode&value=0 : バーコード(matrix)マーカー（照明に強い・本番向き）
+// ══════════════════════════════════════════
+const params = new URLSearchParams(location.search);
+const markerMode = params.get('marker') === 'barcode' ? 'barcode' : 'hiro';
+const barcodeValue = params.get('value') || '0';
+
+const scene = document.querySelector('a-scene');
+const marker = document.createElement('a-marker');
+if (markerMode === 'barcode') {
+  marker.setAttribute('type', 'barcode');
+  marker.setAttribute('value', barcodeValue);
+} else {
+  marker.setAttribute('preset', 'hiro');
+}
+marker.id = 'marker';
+
+// マーカー追従コンテンツ：ステップ情報パネル（canvasテクスチャ）＋ 3D目印
+const panel = document.createElement('a-plane');
+panel.id = 'panel';
+panel.setAttribute('position', '0 0.6 0');
+panel.setAttribute('rotation', '-90 0 0');   // マーカー面と平行（法線=カメラ方向）
+panel.setAttribute('width', '2');
+panel.setAttribute('height', '1.25');
+panel.setAttribute('material', 'shader: flat; transparent: true; side: double;');
+marker.appendChild(panel);
+
+// 3Dであることが分かる浮遊オブジェクト
+const gizmo = document.createElement('a-octahedron');
+gizmo.setAttribute('position', '0 1.15 0');
+gizmo.setAttribute('radius', '0.18');
+gizmo.setAttribute('color', '#1d4ed8');
+gizmo.setAttribute('animation', 'property: rotation; to: 0 360 0; loop: true; dur: 3000; easing: linear;');
+marker.appendChild(gizmo);
+
+scene.appendChild(marker);
+
+// UI表示
+document.getElementById('markerinfo').textContent =
+  markerMode === 'barcode' ? `バーコード(matrix 3x3) value=${barcodeValue}` : 'Hiroマーカー';
+document.getElementById('hint-sub').textContent =
+  markerMode === 'barcode' ? 'バーコードマーカー(3x3, value='+barcodeValue+')を印刷' : 'Hiroマーカーを印刷して使用します';
+
+// ══════════════════════════════════════════
+// ステップ描画（canvasでパネルテクスチャ生成＝日本語対応）
+// ══════════════════════════════════════════
+let idx = 0;
+function drawPanel(step) {
+  const W = 1024, H = 640;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const x = cv.getContext('2d');
+  const col = WARN[step.warn].c;
+
+  // 背景（角丸カード風）
+  x.fillStyle = 'rgba(255,255,255,0.96)';
+  roundRect(x, 8, 8, W-16, H-16, 36); x.fill();
+  // ヘッダー帯
+  x.fillStyle = col;
+  roundRect(x, 8, 8, W-16, 150, 36); x.fill();
+  x.fillRect(8, 110, W-16, 48);
+
+  // ヘッダー文字
+  x.fillStyle = '#fff';
+  x.textBaseline = 'middle';
+  x.font = 'bold 52px sans-serif';
+  x.fillText(`STEP ${idx+1} / ${STEPS.length}`, 44, 60);
+  x.font = 'bold 40px sans-serif';
+  x.fillText(`【${WARN[step.warn].label}】`, 44, 128);
+
+  // タイトル
+  x.fillStyle = '#0f172a';
+  x.font = 'bold 56px sans-serif';
+  wrapText(x, step.title, 44, 235, W-88, 66);
+
+  // 詳細
+  x.fillStyle = '#334155';
+  x.font = '38px sans-serif';
+  let y = 360;
+  step.detail.split('\n').forEach(line => {
+    y = wrapText(x, line, 44, y, W-88, 52);
+  });
+
+  return cv.toDataURL('image/png');
+}
+function roundRect(ctx, X, Y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(X+r, Y);
+  ctx.arcTo(X+w, Y, X+w, Y+h, r);
+  ctx.arcTo(X+w, Y+h, X, Y+h, r);
+  ctx.arcTo(X, Y+h, X, Y, r);
+  ctx.arcTo(X, Y, X+w, Y, r);
+  ctx.closePath();
+}
+function wrapText(ctx, text, X, Y, maxW, lineH) {
+  const chars = [...text]; let line = '';
+  for (const ch of chars) {
+    if (ctx.measureText(line + ch).width > maxW && line) {
+      ctx.fillText(line, X, Y); line = ch; Y += lineH;
+    } else line += ch;
+  }
+  if (line) { ctx.fillText(line, X, Y); Y += lineH; }
+  return Y;
+}
+
+function renderStep() {
+  const step = STEPS[idx];
+  const col = WARN[step.warn].c;
+  // 2D カード
+  document.getElementById('stitle').textContent = step.title;
+  document.getElementById('sdetail').textContent = step.detail;
+  const badge = document.getElementById('badge');
+  badge.textContent = `STEP ${idx+1}`; badge.style.background = col;
+  document.getElementById('btn-next').style.background = col;
+  document.getElementById('counter').textContent = `${idx+1} / ${STEPS.length}`;
+  document.getElementById('btn-prev').style.visibility = idx > 0 ? 'visible' : 'hidden';
+  document.getElementById('btn-next').style.visibility = idx < STEPS.length-1 ? 'visible' : 'hidden';
+  // 3D パネル
+  document.getElementById('panel').setAttribute('material', 'src', drawPanel(step));
+  gizmo.setAttribute('color', col);
+}
+document.getElementById('btn-next').onclick = () => { if (idx < STEPS.length-1) { idx++; renderStep(); } };
+document.getElementById('btn-prev').onclick = () => { if (idx > 0) { idx--; renderStep(); } };
+
+// ══════════════════════════════════════════
+// 認識イベント・計測
+// ══════════════════════════════════════════
+let count = 0, lostAt = null;
+const dot = document.getElementById('dot');
+const stxt = document.getElementById('stxt');
+const hint = document.getElementById('hint');
+
+marker.addEventListener('markerFound', () => {
+  count++;
+  document.getElementById('m-count').textContent = count;
+  if (lostAt != null) {
+    const ms = Math.round(performance.now() - lostAt);
+    document.getElementById('m-reacq').textContent = ms + ' ms';
+  }
+  dot.classList.add('on'); stxt.textContent = '認識中';
+  hint.style.opacity = '0';
+});
+marker.addEventListener('markerLost', () => {
+  lostAt = performance.now();
+  dot.classList.remove('on'); stxt.textContent = 'マーカー未認識';
+  hint.style.opacity = '1';
+});
+document.getElementById('btn-reset').onclick = () => {
+  count = 0; lostAt = null;
+  document.getElementById('m-count').textContent = '0';
+  document.getElementById('m-reacq').textContent = '–';
+};
+
+// AR.js/カメラ起動失敗のフォールバック表示
+scene.addEventListener('arjs-video-loaded', () => { /* 起動OK */ });
+window.addEventListener('error', (e) => {
+  if (/getUserMedia|camera|permission/i.test(e.message || '')) showErr('カメラを起動できませんでした。\nカメラ権限とHTTPS接続を確認してください。');
+});
+function showErr(msg) { const el = document.getElementById('err'); el.textContent = msg; el.style.display = 'flex'; }
+
+renderStep();
+</script>
+</body>
+</html>
