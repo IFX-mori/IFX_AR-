@@ -46,8 +46,9 @@
   #hint {
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
     background:rgba(0,0,0,0.55); color:#fff; padding:16px 22px; border-radius:16px;
-    text-align:center; font-size:14px; font-weight:600; line-height:1.6; transition:opacity .3s; max-width:80%;
+    text-align:center; font-size:14px; font-weight:600; line-height:1.6; max-width:80%;
   }
+  #hint.hidden { display:none; }
   #hint small { display:block; margin-top:6px; font-size:11px; font-weight:500; color:#cbd5e1; }
 
   #metrics {
@@ -84,7 +85,8 @@
   arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; debugUIEnabled: false;">
   <!-- マーカーと追従コンテンツは静的に配置（動的生成だとAR.js初期化で子が外れるため）。
        マーカー種別・校正値は起動時にJSで属性を上書きする。 -->
-  <a-marker id="marker" preset="hiro">
+  <a-marker id="marker" preset="hiro"
+    smooth="true" smoothCount="8" smoothTolerance="0.01" smoothThreshold="4">
     <a-entity id="wrapper" position="0 0.01 0">
       <a-entity id="content" rotation="-90 0 0"></a-entity>
     </a-entity>
@@ -95,7 +97,7 @@
 <div id="ui">
   <div id="topbar">
     <div id="title">発電機 ｜ ARマーカー準本番PoC<small id="markerinfo"></small></div>
-    <div id="ver">PoC v0.2</div>
+    <div id="ver">PoC v0.3</div>
   </div>
 
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
@@ -343,17 +345,35 @@ document.getElementById('btn-prev').onclick = () => { if (idx>0){ idx--; renderS
 // ══════════════════════════════════════════
 // 認識イベント・計測
 // ══════════════════════════════════════════
-let count=0, lostAt=null;
+// 検出は毎フレーム揺らぐため、短時間のロストは無視して表示を維持する（デバウンス）。
+// GRACE_MS 以内に再認識すれば「認識中」を保ち、ヒントの点滅を防ぐ。
+const GRACE_MS = 600;
+let count=0, lastLostAt=null, visible=false, lostTimer=null;
 const dot=document.getElementById('dot'), stxt=document.getElementById('stxt'), hint=document.getElementById('hint');
+
+function toFound(){
+  if (visible) return;                 // すでに認識中なら何もしない（連続Found）
+  visible = true;
+  count++; document.getElementById('m-count').textContent = count;
+  if (lastLostAt != null) document.getElementById('m-reacq').textContent = Math.round(performance.now()-lastLostAt)+' ms';
+  dot.classList.add('on'); stxt.textContent='認識中'; hint.classList.add('hidden');
+}
+function toLost(){
+  visible = false; lastLostAt = performance.now();
+  dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.classList.remove('hidden');
+}
 marker.addEventListener('markerFound', () => {
-  count++; document.getElementById('m-count').textContent=count;
-  if (lostAt!=null) document.getElementById('m-reacq').textContent = Math.round(performance.now()-lostAt)+' ms';
-  dot.classList.add('on'); stxt.textContent='認識中'; hint.style.opacity='0';
+  if (lostTimer){ clearTimeout(lostTimer); lostTimer=null; }  // 猶予中の復帰＝ロスト扱いにしない
+  toFound();
 });
 marker.addEventListener('markerLost', () => {
-  lostAt=performance.now(); dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.style.opacity='1';
+  if (lostTimer) clearTimeout(lostTimer);
+  lostTimer = setTimeout(() => { lostTimer=null; toLost(); }, GRACE_MS); // 一定時間見失い続けた時だけロスト確定
 });
-document.getElementById('btn-reset').onclick = () => { count=0; lostAt=null; document.getElementById('m-count').textContent='0'; document.getElementById('m-reacq').textContent='–'; };
+document.getElementById('btn-reset').onclick = () => {
+  count=0; lastLostAt=null;
+  document.getElementById('m-count').textContent='0'; document.getElementById('m-reacq').textContent='–';
+};
 
 renderStep();
 </script>
