@@ -82,7 +82,7 @@
   embedded
   vr-mode-ui="enabled: false"
   renderer="logarithmicDepthBuffer: true; precision: medium;"
-  arjs="sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; maxDetectionRate: 60; debugUIEnabled: false;">
+  arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; debugUIEnabled: false;">
   <!-- マーカーと追従コンテンツは静的に配置（動的生成だとAR.js初期化で子が外れるため）。
        マーカー種別・校正値は起動時にJSで属性を上書きする。 -->
   <a-marker id="marker" preset="hiro"
@@ -97,12 +97,13 @@
 <div id="ui">
   <div id="topbar">
     <div id="title">発電機 ｜ ARマーカー準本番PoC<small id="markerinfo"></small></div>
-    <div id="ver">PoC v0.6</div>
+    <div id="ver">PoC v0.7</div>
   </div>
 
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
 
   <div id="metrics">
+    カメラ: <b id="m-cam">起動待ち…</b><br>
     認識回数: <b id="m-count">0</b><br>
     再認識時間: <b id="m-reacq">–</b><br>
     <button id="btn-reset">計測リセット</button>
@@ -389,6 +390,16 @@ document.getElementById('btn-reset').onclick = () => {
   count=0; lastLostAt=null;
   document.getElementById('m-count').textContent='0'; document.getElementById('m-reacq').textContent='–';
 };
+
+// カメラ状態の診断表示（映像が起動しているか・解像度）
+const mcam = document.getElementById('m-cam');
+setInterval(() => {
+  const v = document.querySelector('video');
+  if (!v) { mcam.textContent = '映像なし'; mcam.style.color = '#dc2626'; return; }
+  if (v.videoWidth) { mcam.textContent = `${v.videoWidth}x${v.videoHeight}`; mcam.style.color = '#15803d'; }
+  else { mcam.textContent = '起動中…'; mcam.style.color = '#d97706'; }
+}, 800);
+window.addEventListener('arjs-video-loaded', () => { mcam.textContent = '映像OK'; });
 
 renderStep();
 </script>
