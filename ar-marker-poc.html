@@ -82,7 +82,7 @@
   embedded
   vr-mode-ui="enabled: false"
   renderer="logarithmicDepthBuffer: true; precision: medium;"
-  arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; debugUIEnabled: false;">
+  arjs="sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; maxDetectionRate: 60; debugUIEnabled: false;">
   <!-- マーカーと追従コンテンツは静的に配置（動的生成だとAR.js初期化で子が外れるため）。
        マーカー種別・校正値は起動時にJSで属性を上書きする。 -->
   <a-marker id="marker" preset="hiro"
@@ -97,7 +97,7 @@
 <div id="ui">
   <div id="topbar">
     <div id="title">発電機 ｜ ARマーカー準本番PoC<small id="markerinfo"></small></div>
-    <div id="ver">PoC v0.3</div>
+    <div id="ver">PoC v0.6</div>
   </div>
 
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
@@ -126,28 +126,31 @@
 
 <script>
 // ══════════════════════════════════════════
-// 発電機シナリオ（ar-auto-manual.html の ar 定義をそのまま転記）
-// pos は元の画像ターゲット座標系（x:右, y:上）。マーカー面に載せ替える。
+// 発電機シナリオ ／ 座標=Gマーカー中心を原点とした実寸（1単位=50mm, x:右+ y:上+）
+// 位置は現物写真からの実測「見積り」。実機で ?ox= ?oy= ?scale= で微調整する前提。
+//   右下Gマーカーから見た各操作部の相対位置：
+//   つまみ左(-4.42,7.10) 右(-2.95,7.10) / 上部LED 青(-1.63,7.26)黄(-0.84,7.32)赤(0,7.26)
+//   白ボタン(-3.05,4.16) 青ボタン(-1.63,4.16) / 下部レバー 左(-3.89,1.47)中(-2.32,1.47)右(-0.74,1.47)
 // ══════════════════════════════════════════
 const STEPS = [
   { title:'ランプ点灯色の確認', warn:'caution',
     detail:'盤面右上のランプを確認してください。\n点灯している色のボタンを押してください。',
-    ar:[ { type:'box', pos:[0.36,0.46,0], color:'#ef4444', sizeW:0.30, sizeH:0.14, label:'ランプ点灯色を確認', labelBelow:true, textColor:'#fff', textBg:'#ef4444' } ] },
+    ar:[ { type:'box', pos:[-0.84,7.30,0], color:'#ef4444', sizeW:2.4, sizeH:1.1, label:'ランプ点灯色を確認', labelBelow:true, textColor:'#fff', textBg:'#ef4444' } ] },
   { title:'つまみを左右に回す', warn:'normal',
     detail:'左側のつまみを左へ30、右側のつまみを右へ70回してください。',
-    ar:[ {type:'curvedArrow', pos:[-0.395,0.525,0], color:'#60a5fa', dir:'left',  label:'左へ回す\n30', scale:2.4},
-         {type:'curvedArrow', pos:[-0.115,0.525,0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', scale:2.4} ] },
+    ar:[ {type:'curvedArrow', pos:[-4.42,7.10,0], color:'#60a5fa', dir:'left',  label:'左へ回す\n30', size:1.0},
+         {type:'curvedArrow', pos:[-2.95,7.10,0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', size:1.0} ] },
   { title:'ボタンを1回ずつ押す', warn:'normal',
     detail:'中央左・中央のボタンをそれぞれ1回押してください。',
-    ar:[ {type:'arrow', pos:[-0.125,-0.05,0], color:'#60a5fa', label:'1回押す'},
-         {type:'arrow', pos:[ 0.125,-0.05,0], color:'#60a5fa', label:'1回押す'} ] },
+    ar:[ {type:'ring', pos:[-3.05,4.16,0], color:'#60a5fa', size:0.85, label:'1回押す'},
+         {type:'ring', pos:[-1.63,4.16,0], color:'#60a5fa', size:0.85, label:'1回押す'} ] },
   { title:'レバーを操作する', warn:'caution',
     detail:'左下レバーを上に、右下レバーを下に押してください。',
-    ar:[ {type:'arrow',     pos:[-0.24,-0.44,0], color:'#60a5fa', label:'上に押す', labelAbove:true},
-         {type:'arrowDown', pos:[ 0.30,-0.42,0], color:'#60a5fa', label:'下に押す'} ] },
+    ar:[ {type:'arrow',     pos:[-3.89,1.47,0], color:'#60a5fa', h:0.9, label:'上に押す', labelAbove:true},
+         {type:'arrowDown', pos:[-0.74,1.47,0], color:'#60a5fa', h:0.9, label:'下に押す'} ] },
   { title:'青ランプの点灯確認', warn:'normal',
     detail:'中央のランプが青色に点灯したことを確認して作業完了です。',
-    ar:[ {type:'box', pos:[0.085,0.46,0], color:'#3b82f6', size:0.10, label:'青の点灯を確認', labelBelow:true, textColor:'#3b82f6', textBg:'#facc15'} ] },
+    ar:[ {type:'box', pos:[-1.63,7.26,0], color:'#3b82f6', size:0.8, label:'青の点灯を確認', labelBelow:true, textColor:'#3b82f6', textBg:'#facc15'} ] },
 ];
 const WARN = { normal:{c:'#1d4ed8',label:'通常'}, caution:{c:'#d97706',label:'注意'}, danger:{c:'#dc2626',label:'危険'} };
 
@@ -155,13 +158,18 @@ const WARN = { normal:{c:'#1d4ed8',label:'通常'}, caution:{c:'#d97706',label:'
 // パラメータ（マーカー種別・校正）
 // ══════════════════════════════════════════
 const params = new URLSearchParams(location.search);
-const markerMode  = params.get('marker') === 'barcode' ? 'barcode' : 'hiro';
+// marker= pattern（既定=Gマーカー）/ hiro / barcode
+const markerMode  = ['barcode','hiro'].includes(params.get('marker')) ? params.get('marker') : 'pattern';
 const barcodeValue = params.get('value') || '0';
-const S   = parseFloat(params.get('scale') || '3');   // 指示オブジェクト全体の倍率（校正用）
+const pattUrl = params.get('patt') || 'markers/G.patt'; // pattern時に読み込む学習ファイル
+// 座標系：1単位 = マーカー1辺 = 50mm。原点=Gマーカー中心。x:右+ / y:上+
+const S   = parseFloat(params.get('scale') || '1');   // 全体倍率（実寸=1。校正で微調整可）
 const ROT = parseFloat(params.get('rot')   || '0');   // マーカー上での向き（校正用, face=marker時）
-// 表示向き： camera=常にカメラを向く（既定・置き方に依存せず読める）
-//           marker=マーカー面と同一平面（縦パネルに貼る本番向け）
-const faceMode = params.get('face') === 'marker' ? 'marker' : 'camera';
+const offX = parseFloat(params.get('ox') || '0');     // 全体オフセットX（単位, 校正用）
+const offY = parseFloat(params.get('oy') || '0');     // 全体オフセットY（単位, 校正用）
+// 表示向き： marker=マーカー面と同一平面（既定・実パネル貼付向け）
+//           camera=常にカメラを向く（机上テストで傾いて見える時に）
+const faceMode = params.get('face') === 'camera' ? 'camera' : 'marker';
 
 // ビルボード：エンティティを毎フレーム カメラ正面へ向ける
 AFRAME.registerComponent('billboard', {
@@ -181,11 +189,15 @@ const marker  = document.getElementById('marker');
 const wrapper = document.getElementById('wrapper');
 const content = document.getElementById('content');
 
-// マーカー種別（既定Hiro→バーコードへ切替）
+// マーカー種別（既定Hiro→バーコード / カスタムパターンへ切替）
 if (markerMode === 'barcode') {
   marker.removeAttribute('preset');
   marker.setAttribute('type', 'barcode');
   marker.setAttribute('value', barcodeValue);
+} else if (markerMode === 'pattern') {
+  marker.removeAttribute('preset');
+  marker.setAttribute('type', 'pattern');
+  marker.setAttribute('url', pattUrl);
 }
 // 倍率
 wrapper.setAttribute('scale', `${S} ${S} ${S}`);
@@ -201,10 +213,13 @@ if (faceMode === 'marker') {
   content.setAttribute('billboard', '');
 }
 
-document.getElementById('markerinfo').textContent =
-  markerMode === 'barcode' ? `バーコード(matrix 3x3) value=${barcodeValue} ／ scale=${S} rot=${ROT}` : `Hiroマーカー ／ scale=${S} rot=${ROT}`;
+const markerLabel =
+  markerMode === 'barcode' ? `バーコード(matrix 3x3) value=${barcodeValue}` :
+  markerMode === 'pattern' ? `カスタムパターン(${pattUrl})` : 'Hiroマーカー';
+document.getElementById('markerinfo').textContent = `${markerLabel} ／ scale=${S} rot=${ROT}`;
 document.getElementById('hint-sub').textContent =
-  markerMode === 'barcode' ? 'バーコードマーカー(3x3,value='+barcodeValue+')を印刷' : 'Hiroマーカーを印刷して使用';
+  markerMode === 'barcode' ? 'バーコードマーカー(3x3,value='+barcodeValue+')を印刷' :
+  markerMode === 'pattern' ? '生成したパターンマーカーを印刷' : 'Hiroマーカーを印刷して使用';
 
 // ══════════════════════════════════════════
 // 指示オブジェクト → canvasテクスチャの a-plane に変換
@@ -242,8 +257,8 @@ function drawLabel(ctx, cx, cy, text, fontPx, bg, fg) {
   return { w, h };
 }
 // 各アイコン描画（中心 cx,cy）
-function iconArrow(ctx, cx, cy, w, h, color, down){
-  ctx.save(); ctx.translate(cx,cy); if(!down) ctx.scale(1,1);
+function iconArrow(ctx, cx, cy, w, h, color, dir){
+  ctx.save(); ctx.translate(cx,cy); if(dir==='up') ctx.scale(1,-1); // 既定は下向き、upで反転
   ctx.fillStyle=color; ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=6; ctx.lineJoin='round';
   const shaftW=w*0.34;
   ctx.beginPath();
@@ -286,12 +301,12 @@ function makeItem(it){
   const labelW = lm ? lm.w + 52 : 0;
   const labelH = lm ? lm.h + 32 : 0;
 
-  // アイコン寸法(px)
+  // アイコン寸法(px)。サイズは単位(1=50mm)指定
   let iw=0, ih=0;
-  if (it.type==='box')       { iw=(it.sizeW||it.size||0.2)*PXREF; ih=(it.sizeH||it.size||0.2)*PXREF; }
-  else if (it.type==='ring') { iw=ih=0.13*PXREF; }
-  else if (it.type==='arrow'||it.type==='arrowDown') { iw=0.10*PXREF; ih=0.14*PXREF; }
-  else if (it.type==='curvedArrow') { iw=ih=0.07*(it.scale||1)*PXREF; }
+  if (it.type==='box')       { iw=(it.sizeW||it.size||0.5)*PXREF; ih=(it.sizeH||it.size||0.5)*PXREF; }
+  else if (it.type==='ring') { iw=ih=(it.size||0.6)*PXREF; }
+  else if (it.type==='arrow'||it.type==='arrowDown') { ih=(it.h||0.6)*PXREF; iw=ih*0.7; }
+  else if (it.type==='curvedArrow') { iw=ih=(it.size||0.7)*PXREF; }
   else if (it.type==='text') { iw=0; ih=0; }
 
   const gap = 22;
@@ -303,10 +318,10 @@ function makeItem(it){
   const CX = cw/2, CY = ch/2;
 
   // アイコン
-  if (it.type==='box')            iconBox(ctx, CX, CY, iw, ih, color, (it.lineThick||0.012)*PXREF);
+  if (it.type==='box')            iconBox(ctx, CX, CY, iw, ih, color, (it.lineThick||0.03)*PXREF);
   else if (it.type==='ring')      iconRing(ctx, CX, CY, iw/2, color);
-  else if (it.type==='arrow')     iconArrow(ctx, CX, CY, iw, ih, color, true);
-  else if (it.type==='arrowDown') iconArrow(ctx, CX, CY, iw, ih, color, true);
+  else if (it.type==='arrow')     iconArrow(ctx, CX, CY, iw, ih, color, 'up');
+  else if (it.type==='arrowDown') iconArrow(ctx, CX, CY, iw, ih, color, 'down');
   else if (it.type==='curvedArrow') iconCurved(ctx, CX, CY, iw/2, color, it.dir);
 
   // ラベル
@@ -317,7 +332,7 @@ function makeItem(it){
       drawLabel(ctx, CX, ly, it.label, labelFont, bg, fg);
     }
   }
-  return planeFromCanvas(cv, it.pos[0], it.pos[1], it.pos[2]);
+  return planeFromCanvas(cv, it.pos[0]+offX, it.pos[1]+offY, it.pos[2]);
 }
 
 // ══════════════════════════════════════════
@@ -347,7 +362,7 @@ document.getElementById('btn-prev').onclick = () => { if (idx>0){ idx--; renderS
 // ══════════════════════════════════════════
 // 検出は毎フレーム揺らぐため、短時間のロストは無視して表示を維持する（デバウンス）。
 // GRACE_MS 以内に再認識すれば「認識中」を保ち、ヒントの点滅を防ぐ。
-const GRACE_MS = 600;
+const GRACE_MS = parseInt(params.get('grace') || '1000', 10);  // 見失い猶予（?grace=1500 等で調整可）
 let count=0, lastLostAt=null, visible=false, lostTimer=null;
 const dot=document.getElementById('dot'), stxt=document.getElementById('stxt'), hint=document.getElementById('hint');
 
