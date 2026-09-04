@@ -223,10 +223,10 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
     </div>
 
     <div class="form-card">
-      <h3>② この写真から .mind を生成</h3>
-      <button class="secondary-btn" id="btn-gen-mind" onclick="generateMind()">🎯 .mind を生成</button>
+      <h3>② .mind 生成（①の後に自動）</h3>
+      <button class="secondary-btn" id="btn-gen-mind" onclick="generateMind()">🎯 .mind を再生成（手動）</button>
       <div style="height:6px;background:#e2e8f0;border-radius:3px;margin-top:10px;display:none;" id="mind-bar-wrap"><div id="mind-bar" style="height:6px;border-radius:3px;background:#1d4ed8;width:0%;transition:width .2s;"></div></div>
-      <div id="mind-status" style="font-size:12px;color:#64748b;margin-top:8px;"></div>
+      <div id="mind-status" style="font-size:12px;color:#64748b;margin-top:8px;">①で写真を撮影/選択すると、自動で .mind を生成します。</div>
     </div>
 
     <div class="form-card">
@@ -323,6 +323,10 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
       </select>
       <button id="btn-del-step" onclick="deleteCurrentStep()">削除</button>
     </div>
+    <div id="step-detail-row" style="display:flex; gap:6px; align-items:flex-start; margin-top:6px;">
+      <textarea id="step-detail-input" placeholder="操作の説明（1〜2文）" rows="2" oninput="saveStepMeta()" style="flex:1; font-family:inherit; font-size:13px; border:1.5px solid #e2e8f0; border-radius:8px; padding:7px 9px; resize:vertical; color:#1e293b; outline:none; box-sizing:border-box;"></textarea>
+      <button id="btn-mic-detail" onclick="toggleDetailMic()" title="音声で説明を入力" style="flex-shrink:0; border:1.5px solid #e2e8f0; background:#fff; border-radius:8px; padding:9px 11px; font-size:15px; cursor:pointer; line-height:1;">🎙</button>
+    </div>
     <div id="panel-content"></div>
   </div>
 </div>
@@ -351,7 +355,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.5'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v1.7'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -406,6 +410,7 @@ function startEditor() {
   if (editMode === 'photo') launchPhoto();
   else                      launchAR();
   renderTabs();
+  syncStepInputs();
   renderContent();
 }
 
@@ -508,6 +513,7 @@ function renderPhotoOverlays() {
 function stopEditor() {
   stopAR();
   closeRefVideo();
+  stopDetailMic();
   document.getElementById('screen-editor').classList.remove('active');
   document.getElementById('screen-setup').style.display = '';
 }
@@ -826,24 +832,33 @@ function addFigure(x,y,type) {
 function addStep() {
   ED.steps.push(mkStep(`ステップ ${ED.steps.length+1}`));
   stepIdx=ED.steps.length-1; figIdx=-1;
-  renderTabs(); renderContent(); rebuildAR();
+  renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
 }
 function selectStep(i) {
   stepIdx=i; figIdx=-1;
-  renderTabs(); renderContent(); rebuildAR();
+  renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
 }
 function deleteCurrentStep() {
   if (ED.steps.length<=1){alert('最低1ステップ必要です');return;}
   if (!confirm(`「${curStep().title}」を削除しますか？`)) return;
   ED.steps.splice(stepIdx,1);
   stepIdx=Math.min(stepIdx,ED.steps.length-1); figIdx=-1;
-  renderTabs(); renderContent(); rebuildAR();
+  renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
 }
 function saveStepMeta() {
   const s=curStep(); if (!s) return;
-  s.title=document.getElementById('step-title-input').value;
-  s.warn =document.getElementById('step-warn-sel').value;
-  renderTabs();
+  s.title =document.getElementById('step-title-input').value;
+  s.detail=document.getElementById('step-detail-input').value;
+  s.warn  =document.getElementById('step-warn-sel').value;
+  renderTabs(); // タブのラベルのみ更新（入力欄は再設定しない＝カーソル維持）
+}
+// ステップ切替時に入力欄へ反映（口述中なら停止）
+function syncStepInputs() {
+  stopDetailMic();
+  const s = curStep(); if (!s) return;
+  document.getElementById('step-title-input').value  = s.title  || '';
+  document.getElementById('step-detail-input').value = s.detail || '';
+  document.getElementById('step-warn-sel').value     = s.warn   || 'normal';
 }
 
 function renderTabs() {
@@ -859,12 +874,6 @@ function renderTabs() {
   const add=document.createElement('button');
   add.id='btn-add-step'; add.textContent='+'; add.onclick=addStep;
   row.appendChild(add);
-
-  const s=curStep();
-  if (s){
-    document.getElementById('step-title-input').value=s.title;
-    document.getElementById('step-warn-sel').value=s.warn;
-  }
 }
 
 // ══════════════════════════════════════════
@@ -1066,6 +1075,7 @@ function onPhotoSelected(e) {
     _photoDataURL = ev.target.result;
     const prev = document.getElementById('photo-preview');
     prev.src = _photoDataURL; prev.style.display = 'block';
+    generateMind(); // ★撮影/選択後に自動で .mind を生成
   };
   reader.readAsDataURL(file);
   const id = scenarioId();
@@ -1076,7 +1086,7 @@ function onPhotoSelected(e) {
   if (_mindBlobURL) { URL.revokeObjectURL(_mindBlobURL); _mindBlobURL = null; }
   const st = document.getElementById('mind-status');
   st.style.color = '#64748b';
-  st.textContent = '写真を選択しました。② で .mind を生成してください。';
+  st.textContent = '写真を読み込み中…（読み込み後、自動で .mind を生成します）';
 }
 
 function loadImageEl(dataURL) {
@@ -1245,6 +1255,47 @@ function loadScenarioIntoEditor(data) {
   document.getElementById('cfg-pdf').value   = ED.docs.pdf   || '';
   document.getElementById('cfg-video').value = ED.docs.video || '';
   alert(`「${ED.name}」を読み込みました（${ED.steps.length}ステップ）。\n「編集を開始」で追加編集できます。\n「書出→アップロード」で同じID(${data.id})に上書き保存されます。`);
+}
+
+// ══════════════════════════════════════════
+// ステップ説明のマイク口述（GitHub Pagesではマイク利用可）
+// ══════════════════════════════════════════
+let _detailMicOn = false, _detailRecog = null, _detailBase = '';
+function toggleDetailMic() {
+  const SRx = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SRx) { alert('このブラウザは音声認識に非対応です'); return; }
+  if (_detailMicOn) { stopDetailMic(); return; }
+  const ta = document.getElementById('step-detail-input');
+  _detailBase = ta.value;
+  _detailRecog = new SRx();
+  _detailRecog.lang = 'ja-JP'; _detailRecog.continuous = true; _detailRecog.interimResults = true;
+  _detailRecog.onresult = (ev) => {
+    let fin = '', intr = '';
+    for (let i = 0; i < ev.results.length; i++) {
+      const t = ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) fin += t; else intr += t;
+    }
+    const base = (_detailBase && !_detailBase.endsWith('\n')) ? (_detailBase + ' ') : _detailBase;
+    ta.value = (base + fin + intr).trimStart();
+    saveStepMeta();
+  };
+  _detailRecog.onerror = (e) => {
+    const m = e && e.error;
+    if (m === 'not-allowed' || m === 'service-not-allowed') alert('マイクの使用が許可されていません（設定で許可してください）');
+    stopDetailMic();
+  };
+  _detailRecog.onend = () => { if (_detailMicOn) { try { _detailRecog.start(); } catch(_) {} } };
+  try {
+    _detailRecog.start(); _detailMicOn = true;
+    const b = document.getElementById('btn-mic-detail');
+    b.textContent = '⏹'; b.style.borderColor = '#dc2626'; b.style.color = '#dc2626';
+  } catch (e) { alert('開始できませんでした: ' + e.message); }
+}
+function stopDetailMic() {
+  _detailMicOn = false;
+  try { _detailRecog && _detailRecog.stop(); } catch(_) {}
+  const b = document.getElementById('btn-mic-detail');
+  if (b) { b.textContent = '🎙'; b.style.borderColor = '#e2e8f0'; b.style.color = ''; }
 }
 
 // ══════════════════════════════════════════
