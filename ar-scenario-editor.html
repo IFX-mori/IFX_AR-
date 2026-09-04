@@ -388,7 +388,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.3'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v2.4'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -526,7 +526,7 @@ function figureSVG(p, i, sel) {
     s += `<polygon points="${hp.map(q=>q[0]+','+(-q[1]).toFixed(4)).join(' ')}" fill="${c}"/>`;
     if (p.label) s += svgLabel(p.label, x, y - pw*0.70, c, null, p.labelW);
   }
-  return `<g data-i="${i}" style="cursor:pointer;pointer-events:auto">${s}</g>`;
+  return `<g data-i="${i}" style="cursor:grab;pointer-events:auto;touch-action:none">${s}</g>`;
 }
 function renderPhotoOverlays() {
   const overlay = document.getElementById('photo-overlay');
@@ -539,8 +539,33 @@ function renderPhotoOverlays() {
   if (step) step.ar.forEach((p, i) => { body += figureSVG(p, i, i === figIdx); });
   overlay.innerHTML = `<svg viewBox="-0.5 ${(-halfH).toFixed(4)} 1 ${aspect.toFixed(4)}" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;">${body}</svg>`;
   overlay.querySelectorAll('[data-i]').forEach(el => {
-    el.addEventListener('click', ev => { ev.stopPropagation(); selectFig(+el.getAttribute('data-i')); });
+    el.addEventListener('pointerdown', ev => { ev.stopPropagation(); startFigDrag(ev, +el.getAttribute('data-i')); });
   });
+}
+
+// 写真モード：図形マーカーをドラッグして移動（タップだけなら選択のみ）
+function startFigDrag(ev, i) {
+  ev.preventDefault();
+  selectFig(i); // 選択＋プロパティ表示
+  const step = curStep(); if (!step || !step.ar[i]) return;
+  const z = (step.ar[i].pos && step.ar[i].pos[2]) || 0;
+  const onMove = (e) => {
+    const p = photoToAR(e.clientX, e.clientY);
+    if (!p) return;
+    const s = curStep(); if (!s || !s.ar[i]) return;
+    s.ar[i].pos = [p.x, p.y, z];
+    renderPhotoOverlays();
+    const posEl = document.getElementById('prop-pos');
+    if (posEl) posEl.textContent = `x:${p.x}  y:${p.y}`;
+  };
+  const onUp = () => {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+  };
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
 }
 
 function stopEditor() {
