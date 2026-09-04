@@ -36,6 +36,17 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; background:#f1f5f9
 
 /* AR コンテナ */
 #ar-container { position:absolute; inset:0; z-index:0; }
+/* 配置モード選択 */
+.mode-btn { flex:1; padding:11px; border-radius:9px; border:1.5px solid #e2e8f0; background:#fff; font-size:13px; font-weight:600; color:#475569; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.mode-btn.active { border-color:#1d4ed8; color:#1d4ed8; background:rgba(29,78,216,0.06); }
+/* 写真配置モードのステージ */
+#photo-stage { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#0b0f14; padding:8px; }
+#photo-frame { position:relative; line-height:0; }
+#photo-img { max-width:100%; max-height:100%; display:block; border-radius:4px; }
+#photo-overlay { position:absolute; inset:0; }
+.pmark { position:absolute; transform:translate(-50%,-50%); display:flex; align-items:center; gap:4px; padding:3px 7px; border-radius:8px; font-size:12px; font-weight:700; color:#fff; background:rgba(0,0,0,0.4); border:2px solid; cursor:pointer; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
+.pmark .pg { font-size:13px; line-height:1; }
+.pmark.sel { box-shadow:0 0 0 3px #fff, 0 0 10px 3px rgba(255,255,255,0.6); z-index:2; }
 
 /* トップバー */
 #top-bar {
@@ -225,6 +236,15 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
       <button class="secondary-btn" onclick="openImport()">📋 JSONをインポート</button>
     </div>
 
+    <div class="form-card">
+      <h3>配置モード</h3>
+      <div style="display:flex; gap:8px;" id="mode-row">
+        <button type="button" class="mode-btn active" data-mode="camera">📷 カメラ映像で配置</button>
+        <button type="button" class="mode-btn" data-mode="photo">🖼 登録写真で配置</button>
+      </div>
+      <p style="font-size:11px;color:#64748b;margin-top:8px">写真モードは対象物・.mind不要。登録済み画像（ターゲット画像）の上で図形を配置・調整できます。</p>
+    </div>
+
     <button class="primary-btn" onclick="startEditor()">✏️ 編集を開始</button>
   </div>
 </div>
@@ -320,7 +340,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.2'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v1.3'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -340,6 +360,7 @@ let _photoBlob    = null; // 撮影/選択した写真（Blob）
 let _photoDataURL = null; // 写真の DataURL（プレビュー・参照画像・アップロード用）
 let _mindBuffer   = null; // 生成した .mind（ArrayBuffer）
 let _mindBlobURL  = null; // .mind の Blob URL（編集中トラッキング用）
+let editMode = 'camera';  // 'camera'=カメラ映像で配置 / 'photo'=登録写真で配置
 
 const TYPE_LABEL = {
   arrow:'↑上矢印', arrowDown:'↓下矢印',
@@ -371,9 +392,71 @@ function startEditor() {
   document.getElementById('screen-editor').classList.add('active');
   document.getElementById('editor-title').textContent = ED.name;
 
-  launchAR();
+  if (editMode === 'photo') launchPhoto();
+  else                      launchAR();
   renderTabs();
   renderContent();
+}
+
+// 配置モード選択ボタン
+document.getElementById('mode-row').addEventListener('click', (e) => {
+  const b = e.target.closest('.mode-btn'); if (!b) return;
+  editMode = b.dataset.mode;
+  document.querySelectorAll('#mode-row .mode-btn').forEach(x => x.classList.toggle('active', x === b));
+});
+
+// ══════════════════════════════════════════
+// 写真配置モード（登録画像の上で配置）
+// ══════════════════════════════════════════
+function launchPhoto() {
+  stopAR();
+  const container = document.getElementById('ar-container');
+  container.innerHTML = '<div id="photo-stage"><div id="photo-frame"><img id="photo-img" alt="登録写真"><div id="photo-overlay"></div></div></div>';
+  detected = true; // 写真モードは常に配置可
+  const img = document.getElementById('photo-img');
+  const src = _photoDataURL || ED.imageFile;
+  img.onload  = () => rebuildAR();
+  img.onerror = () => { alert('登録写真を読み込めませんでした:\n' + src + '\n（GitHub Pages経由で開いているか、画像パスをご確認ください）'); };
+  img.src = src;
+  document.getElementById('detect-dot-e').style.background = '#22c55e';
+  document.getElementById('detect-text-e').textContent = '写真モード';
+  document.getElementById('scan-hint-e').style.opacity = '0';
+}
+
+// 写真ピクセル → AR座標（.mind正規化：幅=1, 原点中央, y上）
+function photoToAR(cx, cy) {
+  const img = document.getElementById('photo-img');
+  if (!img) return null;
+  const r = img.getBoundingClientRect();
+  const u = (cx - r.left) / r.width;
+  const v = (cy - r.top)  / r.height;
+  if (u < 0 || u > 1 || v < 0 || v > 1) return null;
+  const aspect = r.height / r.width; // = 画像高さ/幅
+  return { x: +(u - 0.5).toFixed(3), y: +((0.5 - v) * aspect).toFixed(3) };
+}
+
+// 写真上に図形マーカーを描画
+function renderPhotoOverlays() {
+  const overlay = document.getElementById('photo-overlay');
+  const img = document.getElementById('photo-img');
+  if (!overlay || !img) return;
+  overlay.innerHTML = '';
+  const aspect = (img.naturalHeight && img.naturalWidth) ? (img.naturalHeight / img.naturalWidth) : 1;
+  const step = curStep(); if (!step) return;
+  const GLYPH = { arrow:'↑', arrowDown:'↓', box:'▭', text:'T' };
+  step.ar.forEach((p, i) => {
+    const [x, y] = p.pos;
+    const m = document.createElement('div');
+    m.className = 'pmark' + (i === figIdx ? ' sel' : '');
+    m.style.left = ((x + 0.5) * 100) + '%';
+    m.style.top  = ((0.5 - y / aspect) * 100) + '%';
+    m.style.borderColor = p.color;
+    const g = (p.type === 'curvedArrow') ? (p.dir === 'left' ? '↺' : '↻') : (GLYPH[p.type] || '•');
+    const label = (p.label || '').split('\n')[0].replace(/</g, '&lt;');
+    m.innerHTML = '<span class="pg">' + g + '</span>' + (label ? '<span>' + label + '</span>' : '');
+    m.onclick = (ev) => { ev.stopPropagation(); selectFig(i); };
+    overlay.appendChild(m);
+  });
 }
 
 function stopEditor() {
@@ -502,6 +585,7 @@ function makeWireBox(x,y,z,w,h,color,T) {
 }
 
 function rebuildAR() {
+  if (editMode === 'photo') { renderPhotoOverlays(); return; }
   const root=document.getElementById('ar-root');
   if (!root) return;
   root.innerHTML='';
@@ -596,6 +680,7 @@ function rebuildAR() {
 // スクリーン → AR座標変換
 // ══════════════════════════════════════════
 function screenToAR(cx, cy) {
+  if (editMode === 'photo') return photoToAR(cx, cy);
   const sc=document.getElementById('a-scene');
   if (!sc||!sc.camera) return null;
   const tgt=document.getElementById('ar-target');
