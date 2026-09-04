@@ -340,7 +340,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.3'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v1.4'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -435,27 +435,62 @@ function photoToAR(cx, cy) {
   return { x: +(u - 0.5).toFixed(3), y: +((0.5 - v) * aspect).toFixed(3) };
 }
 
-// 写真上に図形マーカーを描画
+// 写真上に、再生アプリと同じ見た目でSVG描画（viewBox=AR座標系, y反転）
+function svgEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function svgLabel(label, cxAR, cyAR, color, bg, w) {
+  w = w || 0.22; const h = 0.11, rx = 0.014, yc = -cyAR;
+  const lines = String(label==null?'':label).split('\n').slice(0,3);
+  const n = lines.length || 1, fs = n>1 ? 0.030 : 0.044, lh = fs*1.18;
+  let texts = '';
+  lines.forEach((ln,k)=>{
+    const ty = yc - (n-1)*lh/2 + k*lh, safe = svgEsc(ln);
+    const tl = Math.min(w*0.9, safe.length*fs*0.95);
+    texts += `<text x="${cxAR}" y="${ty.toFixed(4)}" font-size="${fs}" fill="${color}" text-anchor="middle" dominant-baseline="central" font-weight="700" font-family="'Noto Sans JP','Hiragino Sans',sans-serif" textLength="${tl.toFixed(3)}" lengthAdjust="spacingAndGlyphs">${safe}</text>`;
+  });
+  return `<rect x="${(cxAR-w/2).toFixed(3)}" y="${(yc-h/2).toFixed(3)}" width="${w}" height="${h}" rx="${rx}" fill="${bg||'rgba(0,0,0,0.82)'}"/>${texts}`;
+}
+function figureSVG(p, i, sel) {
+  const [x,y] = p.pos, c = p.color || '#60a5fa';
+  let s = '';
+  if (sel) s += `<rect x="${(x-0.05).toFixed(3)}" y="${(-y-0.05).toFixed(3)}" width="0.10" height="0.10" rx="0.022" fill="#ffffff" opacity="0.30"/>`;
+  if (p.type === 'arrow') {
+    s += `<line x1="${x}" y1="${(-(y-0.05)).toFixed(3)}" x2="${x}" y2="${(-y).toFixed(3)}" stroke="${c}" stroke-width="0.016" stroke-linecap="round"/>`;
+    s += `<polygon points="${(x-0.02).toFixed(3)},${(-y).toFixed(3)} ${(x+0.02).toFixed(3)},${(-y).toFixed(3)} ${x},${(-(y+0.032)).toFixed(3)}" fill="${c}"/>`;
+    s += svgLabel(p.label, x, y-0.11, c, null, p.labelW);
+  } else if (p.type === 'arrowDown') {
+    s += `<line x1="${x}" y1="${(-(y+0.05)).toFixed(3)}" x2="${x}" y2="${(-y).toFixed(3)}" stroke="${c}" stroke-width="0.016" stroke-linecap="round"/>`;
+    s += `<polygon points="${(x-0.02).toFixed(3)},${(-y).toFixed(3)} ${(x+0.02).toFixed(3)},${(-y).toFixed(3)} ${x},${(-(y-0.032)).toFixed(3)}" fill="${c}"/>`;
+    s += svgLabel(p.label, x, y-0.11, c, null, p.labelW);
+  } else if (p.type === 'box') {
+    const W = p.sizeW||p.size||0.18, H = p.sizeH||p.size||0.12, lt = p.lineThick||0.006;
+    s += `<rect x="${(x-W/2).toFixed(3)}" y="${(-(y+H/2)).toFixed(3)}" width="${W}" height="${H}" fill="none" stroke="${c}" stroke-width="${lt}"/>`;
+    if (p.label) { const ly = p.labelBelow ? (y - H/2 - 0.065) : (y + H/2 + 0.065); s += svgLabel(p.label, x, ly, p.textColor||c, p.textBg||null); }
+  } else if (p.type === 'text') {
+    s += svgLabel(p.label||'テキスト', x, y, c, p.textBg||null, p.labelW);
+  } else if (p.type === 'curvedArrow') {
+    const pw = 0.09*(p.scale||1);
+    const cv2 = (px,py)=>[ +(x+(px/256-0.5)*pw).toFixed(4), +(y+(0.5-py/256)*pw).toFixed(4) ];
+    const R = (92/256)*pw, lw = (21/256)*pw;
+    const EL = cv2(36,158), ER = cv2(220,158);
+    s += `<path d="M ${EL[0]},${(-EL[1]).toFixed(4)} A ${R.toFixed(4)} ${R.toFixed(4)} 0 0 0 ${ER[0]},${(-ER[1]).toFixed(4)}" fill="none" stroke="${c}" stroke-width="${lw.toFixed(4)}" stroke-linecap="round"/>`;
+    const hp = (p.dir === 'left') ? [cv2(6,128), cv2(36,188), cv2(66,128)] : [cv2(190,128), cv2(220,188), cv2(250,128)];
+    s += `<polygon points="${hp.map(q=>q[0]+','+(-q[1]).toFixed(4)).join(' ')}" fill="${c}"/>`;
+    if (p.label) s += svgLabel(p.label, x, y - pw*0.70, c, null, p.labelW);
+  }
+  return `<g data-i="${i}" style="cursor:pointer;pointer-events:auto">${s}</g>`;
+}
 function renderPhotoOverlays() {
   const overlay = document.getElementById('photo-overlay');
   const img = document.getElementById('photo-img');
   if (!overlay || !img) return;
-  overlay.innerHTML = '';
   const aspect = (img.naturalHeight && img.naturalWidth) ? (img.naturalHeight / img.naturalWidth) : 1;
-  const step = curStep(); if (!step) return;
-  const GLYPH = { arrow:'↑', arrowDown:'↓', box:'▭', text:'T' };
-  step.ar.forEach((p, i) => {
-    const [x, y] = p.pos;
-    const m = document.createElement('div');
-    m.className = 'pmark' + (i === figIdx ? ' sel' : '');
-    m.style.left = ((x + 0.5) * 100) + '%';
-    m.style.top  = ((0.5 - y / aspect) * 100) + '%';
-    m.style.borderColor = p.color;
-    const g = (p.type === 'curvedArrow') ? (p.dir === 'left' ? '↺' : '↻') : (GLYPH[p.type] || '•');
-    const label = (p.label || '').split('\n')[0].replace(/</g, '&lt;');
-    m.innerHTML = '<span class="pg">' + g + '</span>' + (label ? '<span>' + label + '</span>' : '');
-    m.onclick = (ev) => { ev.stopPropagation(); selectFig(i); };
-    overlay.appendChild(m);
+  const halfH = aspect/2;
+  const step = curStep();
+  let body = '';
+  if (step) step.ar.forEach((p, i) => { body += figureSVG(p, i, i === figIdx); });
+  overlay.innerHTML = `<svg viewBox="-0.5 ${(-halfH).toFixed(4)} 1 ${aspect.toFixed(4)}" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;">${body}</svg>`;
+  overlay.querySelectorAll('[data-i]').forEach(el => {
+    el.addEventListener('click', ev => { ev.stopPropagation(); selectFig(+el.getAttribute('data-i')); });
   });
 }
 
