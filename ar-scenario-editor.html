@@ -383,7 +383,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.1'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v2.2'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -932,6 +932,69 @@ function renderList(area) {
   btn.innerHTML='＋ 図形を追加';
   btn.onclick=startPlace;
   area.appendChild(btn);
+  const auto=document.createElement('button');
+  auto.className='add-fig-btn';
+  auto.style.marginTop='6px';
+  auto.style.borderColor='#c4b5fd'; auto.style.background='#f5f3ff'; auto.style.color='#7c3aed';
+  auto.innerHTML='🎨 説明から図形を自動生成';
+  auto.onclick=autoGenFigures;
+  area.appendChild(auto);
+}
+
+// ── 説明文から図形（種類・向き・ラベル）を自動生成（AI不要・位置は中央→要調整） ──
+function autoFiguresFromText(step) {
+  const src = ((step.title || '') + '。' + (step.detail || ''));
+  const CA = '#60a5fa', TX = '#f87171', BX = '#ef4444';
+  const figs = [];
+  // 回転（「回」があれば、左/右＋数値をすべて回転量として抽出。複数対応）
+  if (/回/.test(src)) {
+    const rotRe = /(左|右)\s*(?:へ|に|回りに)?\s*([0-9０-９]+)/g;
+    let r;
+    while ((r = rotRe.exec(src)) !== null) {
+      figs.push({ type:'curvedArrow', dir: r[1]==='左'?'left':'right', scale:2.4, color:CA, label:(r[1]+'へ回す')+'\n'+toHalfDigits(r[2]) });
+    }
+  }
+  // レバー・上下
+  if (/(上げ|上に|上へ|引き上げ)/.test(src)) figs.push({ type:'arrow', color:CA, label:'上に' });
+  if (/(下げ|下に|下へ|押し下げ)/.test(src)) figs.push({ type:'arrowDown', color:CA, label:'下に' });
+  // 押す
+  if (/押/.test(src)) {
+    const n = src.match(/([0-9０-９]+)\s*回/);
+    figs.push({ type:'arrow', color:CA, label: n ? (toHalfDigits(n[1])+'回押す') : '押す' });
+  }
+  // 対象物の確認・点灯・ランプ
+  if (/(ランプ|LED|点灯|確認|表示器|メーター|計器|色)/.test(src)) {
+    const t = (src.match(/(ランプ|LED|表示器|メーター|計器|ボタン|スイッチ)/) || [])[0];
+    figs.push({ type:'box', color:BX, size:0.12, label: (t ? t+'を確認' : '確認') });
+  }
+  // 注意・危険
+  if (/(注意|危険|警告|気をつけ|注意し)/.test(src)) {
+    figs.push({ type:'text', color:TX, label:'⚠ 注意' });
+    step.warn = /危険/.test(src) ? 'danger' : 'caution';
+  }
+  // 何も該当しなければタイトルをテキストで
+  if (!figs.length) {
+    const t = (step.title || '操作').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/, '').slice(0, 12) || '操作';
+    figs.push({ type:'text', color:CA, label:t });
+  }
+  // 既定位置：中央付近に縦スプレッド（後でドラッグ/微調整）
+  const n = figs.length;
+  return figs.map((f, i) => ({ ...f, pos: [0, +(((n-1)/2 - i) * 0.14).toFixed(3), 0] }));
+}
+function autoGenFigures() {
+  const step = curStep(); if (!step) return;
+  const figs = autoFiguresFromText(step);
+  step.ar = step.ar.concat(figs);
+  figIdx = -1;
+  renderTabs(); renderContent(); rebuildAR();
+}
+function autoGenFiguresAll() {
+  if (!ED.steps || !ED.steps.length) return;
+  if (!confirm('全ステップに、説明文から図形を自動生成して追加します。よろしいですか？\n（位置は中央に置かれるので、各ステップで調整してください）')) return;
+  ED.steps.forEach(s => { s.ar = (s.ar || []).concat(autoFiguresFromText(s)); });
+  figIdx = -1;
+  renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
+  alert('全ステップに図形を追加しました。各ステップで位置を調整してください。');
 }
 
 function renderProps(area) {
@@ -1449,7 +1512,10 @@ function stepsFromTranscript() {
   else         ED.steps = ED.steps.concat(steps);
   stepIdx = 0; figIdx = -1;
   renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
-  alert(`${steps.length}ステップを作成しました。各ステップの内容を確認・調整してください。`);
+  if (confirm(`${steps.length}ステップを作成しました。\n\n各ステップの説明から図形も自動生成しますか？\n（種類・向き・ラベルを提案。位置は後で調整）`)) {
+    ED.steps.forEach(s => { s.ar = (s.ar || []).concat(autoFiguresFromText(s)); });
+    renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
+  }
 }
 (function initRefDrag(){
   const panel = document.getElementById('ref-video-panel');
