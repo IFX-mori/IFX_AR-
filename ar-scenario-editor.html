@@ -289,6 +289,13 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
       <button onclick="closeRefVideo()" style="width:22px;height:22px;border:none;border-radius:50%;background:rgba(255,255,255,0.9);color:#1e293b;font-weight:700;cursor:pointer;font-size:12px;">✕</button>
     </div>
     <video id="ref-video" controls playsinline style="width:100%; display:block; background:#000; max-height:200px;"></video>
+    <div style="display:flex; align-items:center; gap:6px; padding:5px 8px; background:#111827;">
+      <span style="color:#9aa8b6; font-size:10px; flex-shrink:0;">精度</span>
+      <select id="ref-model" style="flex:1; font-size:11px; background:#0b0f14; color:#e5e7eb; border:1px solid #293643; border-radius:6px; padding:3px;">
+        <option value="Xenova/whisper-small" selected>高精度（small・初回DL大）</option>
+        <option value="Xenova/whisper-base">標準（base・速い）</option>
+      </select>
+    </div>
     <div id="ref-trans-wrap" style="display:none;">
       <div id="ref-trans" style="max-height:110px; overflow:auto; padding:8px 9px; font-size:12px; line-height:1.6; color:#e5e7eb; background:#0b0f14; white-space:pre-wrap; border-top:1px solid #1e293b;"></div>
       <button id="ref-trans-insert" onclick="insertTranscriptToDetail()" style="display:none; width:100%; border:none; background:#15803d; color:#fff; font-size:12px; font-weight:700; padding:8px; cursor:pointer;">↧ この文字起こしを説明欄に追記</button>
@@ -375,7 +382,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.9'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v2.0'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -1340,31 +1347,45 @@ function closeRefVideo() {
 }
 
 // ── 動画音声の文字起こし（ブラウザ内Whisper / transformers.js・無料） ──
-let _whisper = null;
+let _whisper = null, _whisperModel = null;
 async function transcribeRefVideo() {
   const v = document.getElementById('ref-video');
   if (!v || !v.src) { alert('先に参考動画（🎥）を読み込んでください'); return; }
   const wrap = document.getElementById('ref-trans-wrap');
   const out = document.getElementById('ref-trans');
   const insBtn = document.getElementById('ref-trans-insert');
+  const model = document.getElementById('ref-model').value;
   wrap.style.display = 'block'; insBtn.style.display = 'none';
-  out.textContent = '準備中…（初回はモデルを読み込むため数十MBのDLがあります）';
+  out.textContent = '準備中…（初回はモデルを読み込むため時間がかかります）';
   try {
-    if (!_whisper) {
+    if (!_whisper || _whisperModel !== model) {
       const T = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
       T.env.allowLocalModels = false;
-      out.textContent = 'モデルを読み込み中…';
-      _whisper = await T.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', {
+      out.textContent = 'モデルを読み込み中…（' + model.split('/')[1] + '）';
+      _whisper = await T.pipeline('automatic-speech-recognition', model, {
         progress_callback: (p) => {
           if (p && p.status === 'progress' && p.file) out.textContent = `モデルDL中… ${p.file} ${Math.round(p.progress || 0)}%`;
         }
       });
+      _whisperModel = model;
     }
     out.textContent = '音声を抽出中…';
     const audio = await extractAudio16k(v.src);
     out.textContent = '文字起こし中…（動画の長さに応じて時間がかかります）';
-    const res = await _whisper(audio, { language: 'japanese', task: 'transcribe', chunk_length_s: 30, stride_length_s: 5 });
-    const text = (res && res.text ? res.text.trim() : '');
+    // return_timestamps:true … 30秒を超える動画でも全区間を欠落なく処理するために必須
+    const res = await _whisper(audio, {
+      language: 'japanese', task: 'transcribe',
+      chunk_length_s: 30, stride_length_s: 5,
+      return_timestamps: true,
+      temperature: 0,
+      no_repeat_ngram_size: 3,
+    });
+    let text = '';
+    if (res && Array.isArray(res.chunks) && res.chunks.length) {
+      text = res.chunks.map(c => (c.text || '').trim()).filter(Boolean).join('\n');
+    } else if (res && res.text) {
+      text = res.text.trim();
+    }
     out.textContent = text || '（音声を認識できませんでした）';
     if (text) insBtn.style.display = 'block';
   } catch (e) {
