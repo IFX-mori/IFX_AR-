@@ -191,28 +191,34 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
   <div class="setup-header">
     <div class="setup-icon">✏️</div>
     <div class="setup-title">ARシナリオエディタ</div>
-    <div class="setup-sub">タップで図形を配置・編集してJSONを書き出し &nbsp;<b id="setup-ver" style="color:#1d4ed8;"></b></div>
+    <div class="setup-sub">撮影→手順→配置→アップロードまで、この画面で作成 &nbsp;<b id="setup-ver" style="color:#1d4ed8;"></b></div>
   </div>
   <div class="setup-body">
 
+    <!-- 既存シナリオを編集（別ルート） -->
     <div class="form-card">
-      <h3>シナリオ設定</h3>
-      <div class="field"><label>シナリオ名</label>
-        <input id="cfg-name" type="text" value="新規シナリオ"></div>
-      <div class="field"><label>ファイルID（半角英数字。日本語名の場合は必須）</label>
-        <input id="cfg-id" type="text" placeholder="例: calendar2"></div>
-      <div class="field"><label>認識ファイル (.mind)</label>
-        <input id="cfg-mind" type="text" value="targets/crossing.mind"></div>
-      <div class="field"><label>ターゲット画像</label>
-        <input id="cfg-image" type="text" value="targets/crossing.jpg"></div>
-      <div class="field"><label>PDF ドキュメント（省略可）</label>
-        <input id="cfg-pdf" type="text" placeholder="docs/xxx.pdf"></div>
-      <div class="field"><label>動画ファイル（省略可）</label>
-        <input id="cfg-video" type="text" placeholder="docs/xxx.mp4"></div>
+      <h3>既存シナリオを編集</h3>
+      <p style="font-size:12px;color:#64748b;margin-bottom:10px">GitHub上のシナリオを読み込んで追加編集し、同じIDで上書き保存できます。</p>
+      <div style="display:flex;gap:8px;">
+        <button class="secondary-btn" style="flex:1" onclick="openRemotePicker()">☁️ GitHubから読込</button>
+        <button class="secondary-btn" style="flex:1" onclick="openImport()">📋 JSONを貼付</button>
+      </div>
     </div>
 
+    <div style="text-align:center;font-size:12px;color:#94a3b8;margin:2px 0 4px;font-weight:700;">— または 新規に作成 —</div>
+
+    <!-- ① シナリオ名 -->
     <div class="form-card">
-      <h3>① 写真を撮影 / 選択</h3>
+      <h3>① シナリオ名</h3>
+      <div class="field"><label>シナリオ名（日本語可）</label>
+        <input id="cfg-name" type="text" value="新規シナリオ"></div>
+      <div class="field"><label>ファイルID（半角英数字。日本語名の場合は必須）</label>
+        <input id="cfg-id" type="text" placeholder="例: reset1"></div>
+    </div>
+
+    <!-- ② 写真 → 認識ファイル自動生成 -->
+    <div class="form-card">
+      <h3>② 対象物の写真（撮影後、認識ファイルを自動生成）</h3>
       <input id="photo-input-cam" type="file" accept="image/*" capture="environment" style="display:none" onchange="onPhotoSelected(event)">
       <input id="photo-input-lib" type="file" accept="image/*" style="display:none" onchange="onPhotoSelected(event)">
       <div style="display:flex;gap:8px;">
@@ -220,32 +226,41 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
         <button class="secondary-btn" style="flex:1" onclick="document.getElementById('photo-input-lib').click()">🖼 写真から選択</button>
       </div>
       <img id="photo-preview" style="display:none;width:100%;border-radius:10px;margin-top:10px;max-height:200px;object-fit:contain;background:#f8fafc;">
-    </div>
-
-    <div class="form-card">
-      <h3>② .mind 生成（①の後に自動）</h3>
-      <button class="secondary-btn" id="btn-gen-mind" onclick="generateMind()">🎯 .mind を再生成（手動）</button>
       <div style="height:6px;background:#e2e8f0;border-radius:3px;margin-top:10px;display:none;" id="mind-bar-wrap"><div id="mind-bar" style="height:6px;border-radius:3px;background:#1d4ed8;width:0%;transition:width .2s;"></div></div>
-      <div id="mind-status" style="font-size:12px;color:#64748b;margin-top:8px;">①で写真を撮影/選択すると、自動で .mind を生成します。</div>
+      <div id="mind-status" style="font-size:12px;color:#64748b;margin-top:8px;">撮影/選択すると、自動で .mind（認識ファイル）を生成します。</div>
+      <button class="secondary-btn" id="btn-gen-mind" style="margin-top:8px;font-size:12px;padding:8px;" onclick="generateMind()">🎯 .mind を再生成（手動）</button>
     </div>
 
+    <!-- ③ 配置モード -->
     <div class="form-card">
-      <h3>既存シナリオを読み込む</h3>
-      <p style="font-size:12px;color:#64748b;margin-bottom:10px">GitHub上のシナリオを読み込んで追加編集し、同じIDで上書き保存できます</p>
-      <button class="secondary-btn" style="margin-bottom:8px;" onclick="openRemotePicker()">☁️ GitHubから読み込む</button>
-      <button class="secondary-btn" onclick="openImport()">📋 JSONをインポート</button>
-    </div>
-
-    <div class="form-card">
-      <h3>配置モード</h3>
+      <h3>③ 図形の配置モード</h3>
       <div style="display:flex; gap:8px;" id="mode-row">
         <button type="button" class="mode-btn active" data-mode="camera">📷 カメラ映像で配置</button>
         <button type="button" class="mode-btn" data-mode="photo">🖼 登録写真で配置</button>
       </div>
-      <p style="font-size:11px;color:#64748b;margin-top:8px">写真モードは対象物・.mind不要。登録済み画像（ターゲット画像）の上で図形を配置・調整できます。</p>
+      <p style="font-size:11px;color:#64748b;margin-top:8px">写真モードは対象物・カメラ不要。登録画像の上で配置・調整でき、精密に合わせられます（おすすめ）。</p>
     </div>
 
-    <button class="primary-btn" onclick="startEditor()">✏️ 編集を開始</button>
+    <!-- 詳細設定（任意） -->
+    <details class="form-card">
+      <summary style="cursor:pointer;font-weight:700;font-size:13px;color:#475569;">詳細設定（任意・通常は変更不要）</summary>
+      <div style="margin-top:12px;">
+        <div class="field"><label>認識ファイル (.mind)（②で自動設定）</label>
+          <input id="cfg-mind" type="text" value="targets/crossing.mind"></div>
+        <div class="field"><label>ターゲット画像（②で自動設定）</label>
+          <input id="cfg-image" type="text" value="targets/crossing.jpg"></div>
+        <div class="field"><label>作業手順書 PDF（省略可）</label>
+          <input id="cfg-pdf" type="text" placeholder="docs/xxx.pdf"></div>
+        <div class="field"><label>操作動画（省略可）</label>
+          <input id="cfg-video" type="text" placeholder="docs/xxx.mp4"></div>
+      </div>
+    </details>
+
+    <button class="primary-btn" onclick="startEditor()">✏️ 編集を開始（④手順作成・⑤図形配置へ）</button>
+
+    <div style="font-size:11px;color:#94a3b8;text-align:center;margin-top:2px;line-height:1.9;">
+      作成の流れ：① 名前 → ② 撮影(自動.mind) → ③ モード<br>→ ④ 手順を作成 → ⑤ 図形を配置 → ⑥ 書出してアップロード
+    </div>
   </div>
 </div>
 
@@ -355,7 +370,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.7'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v1.8'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
