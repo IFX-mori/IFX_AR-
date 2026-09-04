@@ -1,0 +1,168 @@
+{
+  "id": "scenario_mtmdhzxy",
+  "name": "産業機械 表示器リセット手順",
+  "subtitle": "産業機械 表示器リセット手順",
+  "icon": "⚡",
+  "iconBg": "rgba(251,146,60,0.2)",
+  "borderColor": "rgba(251,146,60,0.4)",
+  "mindFile": "targets/scenario_mtmdhzxy.mind",
+  "imageFile": "targets/scenario_mtmdhzxy.jpg",
+  "docs": {},
+  "steps": [
+    {
+      "title": "表示を確認",
+      "detail": "機器の表示部を確認します。",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#2563eb",
+          "label": "表示部"
+        }
+      ]
+    },
+    {
+      "title": "「01」表示を確認",
+      "detail": "表示が「01」になっているか確認します。「01」以外の場合は通信指令へ連絡してください。",
+      "warn": "caution",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#2563eb",
+          "label": "表示部"
+        },
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#f87171",
+          "label": "「01」表示を確認"
+        },
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#f87171",
+          "label": "「01」以外の場合は通信指令へ連絡"
+        }
+      ]
+    },
+    {
+      "title": "リセットボタンを押す",
+      "detail": "リセットボタンを2秒以上押し続けます。押すと音が鳴ります。",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#2563eb",
+          "label": "リセットボタン"
+        },
+        {
+          "type": "arrow",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#0891b2",
+          "label": "2秒以上押し続ける"
+        },
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#f87171",
+          "label": "音が鳴る"
+        }
+      ]
+    },
+    {
+      "title": "踏切鳴動停止を確認",
+      "detail": "正常に復旧した場合、踏切の鳴動が停止します。停止しない場合は通信指令へ連絡してください。",
+      "warn": "caution",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#2563eb",
+          "label": "踏切"
+        },
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#f87171",
+          "label": "鳴動停止を確認"
+        },
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#f87171",
+          "label": "停止しない場合は通信指令へ連絡"
+        }
+      ]
+    },
+    {
+      "title": "列車通過で動作確認",
+      "detail": "1列車の通過で正常動作することを確認し、作業を完了します。",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#2563eb",
+          "label": "踏切"
+        },
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "color": "#f87171",
+          "label": "1列車通過で正常動作を確認"
+        }
+      ]
+    }
+  ]
+}
