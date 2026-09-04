@@ -392,7 +392,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.6'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v2.7'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -1182,10 +1182,11 @@ function renderProps(area) {
       <span class="props-type-name">${TYPE_LABEL[fig.type]||fig.type}</span>
       <button class="props-close" onclick="closeProp()">×</button>
     </div>
-    <div class="prop-row">
-      <span class="prop-lbl">ラベル</span>
-      <input class="prop-input" id="pi-label" type="text"
-        value="${fig.label||''}" placeholder="テキスト（改行は\\n）" oninput="applyProps()">
+    <div class="prop-row" style="align-items:flex-start">
+      <span class="prop-lbl" style="margin-top:6px">ラベル</span>
+      <textarea class="prop-input" id="pi-label" rows="2"
+        placeholder="テキスト（Enterで改行）" oninput="applyProps()"
+        style="resize:vertical;min-height:38px;line-height:1.35;font-family:inherit">${svgEsc(fig.label||'')}</textarea>
     </div>
     <div class="prop-row">
       <span class="prop-lbl">色</span>
