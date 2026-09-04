@@ -355,6 +355,11 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
       <textarea id="step-detail-input" placeholder="操作の説明（1〜2文）" rows="2" oninput="saveStepMeta()" style="flex:1; font-family:inherit; font-size:13px; border:1.5px solid #e2e8f0; border-radius:8px; padding:7px 9px; resize:vertical; color:#1e293b; outline:none; box-sizing:border-box;"></textarea>
       <button id="btn-mic-detail" onclick="toggleDetailMic()" title="音声で説明を入力" style="flex-shrink:0; border:1.5px solid #e2e8f0; background:#fff; border-radius:8px; padding:9px 11px; font-size:15px; cursor:pointer; line-height:1;">🎙</button>
     </div>
+    <div id="step-order-row" style="display:flex; gap:6px; margin-top:6px;">
+      <button onclick="moveCurrentStep(-1)" title="前のステップと入替" style="flex:1; border:1.5px solid #e2e8f0; background:#fff; border-radius:8px; padding:7px; font-size:12px; font-weight:600; color:#475569; cursor:pointer;">↑ 前へ</button>
+      <button onclick="moveCurrentStep(1)" title="次のステップと入替" style="flex:1; border:1.5px solid #e2e8f0; background:#fff; border-radius:8px; padding:7px; font-size:12px; font-weight:600; color:#475569; cursor:pointer;">↓ 後へ</button>
+      <button onclick="insertStepAfterCurrent()" title="このステップの直後に挿入" style="flex:1; border:1.5px solid #93c5fd; background:#eff6ff; border-radius:8px; padding:7px; font-size:12px; font-weight:600; color:#1d4ed8; cursor:pointer;">＋ 次に挿入</button>
+    </div>
     <div id="panel-content"></div>
   </div>
 </div>
@@ -383,7 +388,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.2'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v2.3'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -860,6 +865,35 @@ function addFigure(x,y,type) {
 function addStep() {
   ED.steps.push(mkStep(`ステップ ${ED.steps.length+1}`));
   stepIdx=ED.steps.length-1; figIdx=-1;
+  renumberStepTitles();
+  renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
+}
+// タイトル先頭が「ステップN」形式のものだけ、並び順に合わせて番号を振り直す
+function renumberStepTitles() {
+  ED.steps.forEach((s, i) => {
+    if (/^ステップ\s*[0-9０-９]+/.test(s.title || '')) {
+      s.title = (s.title || '').replace(/^ステップ\s*[0-9０-９]+/, 'ステップ' + (i + 1));
+    }
+  });
+}
+// 現在ステップを前後に入れ替え
+function moveCurrentStep(dir) {
+  const ni = stepIdx + dir;
+  if (ni < 0 || ni >= ED.steps.length) return;
+  const [s] = ED.steps.splice(stepIdx, 1);
+  ED.steps.splice(ni, 0, s);
+  stepIdx = ni; figIdx = -1;
+  renumberStepTitles();
+  renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
+}
+// 現在ステップの直後に新規ステップを挿入（以降の番号は自動繰り上げ）
+function insertStepAfterCurrent() {
+  const ns = mkStep('ステップ');
+  const at = stepIdx + 1;
+  ED.steps.splice(at, 0, ns);
+  ns.title = 'ステップ' + (at + 1); // 番号を付与→renumberで整列
+  stepIdx = at; figIdx = -1;
+  renumberStepTitles();
   renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
 }
 function selectStep(i) {
@@ -871,6 +905,7 @@ function deleteCurrentStep() {
   if (!confirm(`「${curStep().title}」を削除しますか？`)) return;
   ED.steps.splice(stepIdx,1);
   stepIdx=Math.min(stepIdx,ED.steps.length-1); figIdx=-1;
+  renumberStepTitles();
   renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
 }
 function saveStepMeta() {
@@ -946,7 +981,15 @@ function autoFiguresFromText(step) {
   const src = ((step.title || '') + '。' + (step.detail || ''));
   const CA = '#60a5fa', TX = '#f87171', BX = '#ef4444';
   const figs = [];
-  // 回転（「回」があれば、左/右＋数値をすべて回転量として抽出。複数対応）
+  const cleanDetail = (step.detail || '').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/, '').trim();
+
+  // ① 要点テキスト（各文を最大2つまでテキストARに）— テキストを増やす
+  const sentences = cleanDetail.split(/[。\n]/).map(s => s.trim()).filter(s => s.length >= 2);
+  sentences.slice(0, 2).forEach(sen => {
+    figs.push({ type:'text', color:CA, label: sen.slice(0, 18) });
+  });
+
+  // ② 回転（「回」があれば、左/右＋数値をすべて回転量として抽出）
   if (/回/.test(src)) {
     const rotRe = /(左|右)\s*(?:へ|に|回りに)?\s*([0-9０-９]+)/g;
     let r;
@@ -954,20 +997,26 @@ function autoFiguresFromText(step) {
       figs.push({ type:'curvedArrow', dir: r[1]==='左'?'left':'right', scale:2.4, color:CA, label:(r[1]+'へ回す')+'\n'+toHalfDigits(r[2]) });
     }
   }
-  // レバー・上下
+  // ③ レバー・上下
   if (/(上げ|上に|上へ|引き上げ)/.test(src)) figs.push({ type:'arrow', color:CA, label:'上に' });
   if (/(下げ|下に|下へ|押し下げ)/.test(src)) figs.push({ type:'arrowDown', color:CA, label:'下に' });
-  // 押す
+  // ④ 押す
   if (/押/.test(src)) {
     const n = src.match(/([0-9０-９]+)\s*回/);
     figs.push({ type:'arrow', color:CA, label: n ? (toHalfDigits(n[1])+'回押す') : '押す' });
   }
-  // 対象物の確認・点灯・ランプ
+  // ⑤ 対象物の確認・点灯・ランプ → 囲み枠
   if (/(ランプ|LED|点灯|確認|表示器|メーター|計器|色)/.test(src)) {
     const t = (src.match(/(ランプ|LED|表示器|メーター|計器|ボタン|スイッチ)/) || [])[0];
     figs.push({ type:'box', color:BX, size:0.12, label: (t ? t+'を確認' : '確認') });
   }
-  // 注意・危険
+  // ⑥ 数値＋単位 → テキストAR（回は除外・重複防止）
+  const valRe = /([0-9０-９]+(?:[.．][0-9０-９]+)?)\s*(N[・·]?m|Nm|度|°|mm|cm|kg|MPa|kPa|V|A|W|℃|%|秒|分)/g;
+  let v;
+  while ((v = valRe.exec(src)) !== null) {
+    figs.push({ type:'text', color:CA, label: toHalfDigits(v[1]) + v[2].replace('・', '·') });
+  }
+  // ⑦ 注意・危険
   if (/(注意|危険|警告|気をつけ|注意し)/.test(src)) {
     figs.push({ type:'text', color:TX, label:'⚠ 注意' });
     step.warn = /危険/.test(src) ? 'danger' : 'caution';
