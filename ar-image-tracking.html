@@ -264,7 +264,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.1';
+const APP_VERSION = 'v1.2';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -743,43 +743,29 @@ function stopLampDetection() {
 // Canvas でテキストを描画 → <img> を <a-assets> に登録 → #id で参照
 // （DataURL を material src に直書きすると ";" でパースが壊れるため）
 // bgColor: 背景色（省略時は黒半透明）、labelW: 横幅（省略時0.22）
-function makeTextPanel(value, color, px, py, pz, bgColor, labelW) {
-  const CW = 512, CH = 256;
+function makeTextPanel(value, color, px, py, pz, bgColor, labelW, fontScale) {
+  const fscale = fontScale || 1;
+  const lines = String(value == null ? '' : value).split('\n');
+  const FONT = "Arial, Helvetica, sans-serif";
+  const FS = 100, padX = 48, padY = 30, lineH = FS * 1.28;  // 固定フォント＝文字は潰さない
+  const meas = document.createElement('canvas').getContext('2d');
+  meas.font = `bold ${FS}px ${FONT}`;
+  let maxW = 0;
+  lines.forEach(l => { maxW = Math.max(maxW, meas.measureText(l || ' ').width); });
+  const CW = Math.ceil(maxW + padX * 2);
+  const CH = Math.ceil(lines.length * lineH + padY * 2);
+
   const canvas = document.createElement('canvas');
   canvas.width = CW; canvas.height = CH;
   const ctx = canvas.getContext('2d');
-
-  // 背景
   ctx.fillStyle = bgColor || 'rgba(0,0,0,0.80)';
   ctx.fillRect(0, 0, CW, CH);
-
-  // テキスト（収まらない場合はフォントを縮小）
   ctx.fillStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const lines = value.split('\n');
-  if (lines.length === 1) {
-    let fontSize = 116;
-    ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
-    while (ctx.measureText(value).width > CW * 0.92 && fontSize > 40) {
-      fontSize -= 4;
-      ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
-    }
-    ctx.fillText(value, CW / 2, CH / 2);
-  } else {
-    const lineH = CH / lines.length;
-    lines.forEach((line, i) => {
-      let fontSize = 90;
-      ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
-      while (ctx.measureText(line).width > CW * 0.92 && fontSize > 30) {
-        fontSize -= 4;
-        ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
-      }
-      ctx.fillText(line, CW / 2, lineH * (i + 0.5));
-    });
-  }
+  ctx.font = `bold ${FS}px ${FONT}`;
+  lines.forEach((line, i) => { ctx.fillText(line, CW / 2, padY + lineH * (i + 0.5)); });
 
-  // <img> を <a-assets> に登録してセレクタ参照（DataURL の ; 問題を回避）
   const uid = 'tx' + (Math.random() * 1e9 | 0);
   if (_arAssets) {
     const img = document.createElement('img');
@@ -788,9 +774,10 @@ function makeTextPanel(value, color, px, py, pz, bgColor, labelW) {
     _arAssets.appendChild(img);
   }
 
+  const pixelToAR = 0.00064 * fscale;   // 単行≒高さ0.11、文字量に応じて横に伸縮
   const plane = document.createElement('a-plane');
-  plane.setAttribute('width',  String(labelW || 0.22));
-  plane.setAttribute('height', '0.11');
+  plane.setAttribute('width',  (CW * pixelToAR).toFixed(3));
+  plane.setAttribute('height', (CH * pixelToAR).toFixed(3));
   plane.setAttribute('position', `${px} ${py} ${pz}`);
   plane.setAttribute('material',
     `src: #${uid}; transparent: true; shader: flat; side: double`);

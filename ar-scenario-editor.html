@@ -388,7 +388,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.4'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v2.5'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -486,17 +486,23 @@ function photoToAR(cx, cy) {
 
 // 写真上に、再生アプリと同じ見た目でSVG描画（viewBox=AR座標系, y反転）
 function svgEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function svgLabel(label, cxAR, cyAR, color, bg, w) {
-  w = w || 0.22; const h = 0.11, rx = 0.014, yc = -cyAR;
-  const lines = String(label==null?'':label).split('\n').slice(0,3);
-  const n = lines.length || 1, fs = n>1 ? 0.030 : 0.044, lh = fs*1.18;
+function svgLabel(label, cxAR, cyAR, color, bg, w, fontScale) {
+  const fscale = fontScale || 1, yc = -cyAR, rx = 0.014;
+  const lines = String(label==null?'':label).split('\n').slice(0,4);
+  const n = lines.length || 1;
+  const fs = (n>1 ? 0.032 : 0.044) * fscale, lh = fs*1.3, pad = 0.03;
+  // 各行の推定幅（全角≒fs、半角≒0.6fs）
+  const lineW = str => { let s=0; for (const ch of String(str)) s += /[\x00-\xff｡-ﾟ]/.test(ch)?0.6:1.0; return s*fs; };
+  const maxW = Math.max(0.05, ...lines.map(l=>lineW(l||' ')));
+  let boxW = Math.min(1.4, maxW + pad*2);
+  if (w) boxW = Math.max(boxW, w);         // 明示幅は下限として尊重
+  const boxH = n*lh + pad*1.1;
   let texts = '';
   lines.forEach((ln,k)=>{
-    const ty = yc - (n-1)*lh/2 + k*lh, safe = svgEsc(ln);
-    const tl = Math.min(w*0.9, safe.length*fs*0.95);
-    texts += `<text x="${cxAR}" y="${ty.toFixed(4)}" font-size="${fs}" fill="${color}" text-anchor="middle" dominant-baseline="central" font-weight="700" font-family="'Noto Sans JP','Hiragino Sans',sans-serif" textLength="${tl.toFixed(3)}" lengthAdjust="spacingAndGlyphs">${safe}</text>`;
+    const ty = yc - (n-1)*lh/2 + k*lh;
+    texts += `<text x="${cxAR}" y="${ty.toFixed(4)}" font-size="${fs.toFixed(4)}" fill="${color}" text-anchor="middle" dominant-baseline="central" font-weight="700" font-family="'Noto Sans JP','Hiragino Sans',sans-serif">${svgEsc(ln)}</text>`;
   });
-  return `<rect x="${(cxAR-w/2).toFixed(3)}" y="${(yc-h/2).toFixed(3)}" width="${w}" height="${h}" rx="${rx}" fill="${bg||'rgba(0,0,0,0.82)'}"/>${texts}`;
+  return `<rect x="${(cxAR-boxW/2).toFixed(3)}" y="${(yc-boxH/2).toFixed(4)}" width="${boxW.toFixed(3)}" height="${boxH.toFixed(3)}" rx="${rx}" fill="${bg||'rgba(0,0,0,0.82)'}"/>${texts}`;
 }
 function figureSVG(p, i, sel) {
   const [x,y] = p.pos, c = p.color || '#60a5fa';
@@ -505,17 +511,17 @@ function figureSVG(p, i, sel) {
   if (p.type === 'arrow') {
     s += `<line x1="${x}" y1="${(-(y-0.05)).toFixed(3)}" x2="${x}" y2="${(-y).toFixed(3)}" stroke="${c}" stroke-width="0.016" stroke-linecap="round"/>`;
     s += `<polygon points="${(x-0.02).toFixed(3)},${(-y).toFixed(3)} ${(x+0.02).toFixed(3)},${(-y).toFixed(3)} ${x},${(-(y+0.032)).toFixed(3)}" fill="${c}"/>`;
-    s += svgLabel(p.label, x, y-0.11, c, null, p.labelW);
+    s += svgLabel(p.label, x, y-0.11, c, null, p.labelW, p.fontScale);
   } else if (p.type === 'arrowDown') {
     s += `<line x1="${x}" y1="${(-(y+0.05)).toFixed(3)}" x2="${x}" y2="${(-y).toFixed(3)}" stroke="${c}" stroke-width="0.016" stroke-linecap="round"/>`;
     s += `<polygon points="${(x-0.02).toFixed(3)},${(-y).toFixed(3)} ${(x+0.02).toFixed(3)},${(-y).toFixed(3)} ${x},${(-(y-0.032)).toFixed(3)}" fill="${c}"/>`;
-    s += svgLabel(p.label, x, y-0.11, c, null, p.labelW);
+    s += svgLabel(p.label, x, y-0.11, c, null, p.labelW, p.fontScale);
   } else if (p.type === 'box') {
     const W = p.sizeW||p.size||0.18, H = p.sizeH||p.size||0.12, lt = p.lineThick||0.006;
     s += `<rect x="${(x-W/2).toFixed(3)}" y="${(-(y+H/2)).toFixed(3)}" width="${W}" height="${H}" fill="none" stroke="${c}" stroke-width="${lt}"/>`;
-    if (p.label) { const ly = p.labelBelow ? (y - H/2 - 0.065) : (y + H/2 + 0.065); s += svgLabel(p.label, x, ly, p.textColor||c, p.textBg||null); }
+    if (p.label) { const ly = p.labelBelow ? (y - H/2 - 0.065) : (y + H/2 + 0.065); s += svgLabel(p.label, x, ly, p.textColor||c, p.textBg||null, p.labelW, p.fontScale); }
   } else if (p.type === 'text') {
-    s += svgLabel(p.label||'テキスト', x, y, c, p.textBg||null, p.labelW);
+    s += svgLabel(p.label||'テキスト', x, y, c, p.textBg||null, p.labelW, p.fontScale);
   } else if (p.type === 'curvedArrow') {
     const pw = 0.09*(p.scale||1);
     const cv2 = (px,py)=>[ +(x+(px/256-0.5)*pw).toFixed(4), +(y+(0.5-py/256)*pw).toFixed(4) ];
@@ -524,7 +530,7 @@ function figureSVG(p, i, sel) {
     s += `<path d="M ${EL[0]},${(-EL[1]).toFixed(4)} A ${R.toFixed(4)} ${R.toFixed(4)} 0 0 0 ${ER[0]},${(-ER[1]).toFixed(4)}" fill="none" stroke="${c}" stroke-width="${lw.toFixed(4)}" stroke-linecap="round"/>`;
     const hp = (p.dir === 'left') ? [cv2(6,128), cv2(36,188), cv2(66,128)] : [cv2(190,128), cv2(220,188), cv2(250,128)];
     s += `<polygon points="${hp.map(q=>q[0]+','+(-q[1]).toFixed(4)).join(' ')}" fill="${c}"/>`;
-    if (p.label) s += svgLabel(p.label, x, y - pw*0.70, c, null, p.labelW);
+    if (p.label) s += svgLabel(p.label, x, y - pw*0.70, c, null, p.labelW, p.fontScale);
   }
   return `<g data-i="${i}" style="cursor:grab;pointer-events:auto;touch-action:none">${s}</g>`;
 }
@@ -652,29 +658,25 @@ function stopAR() {
 // ══════════════════════════════════════════
 // AR描画
 // ══════════════════════════════════════════
-function makeText(value, color, px, py, pz, bgColor, w) {
-  const CW=512, CH=256;
+function makeText(value, color, px, py, pz, bgColor, w, fontScale) {
+  const fscale = fontScale || 1;
+  const lines = String(value==null?'':value).split('\n');
+  const FS = 100, padX = 48, padY = 30, lh = FS*1.28;   // キャンバス上の固定フォント
+  const meas = document.createElement('canvas').getContext('2d');
+  meas.font = `bold ${FS}px Arial`;
+  let maxW = 0; lines.forEach(l=>{ maxW = Math.max(maxW, meas.measureText(l||' ').width); });
+  const CW = Math.ceil(maxW + padX*2), CH = Math.ceil(lines.length*lh + padY*2);
   const cv=document.createElement('canvas'); cv.width=CW; cv.height=CH;
   const ctx=cv.getContext('2d');
   ctx.fillStyle=bgColor||'rgba(0,0,0,0.80)'; ctx.fillRect(0,0,CW,CH);
-  ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle';
-  const lines=value.split('\n');
-  if (lines.length===1) {
-    let fs=116; ctx.font=`bold ${fs}px Arial`;
-    while(ctx.measureText(value).width>CW*0.92&&fs>40){fs-=4;ctx.font=`bold ${fs}px Arial`;}
-    ctx.fillText(value,CW/2,CH/2);
-  } else {
-    const lh=CH/lines.length;
-    lines.forEach((ln,i)=>{
-      let fs=90; ctx.font=`bold ${fs}px Arial`;
-      while(ctx.measureText(ln).width>CW*0.92&&fs>30){fs-=4;ctx.font=`bold ${fs}px Arial`;}
-      ctx.fillText(ln,CW/2,lh*(i+0.5));
-    });
-  }
+  ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font=`bold ${FS}px Arial`;
+  lines.forEach((ln,i)=>{ ctx.fillText(ln, CW/2, padY + lh*(i+0.5)); });
   const uid='t'+(Math.random()*1e9|0);
   if (_assets){const im=document.createElement('img');im.id=uid;im.src=cv.toDataURL('image/png');_assets.appendChild(im);}
+  const pixelToAR = 0.00064*fscale;                     // 単行≒高さ0.11、文字量で横に伸縮
   const pl=document.createElement('a-plane');
-  pl.setAttribute('width',String(w||0.22)); pl.setAttribute('height','0.11');
+  pl.setAttribute('width', (CW*pixelToAR).toFixed(3));
+  pl.setAttribute('height', (CH*pixelToAR).toFixed(3));
   pl.setAttribute('position',`${px} ${py} ${pz}`);
   pl.setAttribute('material',`src:#${uid};transparent:true;shader:flat;side:double`);
   return pl;
@@ -717,7 +719,7 @@ function rebuildAR() {
       hd.setAttribute('radius-bottom','0.018');hd.setAttribute('radius-top','0');
       hd.setAttribute('height','0.03');hd.setAttribute('position','0 0.015 0');hd.setAttribute('material',mat);
       g.appendChild(sh); g.appendChild(hd);
-      if (p.label) g.appendChild(makeText(p.label,c,0,p.labelAbove?0.11:-0.11,0));
+      if (p.label) g.appendChild(makeText(p.label,c,0,p.labelAbove?0.11:-0.11,0,null,null,p.fontScale));
       root.appendChild(g);
     }
 
@@ -731,7 +733,7 @@ function rebuildAR() {
       hd.setAttribute('height','0.03');hd.setAttribute('position','0 -0.015 0');
       hd.setAttribute('rotation','0 0 180');hd.setAttribute('material',mat);
       g.appendChild(sh); g.appendChild(hd);
-      if (p.label) g.appendChild(makeText(p.label,c,0,-0.11,0));
+      if (p.label) g.appendChild(makeText(p.label,c,0,-0.11,0,null,null,p.fontScale));
       root.appendChild(g);
     }
 
@@ -740,12 +742,12 @@ function rebuildAR() {
       root.appendChild(makeWireBox(x,y,z,W,H,c,p.lineThick));
       if (p.label) {
         const ly=p.labelBelow?y-H/2-0.065:y+H/2+0.065;
-        root.appendChild(makeText(p.label,p.textColor||c,x,ly,z,p.textBg));
+        root.appendChild(makeText(p.label,p.textColor||c,x,ly,z,p.textBg,null,p.fontScale));
       }
     }
 
     if (p.type==='text') {
-      root.appendChild(makeText(p.label||'テキスト',c,x,y,z));
+      root.appendChild(makeText(p.label||'テキスト',c,x,y,z,p.textBg||null,null,p.fontScale));
     }
 
     if (p.type==='curvedArrow') {
@@ -773,7 +775,7 @@ function rebuildAR() {
       pl.setAttribute('position',`${x} ${y} ${z}`);
       pl.setAttribute('material',`src:#${uid};transparent:true;shader:flat;side:double`);
       root.appendChild(pl);
-      if (p.label) root.appendChild(makeText(p.label,c,x,y-pw*0.70,z+0.01,null,p.labelW||0.22));
+      if (p.label) root.appendChild(makeText(p.label,c,x,y-pw*0.70,z+0.01,null,null,p.fontScale));
     }
 
     // 選択ハイライト
@@ -1074,6 +1076,8 @@ function autoGenFiguresAll() {
 function renderProps(area) {
   const fig=curFig(); if (!fig) return;
   const showDir=fig.type==='curvedArrow';
+  const hasText=(fig.type==='text')||!!fig.label;   // 文字を持つ図形
+  const fsVal=fig.fontScale||1;
 
   area.innerHTML=`
     <div class="props-header">
@@ -1109,6 +1113,13 @@ function renderProps(area) {
       <button class="nudge-size-btn ${nudgeStep===0.03?'active':''}"
         id="nudge-coarse" onclick="setNudge(0.03)">粗</button>
     </div>
+    ${hasText?`
+    <div class="prop-row">
+      <span class="prop-lbl">文字サイズ</span>
+      <input type="range" id="pi-fontscale" min="0.6" max="2" step="0.1"
+        value="${fsVal}" style="flex:1" oninput="applyProps()">
+      <span class="prop-pos" id="pi-fontscale-val" style="width:34px;text-align:right">${(+fsVal).toFixed(1)}×</span>
+    </div>`:''}
     <div class="prop-row" style="margin-bottom:0">
       <span class="prop-lbl">座標</span>
       <span class="prop-pos" id="prop-pos">x:${fig.pos[0]}  y:${fig.pos[1]}</span>
@@ -1129,6 +1140,13 @@ function applyProps() {
   fig.color=document.getElementById('pi-color').value;
   const dir=document.getElementById('pi-dir');
   if (dir) fig.dir=dir.value;
+  const fsc=document.getElementById('pi-fontscale');
+  if (fsc) {
+    fig.fontScale=+fsc.value;
+    const fv=document.getElementById('pi-fontscale-val');
+    if (fv) fv.textContent=(+fsc.value).toFixed(1)+'×';
+  }
+  renderPhotoOverlays();   // 写真モードのSVGプレビューも即時反映
   rebuildAR();
 }
 

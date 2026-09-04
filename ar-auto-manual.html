@@ -294,7 +294,7 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; overflow:hidden; b
 // ══════════════════════════════════════════
 // アプリ バージョン（更新のたびに番号を上げる）
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.7';
+const APP_VERSION = 'v2.8';
 
 // ══════════════════════════════════════════
 // シナリオデータ
@@ -991,39 +991,28 @@ function stopLampDetection() {
 // ══════════════════════════════════════════
 // ARオブジェクト生成（A-Frame エンティティ）
 // ══════════════════════════════════════════
-function makeTextPanel(value, color, px, py, pz, bgColor, labelW) {
-  const CW = 512, CH = 256;
+function makeTextPanel(value, color, px, py, pz, bgColor, labelW, fontScale) {
+  const fscale = fontScale || 1;
+  const lines = String(value == null ? '' : value).split('\n');
+  const FONT = "Arial, Helvetica, sans-serif";
+  const FS = 100, padX = 48, padY = 30, lineH = FS * 1.28;  // 固定フォント＝文字は潰さない
+  const meas = document.createElement('canvas').getContext('2d');
+  meas.font = `bold ${FS}px ${FONT}`;
+  let maxW = 0;
+  lines.forEach(l => { maxW = Math.max(maxW, meas.measureText(l || ' ').width); });
+  const CW = Math.ceil(maxW + padX * 2);
+  const CH = Math.ceil(lines.length * lineH + padY * 2);
+
   const canvas = document.createElement('canvas');
   canvas.width = CW; canvas.height = CH;
   const ctx = canvas.getContext('2d');
-
   ctx.fillStyle = bgColor || 'rgba(0,0,0,0.80)';
   ctx.fillRect(0, 0, CW, CH);
-
   ctx.fillStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const lines = value.split('\n');
-  if (lines.length === 1) {
-    let fontSize = 116;
-    ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
-    while (ctx.measureText(value).width > CW * 0.92 && fontSize > 40) {
-      fontSize -= 4;
-      ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
-    }
-    ctx.fillText(value, CW / 2, CH / 2);
-  } else {
-    const lineH = CH / lines.length;
-    lines.forEach((line, i) => {
-      let fontSize = 90;
-      ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
-      while (ctx.measureText(line).width > CW * 0.92 && fontSize > 30) {
-        fontSize -= 4;
-        ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
-      }
-      ctx.fillText(line, CW / 2, lineH * (i + 0.5));
-    });
-  }
+  ctx.font = `bold ${FS}px ${FONT}`;
+  lines.forEach((line, i) => { ctx.fillText(line, CW / 2, padY + lineH * (i + 0.5)); });
 
   const uid = 'tx' + (Math.random() * 1e9 | 0);
   if (_arAssets) {
@@ -1033,9 +1022,10 @@ function makeTextPanel(value, color, px, py, pz, bgColor, labelW) {
     _arAssets.appendChild(img);
   }
 
+  const pixelToAR = 0.00064 * fscale;   // 単行≒高さ0.11、文字量に応じて横に伸縮
   const plane = document.createElement('a-plane');
-  plane.setAttribute('width',  String(labelW || 0.22));
-  plane.setAttribute('height', '0.11');
+  plane.setAttribute('width',  (CW * pixelToAR).toFixed(3));
+  plane.setAttribute('height', (CH * pixelToAR).toFixed(3));
   plane.setAttribute('position', `${px} ${py} ${pz}`);
   plane.setAttribute('material',
     `src: #${uid}; transparent: true; shader: flat; side: double`);
@@ -1084,7 +1074,7 @@ function buildARObjects(step) {
       head.setAttribute('height', '0.03'); head.setAttribute('position', '0 0.015 0');
       head.setAttribute('material', mat);
       g.appendChild(shaft); g.appendChild(head);
-      if (p.label) g.appendChild(makeTextPanel(p.label, hexColor, 0, p.labelAbove ? 0.11 : -0.11, 0));
+      if (p.label) g.appendChild(makeTextPanel(p.label, hexColor, 0, p.labelAbove ? 0.11 : -0.11, 0, null, null, p.fontScale));
       root.appendChild(g);
     }
 
@@ -1100,7 +1090,7 @@ function buildARObjects(step) {
       head.setAttribute('height', '0.03'); head.setAttribute('position', '0 -0.015 0');
       head.setAttribute('rotation', '0 0 180'); head.setAttribute('material', mat);
       g.appendChild(shaft); g.appendChild(head);
-      if (p.label) g.appendChild(makeTextPanel(p.label, hexColor, 0, p.labelAbove ? 0.11 : -0.11, 0));
+      if (p.label) g.appendChild(makeTextPanel(p.label, hexColor, 0, p.labelAbove ? 0.11 : -0.11, 0, null, null, p.fontScale));
       root.appendChild(g);
     }
 
@@ -1110,11 +1100,11 @@ function buildARObjects(step) {
       ring.setAttribute('position', `${x} ${y} ${z}`);
       ring.setAttribute('material', `color:${hexColor}; emissive:${hexColor}; emissiveIntensity:0.5; shader:flat`);
       root.appendChild(ring);
-      if (p.label) root.appendChild(makeTextPanel(p.label, hexColor, x + 0.05, y, z));
+      if (p.label) root.appendChild(makeTextPanel(p.label, hexColor, x + 0.05, y, z, null, null, p.fontScale));
     }
 
     if (p.type === 'text') {
-      root.appendChild(makeTextPanel(p.label, hexColor, x, y, z));
+      root.appendChild(makeTextPanel(p.label, hexColor, x, y, z, p.textBg || null, null, p.fontScale));
     }
 
     if (p.type === 'box') {
@@ -1125,7 +1115,7 @@ function buildARObjects(step) {
         const labelY = p.labelBelow ? y - H/2 - 0.065 : y + H/2 + 0.065;
         const tColor = p.textColor || hexColor;
         const tBg    = p.textBg    || null;
-        root.appendChild(makeTextPanel(p.label, tColor, x, labelY, z, tBg));
+        root.appendChild(makeTextPanel(p.label, tColor, x, labelY, z, tBg, null, p.fontScale));
       }
     }
 
@@ -1184,7 +1174,7 @@ function buildARObjects(step) {
       root.appendChild(plane);
 
       if (p.label) root.appendChild(
-        makeTextPanel(p.label, hexColor, x, y - pw * 0.70, z + 0.01, null, p.labelW || 0.22));
+        makeTextPanel(p.label, hexColor, x, y - pw * 0.70, z + 0.01, null, null, p.fontScale));
     }
   });
 }
