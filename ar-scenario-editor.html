@@ -261,7 +261,18 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
       <div id="detect-dot-e"></div>
       <span id="detect-text-e">認識待ち</span>
     </div>
+    <button id="btn-refvideo-e" onclick="openRefVideo()" title="参考動画を表示" style="background:none;border:none;font-size:18px;cursor:pointer;padding:4px 6px;">🎥</button>
     <button id="btn-export-e" onclick="openExport()">📤 書出</button>
+  </div>
+
+  <!-- 参考動画フロート窓（配置しながら動画を参照） -->
+  <input type="file" id="ref-video-input" accept="video/*" style="display:none">
+  <div id="ref-video-panel" style="display:none; position:absolute; z-index:50; left:8px; top:58px; width:210px; background:#0b0f14; border-radius:10px; box-shadow:0 6px 22px rgba(0,0,0,0.45); overflow:hidden;">
+    <div id="ref-video-head" style="display:flex; align-items:center; gap:6px; padding:5px 8px; background:#1e293b; cursor:move; touch-action:none;">
+      <span style="color:#93c5fd; font-size:11px; font-weight:700; flex:1;">🎥 参考動画（ドラッグで移動）</span>
+      <button onclick="closeRefVideo()" style="width:22px;height:22px;border:none;border-radius:50%;background:rgba(255,255,255,0.9);color:#1e293b;font-weight:700;cursor:pointer;font-size:12px;">✕</button>
+    </div>
+    <video id="ref-video" controls playsinline style="width:100%; display:block; background:#000; max-height:220px;"></video>
   </div>
 
   <!-- スキャンヒント -->
@@ -340,7 +351,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v1.4'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v1.5'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -496,6 +507,7 @@ function renderPhotoOverlays() {
 
 function stopEditor() {
   stopAR();
+  closeRefVideo();
   document.getElementById('screen-editor').classList.remove('active');
   document.getElementById('screen-setup').style.display = '';
 }
@@ -1234,6 +1246,49 @@ function loadScenarioIntoEditor(data) {
   document.getElementById('cfg-video').value = ED.docs.video || '';
   alert(`「${ED.name}」を読み込みました（${ED.steps.length}ステップ）。\n「編集を開始」で追加編集できます。\n「書出→アップロード」で同じID(${data.id})に上書き保存されます。`);
 }
+
+// ══════════════════════════════════════════
+// 参考動画フロート窓（配置作業の参照用・ローカル動画）
+// ══════════════════════════════════════════
+function openRefVideo() {
+  const inp = document.getElementById('ref-video-input');
+  inp.value = '';
+  inp.click();
+}
+document.getElementById('ref-video-input').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const v = document.getElementById('ref-video');
+  v.src = URL.createObjectURL(f);
+  document.getElementById('ref-video-panel').style.display = 'block';
+});
+function closeRefVideo() {
+  const v = document.getElementById('ref-video');
+  try { v.pause(); } catch(_) {}
+  document.getElementById('ref-video-panel').style.display = 'none';
+}
+(function initRefDrag(){
+  const panel = document.getElementById('ref-video-panel');
+  const head = document.getElementById('ref-video-head');
+  if (!panel || !head) return;
+  let sx=0, sy=0, sl=0, st=0, drag=false;
+  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+  head.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    const r = panel.getBoundingClientRect();
+    sx=e.clientX; sy=e.clientY; sl=r.left; st=r.top; drag=true;
+    try { head.setPointerCapture(e.pointerId); } catch(_) {}
+    e.preventDefault();
+  });
+  head.addEventListener('pointermove', e => {
+    if (!drag) return;
+    panel.style.left = clamp(sl+(e.clientX-sx), 0, window.innerWidth  - panel.offsetWidth) + 'px';
+    panel.style.top  = clamp(st+(e.clientY-sy), 0, window.innerHeight - panel.offsetHeight) + 'px';
+    e.preventDefault();
+  });
+  const end=()=>{ drag=false; };
+  head.addEventListener('pointerup', end);
+  head.addEventListener('pointercancel', end);
+})();
 
 (function initGh(){
   const t = localStorage.getItem('gh_token'); const te = document.getElementById('gh-token'); if (t && te) te.value = t;
