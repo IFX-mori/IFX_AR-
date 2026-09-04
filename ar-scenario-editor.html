@@ -298,7 +298,8 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
     </div>
     <div id="ref-trans-wrap" style="display:none;">
       <div id="ref-trans" style="max-height:110px; overflow:auto; padding:8px 9px; font-size:12px; line-height:1.6; color:#e5e7eb; background:#0b0f14; white-space:pre-wrap; border-top:1px solid #1e293b;"></div>
-      <button id="ref-trans-insert" onclick="insertTranscriptToDetail()" style="display:none; width:100%; border:none; background:#15803d; color:#fff; font-size:12px; font-weight:700; padding:8px; cursor:pointer;">↧ この文字起こしを説明欄に追記</button>
+      <button id="ref-trans-split" onclick="stepsFromTranscript()" style="display:none; width:100%; border:none; background:#7c3aed; color:#fff; font-size:12px; font-weight:700; padding:8px; cursor:pointer;">🪄 「ステップ1,2…」で自動的にステップ分割</button>
+      <button id="ref-trans-insert" onclick="insertTranscriptToDetail()" style="display:none; width:100%; border:none; background:#15803d; color:#fff; font-size:12px; font-weight:700; padding:8px; cursor:pointer;">↧ 全文を現在ステップの説明欄に追記</button>
     </div>
   </div>
 
@@ -382,7 +383,7 @@ input[type=color].prop-color { width:36px; height:30px; border:1.5px solid #e2e8
 // ══════════════════════════════════════════
 // データ
 // ══════════════════════════════════════════
-const APP_VERSION = 'v2.0'; // 更新のたびに番号を上げる
+const APP_VERSION = 'v2.1'; // 更新のたびに番号を上げる
 let ED = {
   name: '新規シナリオ',
   mindFile: 'targets/crossing.mind',
@@ -1387,7 +1388,7 @@ async function transcribeRefVideo() {
       text = res.text.trim();
     }
     out.textContent = text || '（音声を認識できませんでした）';
-    if (text) insBtn.style.display = 'block';
+    if (text) { insBtn.style.display = 'block'; document.getElementById('ref-trans-split').style.display = 'block'; }
   } catch (e) {
     out.textContent = '文字起こしに失敗: ' + ((e && e.message) || e) + '\n（通信環境をご確認ください。モデルの初回DLに接続が必要です）';
   }
@@ -1414,6 +1415,41 @@ function insertTranscriptToDetail() {
   if (!text) return;
   ta.value = (ta.value && !ta.value.endsWith('\n')) ? (ta.value + '\n' + text) : (ta.value + text);
   saveStepMeta();
+}
+
+// 「ステップN」で文字起こしを自動分割してステップ化（AI不要・ルールベース）
+function toHalfDigits(s) { return String(s || '').replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)); }
+function splitTranscriptToSteps(text) {
+  const re = /(?:ステップ|手順|STEP|Step)\s*([0-9０-９]{1,3})/g;
+  const marks = []; let m;
+  while ((m = re.exec(text)) !== null) marks.push({ index: m.index, len: m[0].length, num: toHalfDigits(m[1]) });
+  if (!marks.length) return null;
+  const steps = [];
+  for (let i = 0; i < marks.length; i++) {
+    const start = marks[i].index;
+    const end = (i + 1 < marks.length) ? marks[i + 1].index : text.length;
+    const seg = text.slice(start, end).trim();
+    const after = text.slice(start + marks[i].len, end).replace(/^[\s、。:：,.]+/, '').replace(/\s+/g, ' ').trim();
+    const firstBit = (after.split(/[。\n]/)[0] || '').trim().slice(0, 16);
+    const title = ('ステップ' + marks[i].num + (firstBit ? '：' + firstBit : '')).slice(0, 32);
+    steps.push({ title, detail: (after || seg), warn: 'normal', ar: [] });
+  }
+  return steps;
+}
+function stepsFromTranscript() {
+  const text = (document.getElementById('ref-trans').textContent || '').trim();
+  if (!text) { alert('先に文字起こしを実行してください'); return; }
+  const steps = splitTranscriptToSteps(text);
+  if (!steps || !steps.length) {
+    alert('「ステップ1」「ステップ2」などの区切りが見つかりませんでした。\n（動画内で「ステップ○」と言っているか、文字起こし結果をご確認ください）');
+    return;
+  }
+  const replace = confirm(`${steps.length}個のステップに分割できます。\n\n「OK」＝現在のステップを置き換える\n「キャンセル」＝末尾に追加`);
+  if (replace) ED.steps = steps;
+  else         ED.steps = ED.steps.concat(steps);
+  stepIdx = 0; figIdx = -1;
+  renderTabs(); syncStepInputs(); renderContent(); rebuildAR();
+  alert(`${steps.length}ステップを作成しました。各ステップの内容を確認・調整してください。`);
 }
 (function initRefDrag(){
   const panel = document.getElementById('ref-video-panel');
