@@ -1,0 +1,104 @@
+{
+  "id": "bc-踏切制御器-umaci",
+  "barcode": 0,
+  "name": "踏切制御器",
+  "subtitle": "",
+  "calib": {
+    "scale": 6,
+    "ox": 0,
+    "oy": 0,
+    "rot": 0
+  },
+  "imageFile": "barcode-targets/bc-踏切制御器-umaci.jpg",
+  "steps": [
+    {
+      "title": "ステップ1",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            -0.062,
+            0.051,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "label": "",
+          "labelBelow": true
+        },
+        {
+          "type": "text",
+          "pos": [
+            -0.048,
+            -0.076,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "表示される数字を確認",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "title": "ステップ2",
+      "detail": "",
+      "warn": "caution",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            -0.054,
+            0.049,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "label": "",
+          "labelBelow": true
+        },
+        {
+          "type": "text",
+          "pos": [
+            -0.059,
+            -0.079,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "「1」の表示を確認",
+          "fontScale": 1
+        },
+        {
+          "type": "text",
+          "pos": [
+            -0.031,
+            -0.196,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "1以外は司令に連絡",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "title": "ステップ3",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "arrow",
+          "pos": [
+            0.014,
+            -0.303,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "押す",
+          "labelAbove": false
+        }
+      ]
+    }
+  ]
+}
