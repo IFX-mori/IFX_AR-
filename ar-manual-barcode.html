@@ -62,6 +62,8 @@
   <a-marker id="m8" type="barcode" value="8" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
   <a-marker id="m9" type="barcode" value="9" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
   <a-entity id="anchor" smooth-follow="target: #m0; mc: 0.3; beta: 1.0">
+    <!-- 認識中バーコードの位置確認枠（マーカー実寸=1辺1単位。calibのscaleを受けず素の1x1でマーカーを囲う） -->
+    <a-entity id="markerframe" rotation="-90 0 0"></a-entity>
     <a-entity id="wrapper"><a-entity id="content" rotation="-90 0 0"></a-entity></a-entity>
   </a-entity>
   <a-entity camera></a-entity>
@@ -70,7 +72,7 @@
 <div id="ui">
   <div id="topbar">
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
-    <div id="ver">Barcode v1.2</div>
+    <div id="ver">Barcode v1.3</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>value=0→発電機／value=1→踏切</small></div>
@@ -223,6 +225,24 @@ const anchor=document.getElementById('anchor');
 const wrapper=document.getElementById('wrapper');
 const content=document.getElementById('content');
 let curKey=null, idx=0;
+
+// ══════ 認識中バーコードの位置確認枠（マーカー実寸=1x1単位で囲う） ══════
+// ?frame=off で非表示。文字がズレて見えても、この枠が印刷バーコードにピタリ重なっていれば「位置認識はOK」。
+(function buildMarkerFrame(){
+  if(new URLSearchParams(location.search).get('frame')==='off') return;
+  const S=512, cv=document.createElement('canvas'); cv.width=cv.height=S; const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,S,S);
+  ctx.strokeStyle='#22ff88'; ctx.lineWidth=S*0.035;
+  const m=ctx.lineWidth/2+1; ctx.strokeRect(m,m,S-2*m,S-2*m);
+  // 四隅のL字マーク（角を強調）
+  ctx.lineWidth=S*0.06; ctx.lineCap='round'; const L=S*0.16, o=S*0.04;
+  [[o,o,1,1],[S-o,o,-1,1],[o,S-o,1,-1],[S-o,S-o,-1,-1]].forEach(([x,y,sx,sy])=>{
+    ctx.beginPath(); ctx.moveTo(x, y+sy*L); ctx.lineTo(x,y); ctx.lineTo(x+sx*L, y); ctx.stroke(); });
+  const pl=document.createElement('a-plane');
+  pl.setAttribute('width','1'); pl.setAttribute('height','1');
+  pl.setAttribute('material',{shader:'flat',transparent:true,side:'double',opacity:0.95,src:cv.toDataURL('image/png')});
+  document.getElementById('markerframe').appendChild(pl);
+})();
 
 function applyCal(){ const sc=SCEN[curKey]; if(!sc) return; const c=sc.calib;
   wrapper.setAttribute('scale',`${c.scale} ${c.scale} ${c.scale}`);

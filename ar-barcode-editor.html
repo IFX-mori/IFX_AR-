@@ -308,7 +308,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v2.0';
+const APP_VERSION = 'v2.1';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -858,6 +858,9 @@ function loadScenario(data,owner,repo){
 // ══════════ 動画 → 文字起こし → ステップ分割 → 図形自動生成 ══════════
 // （旧エディタ ar-scenario-editor.html の機能を移植。座標系・図形スキーマは共通）
 function toHalfDigits(s){ return String(s||'').replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-0xFEE0)); }
+// 長文を切り詰めずに、指定文字数ごとに改行して全文を残す
+function wrapLabel(s, per){ per=per||16; s=String(s==null?'':s); if(s.length<=per) return s;
+  const out=[]; for(let i=0;i<s.length;i+=per) out.push(s.slice(i,i+per)); return out.join('\n'); }
 
 let _vidURL=null;
 document.getElementById('vid-file').addEventListener('change', e=>{
@@ -935,8 +938,9 @@ function autoFiguresFromText(step){
   const CA='#60a5fa', TX='#f87171', BX='#ef4444';
   const figs=[];
   const cleanDetail=(step.detail||'').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/,'').trim();
-  const sentences=cleanDetail.split(/[。\n]/).map(s=>s.trim()).filter(s=>s.length>=2);
-  sentences.slice(0,2).forEach(sen=>figs.push({type:'text',color:CA,label:sen.slice(0,18)}));
+  // 説明文の全文をテキスト図形化（切り詰めなし。長文は自動改行で全文を残す）
+  const sentences=cleanDetail.split(/[。\n]/).map(s=>s.trim()).filter(s=>s.length>=1);
+  sentences.forEach(sen=>figs.push({type:'text',color:CA,label:wrapLabel(sen,16)}));
   if(/回/.test(src)){ const rotRe=/(左|右)\s*(?:へ|に|回りに)?\s*([0-9０-９]+)/g; let r;
     while((r=rotRe.exec(src))!==null) figs.push({type:'curvedArrow',dir:r[1]==='左'?'left':'right',scale:2.4,color:CA,label:(r[1]+'へ回す')+'\n'+toHalfDigits(r[2])}); }
   if(/(上げ|上に|上へ|引き上げ)/.test(src)) figs.push({type:'arrow',color:CA,label:'上に'});
@@ -946,7 +950,7 @@ function autoFiguresFromText(step){
   const valRe=/([0-9０-９]+(?:[.．][0-9０-９]+)?)\s*(N[・·]?m|Nm|度|°|mm|cm|kg|MPa|kPa|V|A|W|℃|%|秒|分)/g; let v;
   while((v=valRe.exec(src))!==null) figs.push({type:'text',color:CA,label:toHalfDigits(v[1])+v[2].replace('・','·')});
   if(/(注意|危険|警告|気をつけ|注意し)/.test(src)){ figs.push({type:'text',color:TX,label:'⚠ 注意'}); step.warn=/危険/.test(src)?'danger':'caution'; }
-  if(!figs.length){ const t=(step.title||'操作').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/,'').slice(0,12)||'操作'; figs.push({type:'text',color:CA,label:t}); }
+  if(!figs.length){ const t=(step.title||'操作').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/,'')||'操作'; figs.push({type:'text',color:CA,label:wrapLabel(t,16)}); }
   const n=figs.length;
   return figs.map((f,i)=>({ ...f, pos:[0, +(((n-1)/2 - i)*0.14).toFixed(3), 0] }));
 }
