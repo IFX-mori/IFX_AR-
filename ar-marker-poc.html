@@ -102,7 +102,7 @@
 <div id="ui">
   <div id="topbar">
     <div id="title">発電機 ｜ ARマーカー準本番PoC<small id="markerinfo"></small></div>
-    <div id="ver">PoC v1.1</div>
+    <div id="ver">PoC v1.2</div>
   </div>
 
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
@@ -198,27 +198,42 @@ AFRAME.registerComponent('billboard', {
   }
 });
 
-// マーカー姿勢を指数移動平均で滑らかに追従（揺れ抑制）。
-// alpha小=より滑らか＆追従遅い / alpha大=機敏だが揺れやすい。?alpha= で調整可。
+// 1€(OneEuro)フィルタ：静止時は強く平滑化して揺れを消し、素早く動かした時だけ機敏に追従。
+function _LP(){ this.s=null; }
+_LP.prototype.f=function(x,a){ this.s=(this.s===null)?x:(a*x+(1-a)*this.s); return this.s; };
+function _euAlpha(cut,dt){ const tau=1/(2*Math.PI*cut); return 1/(1+tau/dt); }
+function OneEuro(mc,beta,dc){ this.mc=mc; this.beta=beta; this.dc=dc||1.0; this.x=new _LP(); this.dx=new _LP(); this.lx=null; }
+OneEuro.prototype.f=function(x,dt){
+  const dv=(this.lx===null)?0:(x-this.lx)/dt; this.lx=x;
+  const ed=this.dx.f(dv,_euAlpha(this.dc,dt));
+  const cut=this.mc+this.beta*Math.abs(ed);
+  return this.x.f(x,_euAlpha(cut,dt));
+};
+// mc小=静止時ほど揺れが消える / beta大=速く動かした時ほど機敏。?mc= ?beta= で調整可。
 AFRAME.registerComponent('smooth-follow', {
-  schema: { target: { type: 'selector' }, alpha: { default: 0.15 } },
+  schema: { target:{type:'selector'}, mc:{default:0.8}, beta:{default:0.02} },
   init: function () {
-    this._p = new THREE.Vector3();
-    this._q = new THREE.Quaternion();
-    this._s = new THREE.Vector3();
-    this._started = false;
-    this.el.object3D.visible = false;   // 初回検出まで非表示
+    this._p=new THREE.Vector3(); this._q=new THREE.Quaternion(); this._s=new THREE.Vector3();
+    const mk=()=>new OneEuro(this.data.mc,this.data.beta);
+    this._fp=[mk(),mk(),mk()];        // 位置 x,y,z
+    this._fq=[mk(),mk(),mk(),mk()];   // 回転 x,y,z,w
+    this._started=false; this._lastT=null;
+    this.el.object3D.visible=false;   // 初回検出まで非表示
   },
-  tick: function () {
-    const t = this.data.target; if (!t) return;
-    const o = t.object3D, me = this.el.object3D;
+  tick: function (time) {
+    const t=this.data.target; if(!t) return;
+    const o=t.object3D, me=this.el.object3D;
     if (o.visible) {
-      o.updateMatrixWorld();
-      o.matrixWorld.decompose(this._p, this._q, this._s);
-      const a = this.data.alpha;
-      if (!this._started) { me.position.copy(this._p); me.quaternion.copy(this._q); this._started = true; }
-      else { me.position.lerp(this._p, a); me.quaternion.slerp(this._q, a); }
-      me.visible = true;
+      o.updateMatrixWorld(); o.matrixWorld.decompose(this._p,this._q,this._s);
+      const now=(time||performance.now())/1000;
+      let dt=(this._lastT!=null && now>this._lastT)?(now-this._lastT):1/60;
+      if(dt>0.1) dt=0.1; this._lastT=now;
+      if(!this._started){ me.position.copy(this._p); me.quaternion.copy(this._q); this._started=true; }
+      else {
+        me.position.set(this._fp[0].f(this._p.x,dt), this._fp[1].f(this._p.y,dt), this._fp[2].f(this._p.z,dt));
+        me.quaternion.set(this._fq[0].f(this._q.x,dt), this._fq[1].f(this._q.y,dt), this._fq[2].f(this._q.z,dt), this._fq[3].f(this._q.w,dt)).normalize();
+      }
+      me.visible=true;
     }
     // 見失い中は最後の姿勢で静止（消さずに保持）
   }
@@ -247,9 +262,10 @@ marker.setAttribute('smooth', 'true');
 marker.setAttribute('smoothCount',     params.get('sc')  || '15');
 marker.setAttribute('smoothTolerance', params.get('st')  || '0.02');
 marker.setAttribute('smoothThreshold', params.get('sth') || '5');
-// 独自フィルタの強さ（?alpha=0.1〜0.3、小さいほど滑らか）
+// 1€フィルタの調整（?mc=静止時の平滑化強さ[小=揺れ消] ?beta=動時の機敏さ[大=機敏]）
 const anchorEl = document.getElementById('anchor');
-if (anchorEl) anchorEl.setAttribute('smooth-follow', `target: #marker; alpha: ${parseFloat(params.get('alpha') || '0.15')}`);
+if (anchorEl) anchorEl.setAttribute('smooth-follow',
+  `target: #marker; mc: ${parseFloat(params.get('mc') || '0.8')}; beta: ${parseFloat(params.get('beta') || '0.02')}`);
 // 倍率
 wrapper.setAttribute('scale', `${S} ${S} ${S}`);
 // 表示向き
