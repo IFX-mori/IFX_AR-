@@ -234,7 +234,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v1.3';
+const APP_VERSION = 'v1.4';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -570,6 +570,36 @@ async function ghPutFile(owner,repo,token,path,contentB64,message){
   const p=await fetch(api,{method:'PUT',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!p.ok){ const t=await p.text(); throw new Error(`${path} → ${p.status} ${t.slice(0,140)}`); }
 }
+// GitHubファイル削除（sha取得→DELETE）。存在しなければ静かにスキップ。
+async function ghDeleteFile(owner,repo,token,path,message){
+  const api=`https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+  const headers={Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json'};
+  const g=await fetch(api+'?ref=main&t='+Date.now(),{headers,cache:'no-store'});
+  if(g.status===404) return false;            // 元々無い
+  if(!g.ok) throw new Error(`${path} sha取得失敗 ${g.status}`);
+  const sha=(await g.json()).sha;
+  const d=await fetch(api,{method:'DELETE',headers:{...headers,'Content-Type':'application/json'},
+    body:JSON.stringify({message,sha,branch:'main'})});
+  if(!d.ok){ const t=await d.text(); throw new Error(`${path} 削除失敗 ${d.status} ${t.slice(0,120)}`); }
+  return true;
+}
+async function deleteScenario(s){
+  const repoStr=(document.getElementById('gh-repo').value.trim())||'ifx-mori/IFX_AR-';
+  const token=document.getElementById('gh-token').value.trim();
+  if(!token){ alert('削除にはトークンが必要です（③GitHub連携にPATを入力してください）'); return; }
+  if(!repoStr.includes('/')){ alert('リポジトリは owner/repo 形式で入力してください'); return; }
+  if(!confirm(`「${s.name||s.id}」（バーコード${s.barcode??'—'}）を削除します。よろしいですか？\nこの操作は取り消せません。`)) return;
+  const [owner,repo]=repoStr.split('/');
+  const list=document.getElementById('remote-list');
+  list.innerHTML='<div style="color:#64748b;font-size:13px">削除中…</div>';
+  try{
+    await ghDeleteFile(owner,repo,token,`${BARCODE_DIR}/${s.id}.json`,`Delete barcode scenario ${s.id}`);
+    if(s.imageFile){ try{ await ghDeleteFile(owner,repo,token,s.imageFile,`Delete barcode target ${s.id}`); }catch(_){} }
+    // 編集中のものを消した場合はフォームをクリア
+    if(ED.id===s.id){ ED.id=''; document.getElementById('cfg-id').value=''; }
+    await openRemotePicker(); // 一覧を再取得（GitHub反映に数秒ラグの場合あり）
+  }catch(e){ list.innerHTML='<div style="color:#dc2626;font-size:13px">削除失敗: '+e.message+'</div>'; }
+}
 // 既存 barcode-scenarios/*.json の barcode を走査し、空き番号（0..）を返す（自ID除外）
 async function assignBarcode(owner,repo){
   const list=await ghGetJson(`https://api.github.com/repos/${owner}/${repo}/contents/${BARCODE_DIR}?ref=main`);
@@ -620,9 +650,14 @@ async function openRemotePicker(){
     if(!jsons.length){ list.innerHTML='<div style="color:#64748b;font-size:13px">保存済みシナリオがありません</div>'; return; }
     list.innerHTML='';
     jsons.sort((a,b)=>(a.barcode??99)-(b.barcode??99)).forEach(s=>{
-      const b=document.createElement('button'); b.className='remote-item';
+      const row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;align-items:stretch;margin-bottom:8px';
+      const b=document.createElement('button'); b.className='remote-item'; b.style.margin='0'; b.style.flex='1';
       b.innerHTML=`<b>${escHtml(s.name||s.id)}</b><small>バーコード ${s.barcode??'—'}｜${s.steps.length}ステップ｜${s.id}</small>`;
-      b.onclick=()=>loadScenario(s,owner,repo); list.appendChild(b);
+      b.onclick=()=>loadScenario(s,owner,repo);
+      const del=document.createElement('button'); del.textContent='🗑';
+      del.title='削除'; del.style.cssText='flex:0 0 auto;width:46px;border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:10px;font-size:18px;font-weight:700';
+      del.onclick=(ev)=>{ ev.stopPropagation(); deleteScenario(s); };
+      row.appendChild(b); row.appendChild(del); list.appendChild(row);
     });
   }catch(e){ list.innerHTML='<div style="color:#dc2626;font-size:13px">取得失敗: '+e.message+'</div>'; }
 }
