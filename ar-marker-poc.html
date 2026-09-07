@@ -99,7 +99,7 @@
 <div id="ui">
   <div id="topbar">
     <div id="title">発電機 ｜ ARマーカー準本番PoC<small id="markerinfo"></small></div>
-    <div id="ver">PoC v0.8</div>
+    <div id="ver">PoC v0.9</div>
   </div>
 
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
@@ -176,10 +176,11 @@ const markerMode  = ['barcode','hiro','pattern'].includes(params.get('marker')) 
 const barcodeValue = params.get('value') || '0';
 const pattUrl = params.get('patt') || 'markers/G.patt'; // pattern時に読み込む学習ファイル
 // 座標系：1単位 = マーカー1辺 = 50mm。原点=マーカー中心。x:右+ / y:上+
-let S   = parseFloat(params.get('scale') || '1');   // 全体倍率（校正で調整）
-let ROT = parseFloat(params.get('rot')   || '0');   // マーカー上での向き（校正）
-let offX = parseFloat(params.get('ox') || '0');     // 全体オフセットX（単位, 校正）
-let offY = parseFloat(params.get('oy') || '0');     // 全体オフセットY（単位, 校正）
+// ↓ 実機校正値を既定に焼き込み（2026-09-07）。URLで上書き可
+let S   = parseFloat(params.get('scale') || '0.9');   // 全体倍率
+let ROT = parseFloat(params.get('rot')   || '0');     // マーカー上での向き
+let offX = parseFloat(params.get('ox') || '-0.2');    // 全体オフセットX（単位）
+let offY = parseFloat(params.get('oy') || '-0.4');    // 全体オフセットY（単位）
 // 表示向き： marker=マーカー面と同一平面（既定・実パネル貼付向け）
 //           camera=常にカメラを向く（机上テストで傾いて見える時に）
 const faceMode = params.get('face') === 'camera' ? 'camera' : 'marker';
