@@ -88,18 +88,21 @@
   <!-- マーカーと追従コンテンツは静的に配置（動的生成だとAR.js初期化で子が外れるため）。
        マーカー種別・校正値は起動時にJSで属性を上書きする。 -->
   <a-marker id="marker" preset="hiro"
-    smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5">
+    smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <!-- 独自の指数移動平均フィルタで揺れを抑えるため、コンテンツはマーカー直下ではなく
+       world空間のanchorに置き、smooth-followがマーカー姿勢を滑らかに追従させる -->
+  <a-entity id="anchor" smooth-follow="target: #marker">
     <a-entity id="wrapper" position="0 0.01 0">
       <a-entity id="content" rotation="-90 0 0"></a-entity>
     </a-entity>
-  </a-marker>
+  </a-entity>
   <a-entity camera></a-entity>
 </a-scene>
 
 <div id="ui">
   <div id="topbar">
     <div id="title">発電機 ｜ ARマーカー準本番PoC<small id="markerinfo"></small></div>
-    <div id="ver">PoC v1.0</div>
+    <div id="ver">PoC v1.1</div>
   </div>
 
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
@@ -195,6 +198,32 @@ AFRAME.registerComponent('billboard', {
   }
 });
 
+// マーカー姿勢を指数移動平均で滑らかに追従（揺れ抑制）。
+// alpha小=より滑らか＆追従遅い / alpha大=機敏だが揺れやすい。?alpha= で調整可。
+AFRAME.registerComponent('smooth-follow', {
+  schema: { target: { type: 'selector' }, alpha: { default: 0.15 } },
+  init: function () {
+    this._p = new THREE.Vector3();
+    this._q = new THREE.Quaternion();
+    this._s = new THREE.Vector3();
+    this._started = false;
+    this.el.object3D.visible = false;   // 初回検出まで非表示
+  },
+  tick: function () {
+    const t = this.data.target; if (!t) return;
+    const o = t.object3D, me = this.el.object3D;
+    if (o.visible) {
+      o.updateMatrixWorld();
+      o.matrixWorld.decompose(this._p, this._q, this._s);
+      const a = this.data.alpha;
+      if (!this._started) { me.position.copy(this._p); me.quaternion.copy(this._q); this._started = true; }
+      else { me.position.lerp(this._p, a); me.quaternion.slerp(this._q, a); }
+      me.visible = true;
+    }
+    // 見失い中は最後の姿勢で静止（消さずに保持）
+  }
+});
+
 // ══════════════════════════════════════════
 // マーカーと追従コンテンツ（静的要素の属性を上書き）
 // ══════════════════════════════════════════
@@ -218,6 +247,9 @@ marker.setAttribute('smooth', 'true');
 marker.setAttribute('smoothCount',     params.get('sc')  || '15');
 marker.setAttribute('smoothTolerance', params.get('st')  || '0.02');
 marker.setAttribute('smoothThreshold', params.get('sth') || '5');
+// 独自フィルタの強さ（?alpha=0.1〜0.3、小さいほど滑らか）
+const anchorEl = document.getElementById('anchor');
+if (anchorEl) anchorEl.setAttribute('smooth-follow', `target: #marker; alpha: ${parseFloat(params.get('alpha') || '0.15')}`);
 // 倍率
 wrapper.setAttribute('scale', `${S} ${S} ${S}`);
 // 表示向き
