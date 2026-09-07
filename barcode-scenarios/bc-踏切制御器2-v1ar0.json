@@ -1,0 +1,103 @@
+{
+  "id": "bc-踏切制御器2-v1ar0",
+  "barcode": 1,
+  "name": "踏切制御器2",
+  "subtitle": "",
+  "calib": {
+    "scale": 6,
+    "ox": 0,
+    "oy": 0,
+    "rot": 0
+  },
+  "imageFile": "barcode-targets/bc-踏切制御器2-v1ar0.jpg",
+  "steps": [
+    {
+      "title": "ステップ1",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0.103,
+            -0.073,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "label": "",
+          "labelBelow": true
+        },
+        {
+          "type": "text",
+          "pos": [
+            0.113,
+            -0.225,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "液晶画面を見る",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "title": "ステップ2",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0.114,
+            -0.087,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "label": "数字を確認",
+          "labelBelow": true
+        },
+        {
+          "type": "text",
+          "pos": [
+            0.125,
+            -0.332,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "1であれば次へ",
+          "fontScale": 1
+        },
+        {
+          "type": "text",
+          "pos": [
+            0.138,
+            -0.441,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "1以外は指令へ電話",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "title": "ステップ3",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "arrow",
+          "pos": [
+            0.221,
+            -0.467,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "押す"
+        }
+      ]
+    }
+  ]
+}
