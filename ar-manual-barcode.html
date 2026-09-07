@@ -49,8 +49,18 @@
 <a-scene embedded vr-mode-ui="enabled: false"
   renderer="logarithmicDepthBuffer: true; precision: medium;"
   arjs="sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; debugUIEnabled: false;">
+  <!-- バーコード 0〜9 を静的宣言（動的生成はAR.js初期化で外れるため）。
+       各値にシナリオが割り当たっているかは起動後のGitHub読込で決まる。 -->
   <a-marker id="m0" type="barcode" value="0" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
   <a-marker id="m1" type="barcode" value="1" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m2" type="barcode" value="2" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m3" type="barcode" value="3" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m4" type="barcode" value="4" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m5" type="barcode" value="5" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m6" type="barcode" value="6" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m7" type="barcode" value="7" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m8" type="barcode" value="8" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m9" type="barcode" value="9" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
   <a-entity id="anchor" smooth-follow="target: #m0; mc: 0.3; beta: 1.0">
     <a-entity id="wrapper"><a-entity id="content" rotation="-90 0 0"></a-entity></a-entity>
   </a-entity>
@@ -60,7 +70,7 @@
 <div id="ui">
   <div id="topbar">
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
-    <div id="ver">Barcode v1.0</div>
+    <div id="ver">Barcode v1.1</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>value=0→発電機／value=1→踏切</small></div>
@@ -238,10 +248,45 @@ function onFound(key,markerId){ if(lostTimer){clearTimeout(lostTimer);lostTimer=
   setScenario(key,markerId); dot.classList.add('on'); stxt.textContent='認識中：'+SCEN[key].name; hint.classList.add('hidden'); }
 function onLost(){ if(lostTimer)clearTimeout(lostTimer);
   lostTimer=setTimeout(()=>{lostTimer=null; dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.classList.remove('hidden');},1000); }
-document.getElementById('m0').addEventListener('markerFound',()=>onFound('0','m0'));
-document.getElementById('m1').addEventListener('markerFound',()=>onFound('1','m1'));
-document.getElementById('m0').addEventListener('markerLost',onLost);
-document.getElementById('m1').addEventListener('markerLost',onLost);
+// マーカー0〜9すべてに認識ハンドラを付ける（シナリオ未登録の値はヒント表示のみ）
+for(let v=0; v<=9; v++){
+  const el=document.getElementById('m'+v); if(!el) continue;
+  const key=String(v), mid='m'+v;
+  el.addEventListener('markerFound',()=>{
+    if(!SCEN[key]){ // 未登録バーコード
+      if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
+      dot.classList.remove('on'); stxt.textContent='未登録のバーコード（value='+key+'）';
+      return;
+    }
+    onFound(key,mid);
+  });
+  el.addEventListener('markerLost',onLost);
+}
+
+// ══════ GitHub から barcode-scenarios/*.json を読み込み SCEN に登録 ══════
+// barcode フィールドを持つJSONだけ採用（画像トラッキング用 scenarios/ は対象外）。
+const GH_OWNER='ifx-mori', GH_REPO='IFX_AR-', BARCODE_DIR='barcode-scenarios';
+async function loadRemoteScenarios(){
+  try{
+    const bust='t='+Date.now();
+    const res=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${BARCODE_DIR}?ref=main&${bust}`,
+      {headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
+    if(!res.ok) return; // フォルダ未作成などは静かに無視（内蔵SCENで動作）
+    const files=await res.json();
+    const jsons=(await Promise.all((Array.isArray(files)?files:[])
+      .filter(f=>f.name.endsWith('.json')&&f.download_url)
+      .map(f=>fetch(f.download_url+(f.download_url.includes('?')?'&':'?')+bust,{cache:'no-store'})
+        .then(r=>r.ok?r.json():null).catch(()=>null))))
+      .filter(s=>s&&Number.isInteger(s.barcode)&&Array.isArray(s.steps));
+    jsons.forEach(s=>{
+      SCEN[String(s.barcode)]={ name:s.name||('barcode '+s.barcode), subtitle:s.subtitle||'',
+        calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}), steps:s.steps };
+    });
+    // 既に認識中のマーカーがGitHub側で更新された場合に備えて再描画
+    if(curKey&&SCEN[curKey]){ applyCal(); renderStep(); }
+  }catch(_){ /* オフライン等：内蔵SCENのまま動作 */ }
+}
+loadRemoteScenarios();
 
 // ══════ 校正パネル（現在のシナリオを調整） ══════
 document.getElementById('cal-toggle').onclick=()=>{ const p=document.getElementById('calib'); p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'; };

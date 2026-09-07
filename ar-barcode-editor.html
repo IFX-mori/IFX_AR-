@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ARバーコード版 シナリオエディタ</title>
+<!-- ════════════════════════════════════════════════════════════════
+  バーコード版シナリオエディタ（ar-manual-barcode.html 専用）
+  ・.mind生成なし。参照写真に図形を置いて正規化画像座標(x:右+ y:上+)を作る
+  ・出力は barcode-scenarios/{id}.json（barcode/calib/steps）＝プレイヤーが自動読込
+  ・描画は ar-manual-barcode.html と同一のcanvasコードを流用しWYSIWYG
+  ・バーコード番号は GitHub 上の既存シナリオを見て自動採番
+════════════════════════════════════════════════════════════════ -->
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; font-family:-apple-system,'Helvetica Neue',sans-serif; background:#f1f5f9; color:#1e293b; }
+  button { font-family:inherit; cursor:pointer; }
+  input, textarea, select { font-family:inherit; font-size:14px; }
+
+  #topbar { position:fixed; top:0; left:0; right:0; z-index:30; display:flex; align-items:center; gap:10px;
+    padding:9px 14px; background:#fff; box-shadow:0 1px 6px rgba(0,0,0,0.12); }
+  #topbar .t { font-size:14px; font-weight:800; color:#7c3aed; flex:1; line-height:1.2; }
+  #topbar .t small { display:block; font-size:10px; font-weight:600; color:#64748b; }
+  #ver { font-size:10px; font-weight:700; color:#7c3aed; background:rgba(124,58,237,0.12); padding:2px 7px; border-radius:8px; }
+
+  /* ── セットアップ画面 ── */
+  #setup { position:fixed; inset:52px 0 0 0; overflow:auto; padding:16px; }
+  .card { background:#fff; border-radius:14px; padding:16px; box-shadow:0 2px 10px rgba(0,0,0,0.06); max-width:560px; margin:0 auto 14px; }
+  .card h2 { font-size:14px; font-weight:800; margin-bottom:12px; color:#1e293b; display:flex; align-items:center; gap:6px; }
+  .fld { margin-bottom:12px; }
+  .fld label { display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px; }
+  .fld input, .fld textarea { width:100%; padding:9px 11px; border:1px solid #cbd5e1; border-radius:9px; }
+  .fld .hint { font-size:11px; color:#94a3b8; margin-top:4px; line-height:1.5; }
+  .row2 { display:flex; gap:10px; }
+  .row2 > * { flex:1; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:11px 16px; border:none; border-radius:10px; font-size:14px; font-weight:700; color:#fff; background:#1d4ed8; }
+  .btn.g { background:#16a34a; } .btn.d { background:#e2e8f0; color:#334155; } .btn.p { background:#7c3aed; }
+  .btn:disabled { opacity:.5; }
+  .btn.full { width:100%; }
+  #photo-preview { width:100%; border-radius:10px; margin-top:8px; display:none; border:1px solid #e2e8f0; }
+  #setup-status { font-size:12px; white-space:pre-line; line-height:1.6; margin-top:8px; color:#64748b; }
+
+  /* ── エディタ画面 ── */
+  #editor { position:fixed; inset:52px 0 0 0; display:none; }
+  #editor.on { display:block; }
+  #stage-wrap { position:absolute; inset:0 0 148px 0; background:#0f172a; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  #stage { position:relative; }
+  #edit-img { display:block; max-width:100%; max-height:100%; }
+  #overlay { position:absolute; inset:0; pointer-events:none; }
+  .fig { position:absolute; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; transform:translate(-50%,-50%); }
+  .fig img { display:block; width:100%; height:100%; }
+  .fig.sel::after { content:''; position:absolute; inset:-6px; border:2px dashed #fff; border-radius:8px; box-shadow:0 0 0 2px rgba(0,0,0,.4); }
+
+  /* 左：図形追加ツール */
+  #tools { position:absolute; left:8px; top:8px; display:flex; flex-direction:column; gap:6px; z-index:10; }
+  #tools button { width:46px; height:42px; border-radius:10px; border:1px solid rgba(255,255,255,.25); background:rgba(15,23,42,.72); color:#fff; font-size:11px; font-weight:700; line-height:1.15; }
+  #tools button.on { background:#7c3aed; border-color:#a78bfa; }
+
+  /* 右上：校正・保存 */
+  #topright { position:absolute; right:8px; top:8px; display:flex; flex-direction:column; gap:6px; align-items:flex-end; z-index:10; }
+  #topright button { border:none; border-radius:10px; padding:8px 11px; font-size:12px; font-weight:700; color:#fff; }
+  #btn-cal { background:rgba(15,23,42,.82); }
+  #btn-save { background:#16a34a; }
+  #btn-back { background:rgba(15,23,42,.82); }
+
+  #calib { position:absolute; right:8px; top:52px; z-index:11; display:none; background:#fff; border-radius:12px; padding:11px 12px; box-shadow:0 6px 20px rgba(0,0,0,.28); min-width:196px; }
+  #calib .cr { display:flex; align-items:center; gap:6px; margin-bottom:7px; font-size:12px; }
+  #calib .cr span { width:40px; color:#475569; font-weight:700; }
+  #calib .cr b { flex:1; text-align:center; }
+  #calib .cbtn { width:34px; height:30px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-weight:700; color:#334155; }
+  #calib .note { font-size:10.5px; color:#94a3b8; line-height:1.5; margin-top:2px; }
+
+  /* 下：ステップ帯＋プロパティ */
+  #bottom { position:absolute; left:0; right:0; bottom:0; height:148px; background:#fff; box-shadow:0 -2px 12px rgba(0,0,0,0.14); display:flex; flex-direction:column; }
+  #steptabs { display:flex; gap:6px; padding:8px 10px 4px; overflow-x:auto; align-items:center; }
+  #steptabs .stab { flex:0 0 auto; padding:6px 12px; border-radius:9px; border:1px solid #cbd5e1; background:#f8fafc; font-size:12px; font-weight:700; color:#475569; white-space:nowrap; }
+  #steptabs .stab.on { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
+  #steptabs .addstep { padding:6px 10px; border-radius:9px; border:1px dashed #94a3b8; background:#fff; color:#64748b; font-weight:700; }
+  #stepmeta { padding:2px 10px 8px; display:flex; gap:8px; align-items:center; }
+  #stepmeta input.title { flex:1; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; }
+  #stepmeta select { padding:7px 8px; border:1px solid #cbd5e1; border-radius:8px; }
+  #stepmeta .del { padding:7px 9px; border:1px solid #fecaca; color:#dc2626; background:#fff; border-radius:8px; font-weight:700; font-size:12px; }
+  #propbar { padding:0 10px 8px; overflow-x:auto; }
+  #propbar .inner { display:flex; gap:8px; align-items:center; min-height:36px; }
+  #propbar .none { font-size:12px; color:#94a3b8; }
+  #propbar .grp { display:flex; align-items:center; gap:5px; flex:0 0 auto; font-size:12px; color:#475569; font-weight:700; }
+  #propbar input[type=text] { width:150px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; }
+  #propbar input[type=color] { width:34px; height:30px; padding:0; border:1px solid #cbd5e1; border-radius:6px; background:#fff; }
+  #propbar select { padding:6px 6px; border:1px solid #cbd5e1; border-radius:7px; }
+  #propbar .sbtn { width:30px; height:30px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; font-weight:800; color:#334155; }
+  #propbar .delfig { padding:6px 9px; border:1px solid #fecaca; color:#dc2626; background:#fff; border-radius:7px; font-weight:700; }
+
+  /* モーダル（JSON・GitHub一覧） */
+  .modal { position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:50; display:none; align-items:center; justify-content:center; padding:16px; }
+  .modal.on { display:flex; }
+  .modal .box { background:#fff; border-radius:14px; padding:16px; width:100%; max-width:520px; max-height:82vh; overflow:auto; }
+  .modal h3 { font-size:14px; font-weight:800; margin-bottom:10px; }
+  .modal textarea { width:100%; height:220px; border:1px solid #cbd5e1; border-radius:9px; padding:10px; font-family:ui-monospace,monospace; font-size:12px; }
+  .modal .mact { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
+  .remote-item { text-align:left; width:100%; padding:11px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; margin-bottom:8px; }
+  .remote-item b { display:block; color:#1e293b; }
+  .remote-item small { color:#64748b; font-size:11px; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="t">ARバーコード版 シナリオエディタ<small id="sub">.mind不要／写真に図形を配置してJSON化</small></div>
+  <div id="ver">Editor v1.0</div>
+</div>
+
+<!-- ══════════ セットアップ ══════════ -->
+<div id="setup">
+  <div class="card">
+    <h2>① シナリオ情報</h2>
+    <div class="fld"><label>シナリオ名</label><input id="cfg-name" placeholder="例：発電機の復旧手順"></div>
+    <div class="fld"><label>サブタイトル（任意）</label><input id="cfg-sub" placeholder="例：〇〇現場向け"></div>
+    <div class="row2">
+      <div class="fld"><label>ID（ファイル名）</label><input id="cfg-id" placeholder="自動生成"></div>
+      <div class="fld"><label>バーコード番号</label><input id="cfg-barcode" placeholder="空＝自動採番" inputmode="numeric">
+        <div class="hint">3x3マトリクスの番号。空欄なら保存時に空き番号を自動割当。</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② 参照写真（対象パネル）</h2>
+    <div class="hint" style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">
+      対象パネルを正面から撮った写真を読み込み、その上に図形を置いて位置を決めます。<br>
+      写真は<b>位置決め用</b>です（プレイヤーでは表示されません。実機ではバーコードマーカーで位置合わせ）。
+    </div>
+    <input type="file" id="file-photo" accept="image/*" capture="environment" style="display:none">
+    <button class="btn full p" onclick="document.getElementById('file-photo').click()">📷 写真を読み込む</button>
+    <img id="photo-preview" alt="preview">
+  </div>
+
+  <div class="card">
+    <h2>③ GitHub 連携</h2>
+    <div class="fld"><label>リポジトリ（owner/repo）</label><input id="gh-repo" placeholder="ifx-mori/IFX_AR-"></div>
+    <div class="fld"><label>Personal Access Token（保存時のみ使用）</label><input id="gh-token" type="password" placeholder="ghp_...">
+      <div class="hint">contents:write 権限のトークン。ブラウザのlocalStorageに保存されます。</div></div>
+    <div class="row2">
+      <button class="btn d" onclick="openRemotePicker()">📥 既存シナリオを読込</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <button class="btn full g" id="btn-start" onclick="startEditor()" disabled>✏️ 編集を開始（写真が必要）</button>
+    <div id="setup-status"></div>
+  </div>
+</div>
+
+<!-- ══════════ エディタ ══════════ -->
+<div id="editor">
+  <div id="stage-wrap">
+    <div id="tools">
+      <button data-add="box">⬜<br>囲み</button>
+      <button data-add="arrow">↑<br>上矢印</button>
+      <button data-add="arrowDown">↓<br>下矢印</button>
+      <button data-add="curvedArrow">↺<br>回転</button>
+      <button data-add="ring">◯<br>丸</button>
+      <button data-add="text">📝<br>文字</button>
+    </div>
+    <div id="topright">
+      <button id="btn-back" onclick="backToSetup()">‹ 戻る</button>
+      <button id="btn-cal" onclick="toggleCalib()">校正</button>
+      <button id="btn-save" onclick="openExport()">保存</button>
+    </div>
+    <div id="calib">
+      <div class="cr"><span>倍率</span><button class="cbtn" data-cal="s-">－</button><b id="cv-s">6.00</b><button class="cbtn" data-cal="s+">＋</button></div>
+      <div class="cr"><span>左右</span><button class="cbtn" data-cal="x-">←</button><b id="cv-x">0.00</b><button class="cbtn" data-cal="x+">→</button></div>
+      <div class="cr"><span>上下</span><button class="cbtn" data-cal="y-">↓</button><b id="cv-y">0.00</b><button class="cbtn" data-cal="y+">↑</button></div>
+      <div class="cr"><span>回転</span><button class="cbtn" data-cal="r" style="flex:1;width:auto">90°</button><b id="cv-r" style="width:36px">0</b></div>
+      <div class="note">実機のプレイヤー側でも校正できます。ここは初期値の設定です。</div>
+    </div>
+    <div id="stage">
+      <img id="edit-img" alt="target">
+      <div id="overlay"></div>
+    </div>
+  </div>
+
+  <div id="bottom">
+    <div id="steptabs"></div>
+    <div id="stepmeta">
+      <input class="title" id="step-title" placeholder="ステップ名">
+      <select id="step-warn">
+        <option value="normal">通常</option>
+        <option value="caution">注意</option>
+        <option value="danger">危険</option>
+      </select>
+      <button class="del" onclick="deleteStep()">削除</button>
+    </div>
+    <div id="propbar"><div class="inner"><span class="none">図形を選択、または左のツールから追加してください</span></div></div>
+  </div>
+</div>
+
+<!-- JSONモーダル -->
+<div class="modal" id="json-modal">
+  <div class="box">
+    <h3 id="json-title">📤 保存 / エクスポート</h3>
+    <textarea id="json-ta"></textarea>
+    <div style="margin-top:10px;padding:10px;background:#f8fafc;border-radius:9px;font-size:12px;color:#475569;line-height:1.6">
+      <b>GitHubへ保存</b>：barcode-scenarios/&lt;id&gt;.json にアップロードします。バーコード番号が空なら自動採番します。
+    </div>
+    <div id="json-status" style="font-size:12px;white-space:pre-line;margin-top:8px;color:#64748b"></div>
+    <div class="mact">
+      <button class="btn d" onclick="closeModal('json-modal')">閉じる</button>
+      <button class="btn" onclick="copyJSON()">📋 コピー</button>
+      <button class="btn g" id="btn-upload" onclick="githubUpload()">☁️ GitHubへ保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- GitHub読込モーダル -->
+<div class="modal" id="remote-modal">
+  <div class="box">
+    <h3>📥 既存シナリオを読込</h3>
+    <div id="remote-list"><div style="color:#64748b;font-size:13px">読み込み中…</div></div>
+    <div class="mact"><button class="btn d" onclick="closeModal('remote-modal')">閉じる</button></div>
+  </div>
+</div>
+
+<script>
+const APP_VERSION = 'v1.0';
+const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
+const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
+const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
+const WARN = { normal:{c:'#1d4ed8',label:'通常'}, caution:{c:'#d97706',label:'注意'}, danger:{c:'#dc2626',label:'危険'} };
+const PXREF = 1000;
+
+// ══════════ 編集データ ══════════
+let ED = {
+  id: '', name: '', subtitle: '', barcode: null,
+  calib: { ...CALIB_DEFAULT },
+  imageFile: '',        // 参照写真のGitHubパス（再編集用。プレイヤーは未使用）
+  steps: []
+};
+let stepIdx = 0, figIdx = -1, addType = null;
+let _photoDataURL = null;   // 参照写真（DataURL）
+
+function curStep(){ return ED.steps[stepIdx]; }
+function curFig(){ const s=curStep(); return s && figIdx>=0 ? s.ar[figIdx] : null; }
+function mkStep(title){ return { title:title||('ステップ'+(ED.steps.length+1)), detail:'', warn:'normal', ar:[] }; }
+
+// ══════════ プレイヤーと同一の描画（canvas） ══════════
+function labelMetrics(ctx,text,fp){ ctx.font=`bold ${fp}px sans-serif`; const lines=String(text).split('\n');
+  let w=0; lines.forEach(l=>w=Math.max(w,ctx.measureText(l).width)); const lh=fp*1.25; return {lines,w,lh,h:lines.length*lh}; }
+function drawLabel(ctx,cx,cy,text,fp,bg,fg){ const m=labelMetrics(ctx,text,fp); const padX=26,padY=16;
+  const w=m.w+padX*2,h=m.h+padY*2,x=cx-w/2,y=cy-h/2,r=Math.min(28,h/2);
+  ctx.fillStyle=bg; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=fg; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font=`bold ${fp}px sans-serif`;
+  m.lines.forEach((l,i)=>ctx.fillText(l,cx,cy-m.h/2+m.lh*(i+0.5))); return {w,h}; }
+function iconArrow(ctx,cx,cy,w,h,color,dir){ ctx.save(); ctx.translate(cx,cy); if(dir==='up')ctx.scale(1,-1);
+  ctx.fillStyle=color; ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=6; ctx.lineJoin='round'; const sw=w*0.34;
+  ctx.beginPath(); ctx.moveTo(-sw/2,-h/2); ctx.lineTo(sw/2,-h/2); ctx.lineTo(sw/2,h*0.05); ctx.lineTo(w/2,h*0.05); ctx.lineTo(0,h/2); ctx.lineTo(-w/2,h*0.05); ctx.lineTo(-sw/2,h*0.05); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); }
+function iconBox(ctx,cx,cy,w,h,color,thick){ ctx.lineWidth=thick||14; ctx.strokeStyle=color; ctx.lineJoin='round';
+  const r=Math.min(24,h/2),x=cx-w/2,y=cy-h/2; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.stroke(); }
+function iconCurved(ctx,cx,cy,r,color,dir){ ctx.save(); ctx.translate(cx,cy); if(dir==='left')ctx.scale(-1,1);
+  ctx.strokeStyle=color; ctx.lineWidth=Math.max(12,r*0.26); ctx.lineCap='round';
+  ctx.beginPath(); ctx.arc(0,0,r,Math.PI*0.85,Math.PI*0.15,false); ctx.stroke();
+  const a=Math.PI*0.15,ex=r*Math.cos(a),ey=r*Math.sin(a),hs=r*0.5; ctx.fillStyle=color;
+  ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex-hs*0.2,ey-hs); ctx.lineTo(ex+hs*0.7,ey-hs*0.35); ctx.closePath(); ctx.fill(); ctx.restore(); }
+// 図形1個 → {canvas, wUnits, hUnits}（プレイヤーの makeItem と同じ寸法計算）
+function figCanvas(it){
+  const tmp=document.createElement('canvas').getContext('2d');
+  const color=it.color||'#60a5fa'; const fp=Math.round(46*(it.fontScale||1));
+  const bg=it.textBg||'rgba(0,0,0,0.82)'; const fg=it.textColor||'#ffffff';
+  const lm=it.label ? labelMetrics(tmp,it.label,fp) : null;
+  const labelW=lm?lm.w+52:0, labelH=lm?lm.h+32:0;
+  let iw=0,ih=0;
+  if(it.type==='box'){ iw=(it.sizeW||it.size||0.5)*PXREF; ih=(it.sizeH||it.size||0.5)*PXREF; }
+  else if(it.type==='ring'){ iw=ih=(it.size||0.6)*PXREF; }
+  else if(it.type==='arrow'||it.type==='arrowDown'){ ih=(it.h||0.5)*PXREF; iw=ih*0.7; }
+  else if(it.type==='curvedArrow'){ iw=ih=(it.size||(it.scale?it.scale*0.09:0.2))*PXREF; }
+  const gap=22, labelAbove=!!it.labelAbove;
+  const cw=Math.max(iw,labelW)+30;
+  const ch=(it.type==='text')?(labelH+20):(ih+2*(gap+labelH)+20);
+  const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
+  const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
+  if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.03)*PXREF);
+  else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
+  else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
+  else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
+  else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir);
+  if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg);
+    else { const ly=labelAbove?(CY-ih/2-gap-labelH/2):(CY+ih/2+gap+labelH/2); drawLabel(ctx,CX,ly,it.label,fp,bg,fg); } }
+  return { url:cv.toDataURL('image/png'), wUnits:cv.width/PXREF, hUnits:cv.height/PXREF };
+}
+
+// ══════════ 座標変換（写真ピクセル ⇔ 正規化画像座標） ══════════
+// 正規化座標：原点=画像中心, x:右+, y:上+, x∈[-0.5,0.5], y∈[-aspect/2, aspect/2]（aspect=高/幅）
+function imgRect(){ return document.getElementById('edit-img').getBoundingClientRect(); }
+function imgAspect(){ const im=document.getElementById('edit-img'); return (im.naturalHeight&&im.naturalWidth)?(im.naturalHeight/im.naturalWidth):1; }
+function screenToNorm(clientX, clientY){
+  const r=imgRect(); const u=(clientX-r.left)/r.width, v=(clientY-r.top)/r.height;
+  const aspect=imgAspect();
+  return { x:+(u-0.5).toFixed(3), y:+((0.5-v)*aspect).toFixed(3), inside:(u>=0&&u<=1&&v>=0&&v<=1) };
+}
+// 正規化座標 → オーバーレイ内%（オーバーレイ＝画像と同一矩形）
+function normToPct(x, y){
+  const aspect=imgAspect();
+  return { left:(x+0.5)*100, top:(0.5 - y/aspect)*100 };
+}
+
+// ══════════ オーバーレイ描画 ══════════
+function renderOverlay(){
+  const ov=document.getElementById('overlay'); const r=imgRect();
+  ov.innerHTML='';
+  const step=curStep(); if(!step) return;
+  step.ar.forEach((it,i)=>{
+    const fc=figCanvas(it);
+    const p=normToPct(it.pos[0], it.pos[1]);
+    const el=document.createElement('div');
+    el.className='fig'+(i===figIdx?' sel':'');
+    el.style.left=p.left+'%'; el.style.top=p.top+'%';
+    // 図形の物理サイズ：1正規化単位=画像幅(等方)。オーバーレイ幅=画像幅W, 高さ=W*aspect。
+    //   幅% = wUnits*100（W基準） / 高さ% = hUnits/aspect*100（W*aspect基準でpxを合わせる）
+    el.style.width=(fc.wUnits*100)+'%';
+    el.style.height=(fc.hUnits/imgAspect()*100)+'%';
+    const im=document.createElement('img'); im.src=fc.url; el.appendChild(im);
+    el.addEventListener('pointerdown', ev=>{ ev.stopPropagation(); startDrag(ev,i); });
+    ov.appendChild(el);
+  });
+}
+
+function startDrag(ev, i){
+  ev.preventDefault();
+  selectFig(i);
+  const z=(curStep().ar[i].pos&&curStep().ar[i].pos[2])||0;
+  let moved=false;
+  const onMove=(e)=>{ const n=screenToNorm(e.clientX,e.clientY); const s=curStep(); if(!s||!s.ar[i])return;
+    s.ar[i].pos=[n.x,n.y,z]; moved=true; renderOverlay(); updatePosLabel(); };
+  const onUp=()=>{ document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); document.removeEventListener('pointercancel',onUp); };
+  document.addEventListener('pointermove',onMove); document.addEventListener('pointerup',onUp); document.addEventListener('pointercancel',onUp);
+}
+
+// ステージクリックで図形追加
+document.getElementById('overlay').addEventListener('pointerdown', ev=>{
+  if(!addType) return;
+  const n=screenToNorm(ev.clientX,ev.clientY); if(!n.inside) return;
+  const it=defaultFig(addType, n.x, n.y);
+  curStep().ar.push(it); figIdx=curStep().ar.length-1;
+  clearAddType();
+  renderOverlay(); renderPropbar();
+});
+
+function defaultFig(type, x, y){
+  const base={ type, pos:[x,y,0], color:'#60a5fa' };
+  if(type==='box')          return { ...base, size:0.12, label:'確認', labelBelow:true };
+  if(type==='ring')         return { ...base, size:0.12, label:'押す' };
+  if(type==='arrow')        return { ...base, label:'押す' };
+  if(type==='arrowDown')    return { ...base, label:'下に' };
+  if(type==='curvedArrow')  return { ...base, dir:'right', scale:2.4, label:'回す' };
+  if(type==='text')         return { ...base, label:'テキスト', fontScale:1 };
+  return base;
+}
+
+// ══════════ ツール（図形追加） ══════════
+document.querySelectorAll('#tools button').forEach(b=>{
+  b.onclick=()=>{ const t=b.getAttribute('data-add');
+    if(addType===t){ clearAddType(); return; }
+    addType=t; document.querySelectorAll('#tools button').forEach(x=>x.classList.toggle('on', x===b));
+    setSub('タップで「'+t+'」を配置'); };
+});
+function clearAddType(){ addType=null; document.querySelectorAll('#tools button').forEach(x=>x.classList.remove('on')); setSub(''); }
+function setSub(t){ document.getElementById('sub').textContent = t || (ED.name||'.mind不要／写真に図形を配置してJSON化'); }
+
+// ══════════ ステップUI ══════════
+function renderStepTabs(){
+  const box=document.getElementById('steptabs'); box.innerHTML='';
+  ED.steps.forEach((s,i)=>{ const b=document.createElement('button'); b.className='stab'+(i===stepIdx?' on':'');
+    b.textContent=(i+1)+'. '+(s.title||''); b.onclick=()=>{ stepIdx=i; figIdx=-1; syncStepMeta(); renderOverlay(); renderPropbar(); renderStepTabs(); };
+    box.appendChild(b); });
+  const add=document.createElement('button'); add.className='addstep'; add.textContent='＋ステップ';
+  add.onclick=()=>{ ED.steps.push(mkStep()); stepIdx=ED.steps.length-1; figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); };
+  box.appendChild(add);
+}
+function syncStepMeta(){ const s=curStep(); if(!s)return;
+  document.getElementById('step-title').value=s.title||'';
+  document.getElementById('step-warn').value=s.warn||'normal'; }
+document.getElementById('step-title').oninput=e=>{ const s=curStep(); if(s){ s.title=e.target.value; renderStepTabs(); } };
+document.getElementById('step-warn').onchange=e=>{ const s=curStep(); if(s) s.warn=e.target.value; };
+function deleteStep(){ if(ED.steps.length<=1){ alert('最後のステップは削除できません'); return; }
+  if(!confirm('このステップを削除しますか？')) return;
+  ED.steps.splice(stepIdx,1); stepIdx=Math.max(0,stepIdx-1); figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
+
+// ══════════ 図形プロパティ ══════════
+function selectFig(i){ figIdx=i; renderPropbar(); renderOverlay(); }
+function updatePosLabel(){ const el=document.getElementById('pp-pos'); const f=curFig(); if(el&&f) el.textContent=`x:${f.pos[0]} y:${f.pos[1]}`; }
+function renderPropbar(){
+  const bar=document.querySelector('#propbar .inner'); const f=curFig();
+  if(!f){ bar.innerHTML='<span class="none">図形を選択、または左のツールから追加してください</span>'; return; }
+  const isText=f.type==='text';
+  let h='';
+  h+=`<span class="grp">${f.type}</span>`;
+  h+=`<span class="grp">色<input type="color" id="pp-color" value="${toHex(f.color)}"></span>`;
+  h+=`<input type="text" id="pp-label" placeholder="ラベル" value="${escAttr(f.label||'')}">`;
+  // サイズ
+  if(f.type==='box'||f.type==='ring'){ h+=`<span class="grp">大<button class="sbtn" data-sz="-">－</button><button class="sbtn" data-sz="+">＋</button></span>`; }
+  if(f.type==='curvedArrow'){ h+=`<span class="grp">向き<select id="pp-dir"><option value="right"${f.dir==='right'?' selected':''}>右</option><option value="left"${f.dir==='left'?' selected':''}>左</option></select></span>`;
+    h+=`<span class="grp">大<button class="sbtn" data-sz="-">－</button><button class="sbtn" data-sz="+">＋</button></span>`; }
+  if(isText){ h+=`<span class="grp">字<button class="sbtn" data-fs="-">－</button><button class="sbtn" data-fs="+">＋</button></span>`; }
+  if(f.type==='box'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
+  if(f.type==='arrow'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-above" ${f.labelAbove?'checked':''}> ラベル上</label></span>`; }
+  h+=`<span class="grp" id="pp-pos">x:${f.pos[0]} y:${f.pos[1]}</span>`;
+  h+=`<button class="delfig" onclick="deleteFig()">図形削除</button>`;
+  bar.innerHTML=h;
+  const col=document.getElementById('pp-color'); if(col) col.oninput=e=>{ f.color=e.target.value; renderOverlay(); };
+  const lab=document.getElementById('pp-label'); if(lab) lab.oninput=e=>{ f.label=e.target.value; renderOverlay(); };
+  const dir=document.getElementById('pp-dir'); if(dir) dir.onchange=e=>{ f.dir=e.target.value; renderOverlay(); };
+  const below=document.getElementById('pp-below'); if(below) below.onchange=e=>{ f.labelBelow=e.target.checked; renderOverlay(); };
+  const above=document.getElementById('pp-above'); if(above) above.onchange=e=>{ f.labelAbove=e.target.checked; renderOverlay(); };
+  bar.querySelectorAll('[data-sz]').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-sz')==='+'?1.15:0.87;
+    if(f.type==='curvedArrow'){ f.scale=+((f.scale||2.4)*k).toFixed(2); }
+    else { const cur=f.size||f.sizeW||0.12; f.size=+(cur*k).toFixed(3); delete f.sizeW; delete f.sizeH; }
+    renderOverlay(); });
+  bar.querySelectorAll('[data-fs]').forEach(b=>b.onclick=()=>{ f.fontScale=+(Math.max(0.5,Math.min(3,(f.fontScale||1)+(b.getAttribute('data-fs')==='+'?0.1:-0.1)))).toFixed(1); renderOverlay(); });
+}
+function deleteFig(){ const s=curStep(); if(!s||figIdx<0)return; s.ar.splice(figIdx,1); figIdx=-1; renderOverlay(); renderPropbar(); }
+
+// ══════════ 校正パネル ══════════
+function toggleCalib(){ const p=document.getElementById('calib'); p.style.display=(p.style.display==='block')?'none':'block'; syncCalib(); }
+function syncCalib(){ const c=ED.calib; const g=(id,v)=>document.getElementById(id).textContent=v;
+  g('cv-s',c.scale.toFixed(2)); g('cv-x',c.ox.toFixed(2)); g('cv-y',c.oy.toFixed(2)); g('cv-r',c.rot); }
+document.querySelectorAll('#calib .cbtn').forEach(b=>b.onclick=()=>{ const c=ED.calib; const k=b.getAttribute('data-cal');
+  if(k==='s+') c.scale=+Math.min(30,c.scale*1.1).toFixed(2);
+  else if(k==='s-') c.scale=+Math.max(0.5,c.scale/1.1).toFixed(2);
+  else if(k==='x+') c.ox=+(c.ox+0.02).toFixed(2); else if(k==='x-') c.ox=+(c.ox-0.02).toFixed(2);
+  else if(k==='y+') c.oy=+(c.oy+0.02).toFixed(2); else if(k==='y-') c.oy=+(c.oy-0.02).toFixed(2);
+  else if(k==='r') c.rot=(c.rot+90)%360;
+  syncCalib(); });
+
+// ══════════ 写真読込 ══════════
+document.getElementById('file-photo').addEventListener('change', e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ _photoDataURL=rd.result;
+    const pv=document.getElementById('photo-preview'); pv.src=_photoDataURL; pv.style.display='block';
+    document.getElementById('btn-start').disabled=false;
+    setStatus('写真を読み込みました。「編集を開始」を押してください。'); };
+  rd.readAsDataURL(f);
+});
+function setStatus(t){ document.getElementById('setup-status').textContent=t; }
+
+// ══════════ 画面遷移 ══════════
+function startEditor(){
+  ED.name=document.getElementById('cfg-name').value.trim()||'新規シナリオ';
+  ED.subtitle=document.getElementById('cfg-sub').value.trim();
+  const bc=document.getElementById('cfg-barcode').value.trim();
+  ED.barcode = bc==='' ? null : parseInt(bc,10);
+  if(!ED.id) ED.id=document.getElementById('cfg-id').value.trim() || genId(ED.name);
+  document.getElementById('cfg-id').value=ED.id;
+  if(!ED.steps.length) ED.steps=[mkStep('ステップ1')];
+  const img=document.getElementById('edit-img');
+  img.onload=()=>{ renderOverlay(); };
+  img.src=_photoDataURL || ED._loadedImg || '';
+  document.getElementById('setup').style.display='none';
+  document.getElementById('editor').classList.add('on');
+  stepIdx=0; figIdx=-1; addType=null;
+  syncStepMeta(); renderStepTabs(); renderPropbar(); syncCalib(); setSub('');
+}
+function backToSetup(){
+  document.getElementById('editor').classList.remove('on');
+  document.getElementById('setup').style.display='';
+  document.getElementById('setup').scrollTop=0;
+}
+function genId(name){
+  const slug=(name||'bc').replace(/[^0-9A-Za-z一-龠ぁ-んァ-ヶ]/g,'').slice(0,10) || 'bc';
+  return 'bc-'+slug+'-'+Date.now().toString(36).slice(-5);
+}
+
+// ══════════ エクスポート / GitHub ══════════
+function buildScenarioJSON(){
+  return JSON.stringify({
+    id: ED.id,
+    barcode: ED.barcode,          // null なら保存時に自動採番
+    name: ED.name,
+    subtitle: ED.subtitle||'',
+    calib: ED.calib,
+    imageFile: ED.imageFile||'',  // 参照写真パス（再編集用・プレイヤーは未使用）
+    steps: ED.steps
+  }, null, 2);
+}
+function openExport(){
+  clearAddType();
+  document.getElementById('json-ta').value=buildScenarioJSON();
+  document.getElementById('json-status').textContent='';
+  document.getElementById('json-modal').classList.add('on');
+}
+function copyJSON(){ const ta=document.getElementById('json-ta'); ta.select();
+  if(navigator.clipboard) navigator.clipboard.writeText(ta.value).then(()=>setJsonStatus('コピーしました'),()=>{}); else document.execCommand('copy'); }
+function setJsonStatus(t,err){ const el=document.getElementById('json-status'); el.textContent=t; el.style.color=err?'#dc2626':'#16a34a'; }
+function closeModal(id){ document.getElementById(id).classList.remove('on'); }
+
+function utf8ToBase64(s){ return btoa(unescape(encodeURIComponent(s))); }
+function dataURLToBase64(u){ return u.split(',')[1]; }
+async function ghGetJson(url){ const r=await fetch(url+(url.includes('?')?'&':'?')+'t='+Date.now(),{headers:{Accept:'application/vnd.github+json'},cache:'no-store'}); return r.ok?r.json():null; }
+async function ghPutFile(owner,repo,token,path,contentB64,message){
+  const api=`https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+  const headers={Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json'};
+  let sha; const g=await fetch(api+'?ref=main&t='+Date.now(),{headers,cache:'no-store'}); if(g.ok){ const j=await g.json(); sha=j.sha; }
+  const body={message,content:contentB64,branch:'main'}; if(sha) body.sha=sha;
+  const p=await fetch(api,{method:'PUT',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!p.ok){ const t=await p.text(); throw new Error(`${path} → ${p.status} ${t.slice(0,140)}`); }
+}
+// 既存 barcode-scenarios/*.json の barcode を走査し、空き番号（0..）を返す（自ID除外）
+async function assignBarcode(owner,repo){
+  const list=await ghGetJson(`https://api.github.com/repos/${owner}/${repo}/contents/${BARCODE_DIR}?ref=main`);
+  const used=new Set();
+  if(Array.isArray(list)){
+    const jsons=await Promise.all(list.filter(f=>f.name.endsWith('.json')&&f.download_url)
+      .map(f=>ghGetJson(f.download_url).catch(()=>null)));
+    jsons.forEach(j=>{ if(j&&j.id!==ED.id&&Number.isInteger(j.barcode)) used.add(j.barcode); });
+  }
+  let n=0; while(used.has(n)) n++; return n;
+}
+async function githubUpload(){
+  const repoStr=(document.getElementById('gh-repo').value.trim())||'ifx-mori/IFX_AR-';
+  const token=document.getElementById('gh-token').value.trim();
+  if(!token){ setJsonStatus('❌ トークンを入力してください（③GitHub連携）',true); return; }
+  if(!repoStr.includes('/')){ setJsonStatus('❌ リポジトリは owner/repo 形式',true); return; }
+  const [owner,repo]=repoStr.split('/');
+  localStorage.setItem('bc_gh_token',token); localStorage.setItem('bc_gh_repo',repoStr);
+  const btn=document.getElementById('btn-upload'); btn.disabled=true;
+  try{
+    if(ED.barcode===null||ED.barcode===undefined||isNaN(ED.barcode)){
+      setJsonStatus('バーコード番号を採番中…'); ED.barcode=await assignBarcode(owner,repo);
+      document.getElementById('cfg-barcode').value=ED.barcode;
+    }
+    if(_photoDataURL){
+      setJsonStatus('参照写真をアップロード中…');
+      ED.imageFile=`${TARGET_DIR}/${ED.id}.jpg`;
+      await ghPutFile(owner,repo,token,ED.imageFile,dataURLToBase64(_photoDataURL),`Add barcode target ${ED.id}`);
+    }
+    setJsonStatus('シナリオJSONをアップロード中…');
+    document.getElementById('json-ta').value=buildScenarioJSON();
+    await ghPutFile(owner,repo,token,`${BARCODE_DIR}/${ED.id}.json`,utf8ToBase64(buildScenarioJSON()),`Add barcode scenario ${ED.id}`);
+    setJsonStatus(`✅ 保存完了！\nバーコード番号：${ED.barcode}\n・${BARCODE_DIR}/${ED.id}.json`+(ED.imageFile?`\n・${ED.imageFile}`:'')+`\n\nプレイヤーで value=${ED.barcode} のマーカーを読むと表示されます。`);
+  }catch(e){ setJsonStatus('❌ 失敗: '+e.message,true); }
+  btn.disabled=false;
+}
+
+// ══════════ GitHubから既存シナリオを読込 ══════════
+async function openRemotePicker(){
+  const repoStr=(document.getElementById('gh-repo').value.trim())||'ifx-mori/IFX_AR-';
+  const [owner,repo]=repoStr.split('/');
+  document.getElementById('remote-modal').classList.add('on');
+  const list=document.getElementById('remote-list'); list.innerHTML='<div style="color:#64748b;font-size:13px">読み込み中…</div>';
+  try{
+    const files=await ghGetJson(`https://api.github.com/repos/${owner}/${repo}/contents/${BARCODE_DIR}?ref=main`);
+    const jsons=(await Promise.all((Array.isArray(files)?files:[]).filter(f=>f.name.endsWith('.json')&&f.download_url)
+      .map(f=>ghGetJson(f.download_url).catch(()=>null)))).filter(s=>s&&s.id&&Array.isArray(s.steps));
+    if(!jsons.length){ list.innerHTML='<div style="color:#64748b;font-size:13px">保存済みシナリオがありません</div>'; return; }
+    list.innerHTML='';
+    jsons.sort((a,b)=>(a.barcode??99)-(b.barcode??99)).forEach(s=>{
+      const b=document.createElement('button'); b.className='remote-item';
+      b.innerHTML=`<b>${escHtml(s.name||s.id)}</b><small>バーコード ${s.barcode??'—'}｜${s.steps.length}ステップ｜${s.id}</small>`;
+      b.onclick=()=>loadScenario(s,owner,repo); list.appendChild(b);
+    });
+  }catch(e){ list.innerHTML='<div style="color:#dc2626;font-size:13px">取得失敗: '+e.message+'</div>'; }
+}
+function loadScenario(data,owner,repo){
+  ED.id=data.id; ED.name=data.name||'シナリオ'; ED.subtitle=data.subtitle||'';
+  ED.barcode=Number.isInteger(data.barcode)?data.barcode:null;
+  ED.calib=Object.assign({...CALIB_DEFAULT}, data.calib||{});
+  ED.imageFile=data.imageFile||''; ED.steps=(data.steps&&data.steps.length)?data.steps:[mkStep('ステップ1')];
+  _photoDataURL=null; ED._loadedImg='';
+  // 参照写真をGitHubから復元（あれば）
+  if(ED.imageFile){ ED._loadedImg=`https://raw.githubusercontent.com/${owner}/${repo}/main/${ED.imageFile}?t=${Date.now()}`; }
+  document.getElementById('cfg-name').value=ED.name;
+  document.getElementById('cfg-sub').value=ED.subtitle;
+  document.getElementById('cfg-id').value=ED.id;
+  document.getElementById('cfg-barcode').value=ED.barcode??'';
+  closeModal('remote-modal');
+  if(ED._loadedImg){ const pv=document.getElementById('photo-preview'); pv.src=ED._loadedImg; pv.style.display='block'; document.getElementById('btn-start').disabled=false;
+    setStatus(`「${ED.name}」を読込（バーコード${ED.barcode??'未割当'}／${ED.steps.length}ステップ）。「編集を開始」で続行。`); }
+  else { document.getElementById('btn-start').disabled=false;
+    setStatus(`「${ED.name}」を読込。参照写真が無いため、新しい写真を読み込んでから編集してください。`); }
+}
+
+// ══════════ util ══════════
+function toHex(c){ if(!c) return '#60a5fa'; if(c[0]==='#'&&c.length===7) return c;
+  const m=String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); if(m) return '#'+[1,2,3].map(i=>(+m[i]).toString(16).padStart(2,'0')).join(''); return '#60a5fa'; }
+function escAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ══════════ 起動 ══════════
+document.getElementById('ver').textContent='Editor '+APP_VERSION;
+(function restore(){
+  const t=localStorage.getItem('bc_gh_token'), r=localStorage.getItem('bc_gh_repo');
+  if(t) document.getElementById('gh-token').value=t;
+  document.getElementById('gh-repo').value=r||'ifx-mori/IFX_AR-';
+})();
+window.addEventListener('resize', ()=>{ if(document.getElementById('editor').classList.contains('on')) renderOverlay(); });
+</script>
+</body>
+</html>
