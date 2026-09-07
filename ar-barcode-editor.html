@@ -182,26 +182,32 @@
   </div>
 
   <div class="card">
-    <h2>④ 動画から自動作成（任意）</h2>
+    <h2>④ テキスト／動画からステップ自動作成（任意）</h2>
     <div class="hint" style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">
-      操作説明動画のナレーションから <b>ステップ分割</b> と <b>AR図形の下書き</b> を自動生成します（ブラウザ内Whisper・無料。初回はモデルDLに通信が必要）。<br>
-      動画内で「<b>ステップ1</b>」「<b>ステップ2</b>」…と区切って話すと、その位置で分割されます。図形は中央に仮配置されるので、編集画面で位置を調整してください。
+      下の欄に<b>手順文を直接入力</b>するか、<b>動画から文字起こし</b>して、<b>ステップ分割</b>と<b>AR図形の下書き</b>を自動生成します。<br>
+      「<b>ステップ1</b>」「<b>ステップ2</b>」…で区切ると、その位置で分割されます。図形は中央に仮配置されるので編集画面で位置を調整してください。
     </div>
-    <input type="file" id="vid-file" accept="video/*" style="display:none">
-    <button class="btn full d" onclick="document.getElementById('vid-file').click()">🎥 動画を読み込む</button>
-    <video id="vid-el" controls playsinline style="display:none;width:100%;margin-top:8px;border-radius:8px;background:#000"></video>
-    <div class="row2" style="margin-top:8px;align-items:end">
-      <div class="fld" style="margin:0"><label>認識モデル</label>
-        <select id="vid-model" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px">
-          <option value="Xenova/whisper-base">標準（base・速い）</option>
-          <option value="Xenova/whisper-small" selected>高精度（small・初回DL大）</option>
-        </select></div>
-      <button class="btn" id="vid-trans-btn" onclick="transcribeVideo()" disabled>📝 文字起こし</button>
-    </div>
-    <div id="vid-status" style="font-size:12px;color:#64748b;white-space:pre-line;margin-top:8px;line-height:1.6"></div>
-    <textarea id="vid-trans" placeholder="文字起こし結果がここに表示されます（直接編集できます）" style="display:none;width:100%;height:140px;margin-top:8px;border:1px solid #cbd5e1;border-radius:9px;padding:10px;font-size:12px;line-height:1.6"></textarea>
-    <div id="vid-edit-hint" class="hint" style="display:none;font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.6">誤認識はここで直せます。「ステップ1」「ステップ2」…の区切りや操作語（回す/押す/確認/注意 等）を整えると、分割と図形自動生成の精度が上がります。</div>
-    <button class="btn full p" id="vid-build" style="display:none;margin-top:8px" onclick="buildStepsFromTranscript()">✂️ ステップ分割＋図形を自動生成</button>
+    <textarea id="vid-trans" placeholder="ここに手順文を直接入力できます。例：&#10;ステップ1 盤面右上のランプの色を確認する。&#10;ステップ2 左のつまみを左へ30回す。&#10;ステップ3 赤いリセットボタンを2回押す。注意 停止しない場合は通信指令へ連絡。" style="width:100%;height:150px;border:1px solid #cbd5e1;border-radius:9px;padding:10px;font-size:13px;line-height:1.6"></textarea>
+    <div id="vid-edit-hint" class="hint" style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.6">「ステップN」の区切りや操作語（回す/押す/確認/注意/数値 等）を入れると、分割と図形自動生成の精度が上がります。</div>
+    <button class="btn full p" id="vid-build" style="margin-top:8px" onclick="buildStepsFromTranscript()">✂️ ステップ分割＋図形を自動生成</button>
+
+    <details style="margin-top:12px">
+      <summary style="font-size:12px;font-weight:700;color:#475569;cursor:pointer">🎥 動画から文字起こしする（任意）</summary>
+      <div style="margin-top:8px">
+        <input type="file" id="vid-file" accept="video/*" style="display:none">
+        <button class="btn full d" onclick="document.getElementById('vid-file').click()">🎥 動画を読み込む</button>
+        <video id="vid-el" controls playsinline style="display:none;width:100%;margin-top:8px;border-radius:8px;background:#000"></video>
+        <div class="row2" style="margin-top:8px;align-items:end">
+          <div class="fld" style="margin:0"><label>認識モデル</label>
+            <select id="vid-model" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px">
+              <option value="Xenova/whisper-base">標準（base・速い）</option>
+              <option value="Xenova/whisper-small" selected>高精度（small・初回DL大）</option>
+            </select></div>
+          <button class="btn" id="vid-trans-btn" onclick="transcribeVideo()" disabled>📝 文字起こし</button>
+        </div>
+        <div id="vid-status" style="font-size:12px;color:#64748b;white-space:pre-line;margin-top:8px;line-height:1.6"></div>
+      </div>
+    </details>
   </div>
 
   <div class="card">
@@ -243,6 +249,11 @@
       <button data-z="in" title="拡大">＋</button>
       <button data-z="fit" title="全体表示にリセット">⤢</button>
       <span id="zoomlabel">100%</span>
+      <span style="width:6px"></span>
+      <button data-z="left" title="左へ">◀</button>
+      <button data-z="up" title="上へ">▲</button>
+      <button data-z="down" title="下へ">▼</button>
+      <button data-z="right" title="右へ">▶</button>
     </div>
   </div>
 
@@ -308,7 +319,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v2.1';
+const APP_VERSION = 'v2.2';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -473,10 +484,15 @@ function applyStageTransform(){
   document.getElementById('stage').style.transform=`translate(${panX}px,${panY}px) scale(${photoZoom})`;
   const lb=document.getElementById('zoomlabel'); if(lb) lb.textContent=Math.round(photoZoom*100)+'%';
 }
-function setZoom(z){ photoZoom=Math.max(0.3,Math.min(6,z)); if(photoZoom<=1){ panX=0; panY=0; } applyStageTransform(); }
+function setZoom(z){ photoZoom=Math.max(0.3,Math.min(6,z)); applyStageTransform(); }
 function resetZoom(){ photoZoom=1; panX=0; panY=0; applyStageTransform(); }
+function nudgePan(dx,dy){ panX+=dx; panY+=dy; applyStageTransform(); }
 document.querySelectorAll('#zoomctl button').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-z');
-  if(k==='in') setZoom(photoZoom*1.25); else if(k==='out') setZoom(photoZoom/1.25); else resetZoom(); });
+  if(k==='in') setZoom(photoZoom*1.25);
+  else if(k==='out') setZoom(photoZoom/1.25);
+  else if(k==='fit') resetZoom();
+  else if(k==='left') nudgePan(-40,0); else if(k==='right') nudgePan(40,0);
+  else if(k==='up') nudgePan(0,-40); else if(k==='down') nudgePan(0,40); });
 // ホイールズーム
 document.getElementById('stage-wrap').addEventListener('wheel', e=>{ e.preventDefault(); setZoom(photoZoom*(e.deltaY<0?1.12:0.89)); }, {passive:false});
 // 空き領域ドラッグでパン／2本指ピンチでズーム（図形・枠は各自 stopPropagation 済み）
@@ -495,7 +511,7 @@ document.getElementById('stage-wrap').addEventListener('wheel', e=>{ e.preventDe
   wrap.addEventListener('pointermove', e=>{
     if(!pts.has(e.pointerId)) return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(pts.size>=2){ const a=[...pts.values()]; const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); if(pinchD0>0) setZoom(zoom0*d/pinchD0); }
-    else if(panning && photoZoom>1){ panX=spx+(e.clientX-sx); panY=spy+(e.clientY-sy); applyStageTransform(); }
+    else if(panning){ panX=spx+(e.clientX-sx); panY=spy+(e.clientY-sy); applyStageTransform(); }
   });
   const up=e=>{ pts.delete(e.pointerId); if(pts.size<2) pinchD0=0; if(pts.size===0) panning=false; try{ wrap.releasePointerCapture(e.pointerId); }catch(_){} };
   wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
@@ -908,10 +924,8 @@ async function transcribeVideo(){
     let text='';
     if(res&&Array.isArray(res.chunks)&&res.chunks.length) text=res.chunks.map(c=>(c.text||'').trim()).filter(Boolean).join('\n');
     else if(res&&res.text) text=res.text.trim();
-    ta.value=text||''; ta.style.display='block';
+    ta.value=text||'';
     st.textContent = text ? '文字起こし完了。内容を確認・修正してから「ステップ分割」へ。' : '（音声を認識できませんでした）';
-    document.getElementById('vid-build').style.display = text ? 'block' : 'none';
-    document.getElementById('vid-edit-hint').style.display = text ? 'block' : 'none';
   }catch(e){ st.textContent='文字起こしに失敗: '+((e&&e.message)||e)+'\n（通信環境をご確認ください。モデルの初回DLに接続が必要です）'; }
   btn.disabled=false;
 }
