@@ -173,6 +173,28 @@
   </div>
 
   <div class="card">
+    <h2>④ 動画から自動作成（任意）</h2>
+    <div class="hint" style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">
+      操作説明動画のナレーションから <b>ステップ分割</b> と <b>AR図形の下書き</b> を自動生成します（ブラウザ内Whisper・無料。初回はモデルDLに通信が必要）。<br>
+      動画内で「<b>ステップ1</b>」「<b>ステップ2</b>」…と区切って話すと、その位置で分割されます。図形は中央に仮配置されるので、編集画面で位置を調整してください。
+    </div>
+    <input type="file" id="vid-file" accept="video/*" style="display:none">
+    <button class="btn full d" onclick="document.getElementById('vid-file').click()">🎥 動画を読み込む</button>
+    <video id="vid-el" controls playsinline style="display:none;width:100%;margin-top:8px;border-radius:8px;background:#000"></video>
+    <div class="row2" style="margin-top:8px;align-items:end">
+      <div class="fld" style="margin:0"><label>認識モデル</label>
+        <select id="vid-model" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px">
+          <option value="Xenova/whisper-base">標準（base・速い）</option>
+          <option value="Xenova/whisper-small" selected>高精度（small・初回DL大）</option>
+        </select></div>
+      <button class="btn" id="vid-trans-btn" onclick="transcribeVideo()" disabled>📝 文字起こし</button>
+    </div>
+    <div id="vid-status" style="font-size:12px;color:#64748b;white-space:pre-line;margin-top:8px;line-height:1.6"></div>
+    <textarea id="vid-trans" readonly placeholder="文字起こし結果がここに表示されます" style="display:none;width:100%;height:120px;margin-top:8px;border:1px solid #cbd5e1;border-radius:9px;padding:10px;font-size:12px;line-height:1.6"></textarea>
+    <button class="btn full p" id="vid-build" style="display:none;margin-top:8px" onclick="buildStepsFromTranscript()">✂️ ステップ分割＋図形を自動生成</button>
+  </div>
+
+  <div class="card">
     <button class="btn full g" id="btn-start" onclick="startEditor()" disabled>✏️ 編集を開始（写真が必要）</button>
     <div id="setup-status"></div>
   </div>
@@ -268,7 +290,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v1.5';
+const APP_VERSION = 'v1.6';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -493,10 +515,10 @@ function renderPropbar(){
   h+=`<span class="grp">色<input type="color" id="pp-color" value="${toHex(f.color)}"></span>`;
   h+=`<input type="text" id="pp-label" placeholder="ラベル" value="${escAttr(f.label||'')}">`;
   // サイズ
-  if(f.type==='box'||f.type==='ring'){ h+=`<span class="grp">大<button class="sbtn" data-sz="-">－</button><button class="sbtn" data-sz="+">＋</button></span>`; }
-  if(f.type==='curvedArrow'){ h+=`<span class="grp">向き<select id="pp-dir"><option value="right"${f.dir==='right'?' selected':''}>右</option><option value="left"${f.dir==='left'?' selected':''}>左</option></select></span>`;
-    h+=`<span class="grp">大<button class="sbtn" data-sz="-">－</button><button class="sbtn" data-sz="+">＋</button></span>`; }
+  if(f.type==='curvedArrow'){ h+=`<span class="grp">向き<select id="pp-dir"><option value="right"${f.dir==='right'?' selected':''}>右</option><option value="left"${f.dir==='left'?' selected':''}>左</option></select></span>`; }
+  // 大きさ：全種で調整可（text は文字サイズ、それ以外は図形サイズ）
   if(isText){ h+=`<span class="grp">字<button class="sbtn" data-fs="-">－</button><button class="sbtn" data-fs="+">＋</button></span>`; }
+  else { h+=`<span class="grp">大<button class="sbtn" data-sz="-">－</button><button class="sbtn" data-sz="+">＋</button></span>`; }
   if(f.type==='box'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
   if(f.type==='arrow'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-above" ${f.labelAbove?'checked':''}> ラベル上</label></span>`; }
   h+=`<span class="grp" id="pp-pos">${posCmLabel(f)}</span>`;
@@ -508,8 +530,9 @@ function renderPropbar(){
   const below=document.getElementById('pp-below'); if(below) below.onchange=e=>{ f.labelBelow=e.target.checked; renderOverlay(); };
   const above=document.getElementById('pp-above'); if(above) above.onchange=e=>{ f.labelAbove=e.target.checked; renderOverlay(); };
   bar.querySelectorAll('[data-sz]').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-sz')==='+'?1.15:0.87;
-    if(f.type==='curvedArrow'){ f.scale=+((f.scale||2.4)*k).toFixed(2); }
-    else { const cur=f.size||f.sizeW||0.12; f.size=+(cur*k).toFixed(3); delete f.sizeW; delete f.sizeH; }
+    if(f.type==='curvedArrow'){ f.scale=+Math.max(0.3,(f.scale||2.4)*k).toFixed(2); }
+    else if(f.type==='arrow'||f.type==='arrowDown'){ f.h=+Math.max(0.1,(f.h||0.5)*k).toFixed(3); }
+    else { const cur=f.size||f.sizeW||0.12; f.size=+Math.max(0.02,cur*k).toFixed(3); delete f.sizeW; delete f.sizeH; }
     renderOverlay(); });
   bar.querySelectorAll('[data-fs]').forEach(b=>b.onclick=()=>{ f.fontScale=+(Math.max(0.5,Math.min(3,(f.fontScale||1)+(b.getAttribute('data-fs')==='+'?0.1:-0.1)))).toFixed(1); renderOverlay(); });
 }
@@ -752,6 +775,117 @@ function loadScenario(data,owner,repo){
     setStatus(`「${ED.name}」を読込（バーコード${ED.barcode??'未割当'}／${ED.steps.length}ステップ）。「編集を開始」で続行。`); }
   else { document.getElementById('btn-start').disabled=false;
     setStatus(`「${ED.name}」を読込。参照写真が無いため、新しい写真を読み込んでから編集してください。`); }
+}
+
+// ══════════ 動画 → 文字起こし → ステップ分割 → 図形自動生成 ══════════
+// （旧エディタ ar-scenario-editor.html の機能を移植。座標系・図形スキーマは共通）
+function toHalfDigits(s){ return String(s||'').replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-0xFEE0)); }
+
+let _vidURL=null;
+document.getElementById('vid-file').addEventListener('change', e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  if(_vidURL) URL.revokeObjectURL(_vidURL);
+  _vidURL=URL.createObjectURL(f);
+  const v=document.getElementById('vid-el'); v.src=_vidURL; v.style.display='block';
+  document.getElementById('vid-trans-btn').disabled=false;
+  document.getElementById('vid-status').textContent='動画を読み込みました。「文字起こし」を押してください。';
+});
+
+// 動画/音声を 16kHz モノラル Float32 に変換（Whisper入力）
+async function extractAudio16k(src){
+  const resp=await fetch(src); const buf=await resp.arrayBuffer();
+  const AC=window.AudioContext||window.webkitAudioContext; const ac=new AC();
+  const decoded=await ac.decodeAudioData(buf); try{ac.close();}catch(_){}
+  const rate=16000;
+  const off=new OfflineAudioContext(1, Math.max(1,Math.ceil(decoded.duration*rate)), rate);
+  const node=off.createBufferSource(); node.buffer=decoded; node.connect(off.destination); node.start(0);
+  const rendered=await off.startRendering(); return rendered.getChannelData(0);
+}
+
+let _whisper=null, _whisperModel=null;
+async function transcribeVideo(){
+  const v=document.getElementById('vid-el');
+  if(!v||!v.src){ alert('先に動画を読み込んでください'); return; }
+  const st=document.getElementById('vid-status'), ta=document.getElementById('vid-trans');
+  const model=document.getElementById('vid-model').value;
+  const btn=document.getElementById('vid-trans-btn'); btn.disabled=true;
+  st.textContent='準備中…（初回はモデルを読み込むため時間がかかります）';
+  try{
+    if(!_whisper || _whisperModel!==model){
+      const T=await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+      T.env.allowLocalModels=false;
+      st.textContent='モデルを読み込み中…（'+model.split('/')[1]+'）';
+      _whisper=await T.pipeline('automatic-speech-recognition', model, {
+        progress_callback:(p)=>{ if(p&&p.status==='progress'&&p.file) st.textContent=`モデルDL中… ${p.file} ${Math.round(p.progress||0)}%`; }
+      });
+      _whisperModel=model;
+    }
+    st.textContent='音声を抽出中…';
+    const audio=await extractAudio16k(v.src);
+    st.textContent='文字起こし中…（動画の長さに応じて時間がかかります）';
+    const res=await _whisper(audio,{ language:'japanese', task:'transcribe', chunk_length_s:30, stride_length_s:5, return_timestamps:true, temperature:0, no_repeat_ngram_size:3 });
+    let text='';
+    if(res&&Array.isArray(res.chunks)&&res.chunks.length) text=res.chunks.map(c=>(c.text||'').trim()).filter(Boolean).join('\n');
+    else if(res&&res.text) text=res.text.trim();
+    ta.value=text||''; ta.style.display='block';
+    st.textContent = text ? '文字起こし完了。内容を確認し「ステップ分割」へ。' : '（音声を認識できませんでした）';
+    document.getElementById('vid-build').style.display = text ? 'block' : 'none';
+  }catch(e){ st.textContent='文字起こしに失敗: '+((e&&e.message)||e)+'\n（通信環境をご確認ください。モデルの初回DLに接続が必要です）'; }
+  btn.disabled=false;
+}
+
+// 「ステップN」で分割してステップ化（ルールベース）
+function splitTranscriptToSteps(text){
+  const re=/(?:ステップ|手順|STEP|Step)\s*([0-9０-９]{1,3})/g;
+  const marks=[]; let m; while((m=re.exec(text))!==null) marks.push({index:m.index,len:m[0].length,num:toHalfDigits(m[1])});
+  if(!marks.length) return null;
+  const steps=[];
+  for(let i=0;i<marks.length;i++){
+    const start=marks[i].index, end=(i+1<marks.length)?marks[i+1].index:text.length;
+    const seg=text.slice(start,end).trim();
+    const after=text.slice(start+marks[i].len,end).replace(/^[\s、。:：,.]+/,'').replace(/\s+/g,' ').trim();
+    const firstBit=(after.split(/[。\n]/)[0]||'').trim().slice(0,16);
+    const title=('ステップ'+marks[i].num+(firstBit?'：'+firstBit:'')).slice(0,32);
+    steps.push({ title, detail:(after||seg), warn:'normal', ar:[] });
+  }
+  return steps;
+}
+// 説明文から図形（種類・向き・ラベル）を自動生成（AI不要・位置は中央スプレッド）
+function autoFiguresFromText(step){
+  const src=((step.title||'')+'。'+(step.detail||''));
+  const CA='#60a5fa', TX='#f87171', BX='#ef4444';
+  const figs=[];
+  const cleanDetail=(step.detail||'').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/,'').trim();
+  const sentences=cleanDetail.split(/[。\n]/).map(s=>s.trim()).filter(s=>s.length>=2);
+  sentences.slice(0,2).forEach(sen=>figs.push({type:'text',color:CA,label:sen.slice(0,18)}));
+  if(/回/.test(src)){ const rotRe=/(左|右)\s*(?:へ|に|回りに)?\s*([0-9０-９]+)/g; let r;
+    while((r=rotRe.exec(src))!==null) figs.push({type:'curvedArrow',dir:r[1]==='左'?'left':'right',scale:2.4,color:CA,label:(r[1]+'へ回す')+'\n'+toHalfDigits(r[2])}); }
+  if(/(上げ|上に|上へ|引き上げ)/.test(src)) figs.push({type:'arrow',color:CA,label:'上に'});
+  if(/(下げ|下に|下へ|押し下げ)/.test(src)) figs.push({type:'arrowDown',color:CA,label:'下に'});
+  if(/押/.test(src)){ const n=src.match(/([0-9０-９]+)\s*回/); figs.push({type:'arrow',color:CA,label:n?(toHalfDigits(n[1])+'回押す'):'押す'}); }
+  if(/(ランプ|LED|点灯|確認|表示器|メーター|計器|色)/.test(src)){ const t=(src.match(/(ランプ|LED|表示器|メーター|計器|ボタン|スイッチ)/)||[])[0]; figs.push({type:'box',color:BX,size:0.12,label:(t?t+'を確認':'確認')}); }
+  const valRe=/([0-9０-９]+(?:[.．][0-9０-９]+)?)\s*(N[・·]?m|Nm|度|°|mm|cm|kg|MPa|kPa|V|A|W|℃|%|秒|分)/g; let v;
+  while((v=valRe.exec(src))!==null) figs.push({type:'text',color:CA,label:toHalfDigits(v[1])+v[2].replace('・','·')});
+  if(/(注意|危険|警告|気をつけ|注意し)/.test(src)){ figs.push({type:'text',color:TX,label:'⚠ 注意'}); step.warn=/危険/.test(src)?'danger':'caution'; }
+  if(!figs.length){ const t=(step.title||'操作').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/,'').slice(0,12)||'操作'; figs.push({type:'text',color:CA,label:t}); }
+  const n=figs.length;
+  return figs.map((f,i)=>({ ...f, pos:[0, +(((n-1)/2 - i)*0.14).toFixed(3), 0] }));
+}
+function buildStepsFromTranscript(){
+  const text=(document.getElementById('vid-trans').value||'').trim();
+  if(!text){ alert('先に文字起こしを実行してください'); return; }
+  const steps=splitTranscriptToSteps(text);
+  if(!steps||!steps.length){ alert('「ステップ1」「ステップ2」などの区切りが見つかりませんでした。\n（動画内で「ステップ○」と言っているか、文字起こし結果をご確認ください）'); return; }
+  const replace = ED.steps.length && !(ED.steps.length===1 && !ED.steps[0].ar.length)
+    ? confirm(`${steps.length}個のステップに分割できます。\n\n「OK」＝現在のステップを置き換える\n「キャンセル」＝末尾に追加`)
+    : true;
+  ED.steps = replace ? steps : ED.steps.concat(steps);
+  const gen=confirm(`${steps.length}ステップを作成しました。\n\n各ステップの説明から図形も自動生成しますか？\n（種類・向き・ラベルを提案。位置は中央なので編集画面で調整）`);
+  if(gen) ED.steps.forEach(s=>{ s.ar=(s.ar||[]).concat(autoFiguresFromText(s)); });
+  stepIdx=0; figIdx=-1;
+  document.getElementById('vid-status').textContent=`✅ ${steps.length}ステップを作成${gen?'＋図形自動生成':''}。「編集を開始」で写真に載せて調整してください。`;
+  // 既に編集画面が開いていれば反映
+  if(document.getElementById('editor').classList.contains('on')){ syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 }
 
 // ══════════ util ══════════
