@@ -85,7 +85,7 @@
   #calib .note { font-size:10.5px; color:#94a3b8; line-height:1.5; margin-top:2px; }
 
   /* 下：ステップ帯＋プロパティ */
-  #bottom { position:absolute; left:0; right:0; bottom:0; height:148px; background:#fff; box-shadow:0 -2px 12px rgba(0,0,0,0.14); display:flex; flex-direction:column; }
+  #bottom { position:absolute; left:0; right:0; bottom:0; height:auto; max-height:56vh; background:#fff; box-shadow:0 -2px 12px rgba(0,0,0,0.14); display:flex; flex-direction:column; }
   #steptabs { display:flex; gap:6px; padding:8px 10px 4px; overflow-x:auto; align-items:center; }
   #steptabs .stab { flex:0 0 auto; padding:6px 12px; border-radius:9px; border:1px solid #cbd5e1; background:#f8fafc; font-size:12px; font-weight:700; color:#475569; white-space:nowrap; }
   #steptabs .stab.on { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
@@ -96,11 +96,11 @@
   #stepmeta .del { padding:7px 9px; border:1px solid #fecaca; color:#dc2626; background:#fff; border-radius:8px; font-weight:700; font-size:12px; }
   #stepmeta .mv { width:32px; padding:7px 0; border:1px solid #cbd5e1; background:#fff; border-radius:8px; font-weight:800; color:#334155; font-size:13px; }
   #propbar { padding:0 10px 8px; overflow-x:auto; }
-  #propbar .inner { display:flex; gap:8px; align-items:center; min-height:36px; }
+  #propbar .inner { display:flex; flex-wrap:wrap; gap:8px 8px; align-items:center; min-height:36px; }
   #propbar .none { font-size:12px; color:#94a3b8; }
   #propbar .grp { display:flex; align-items:center; gap:5px; flex:0 0 auto; font-size:12px; color:#475569; font-weight:700; }
   #propbar input[type=text] { width:150px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; }
-  #propbar textarea { width:160px; min-height:32px; max-height:80px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; font-size:12px; resize:vertical; line-height:1.4; }
+  #propbar textarea { flex:1 1 100%; width:100%; order:-1; min-height:40px; max-height:120px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:7px; font-size:13px; resize:vertical; line-height:1.5; }
   #propbar input[type=color] { width:34px; height:30px; padding:0; border:1px solid #cbd5e1; border-radius:6px; background:#fff; }
   #propbar select { padding:6px 6px; border:1px solid #cbd5e1; border-radius:7px; }
   #propbar .sbtn { width:30px; height:30px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; font-weight:800; color:#334155; }
@@ -308,7 +308,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v1.9';
+const APP_VERSION = 'v2.0';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -473,7 +473,7 @@ function applyStageTransform(){
   document.getElementById('stage').style.transform=`translate(${panX}px,${panY}px) scale(${photoZoom})`;
   const lb=document.getElementById('zoomlabel'); if(lb) lb.textContent=Math.round(photoZoom*100)+'%';
 }
-function setZoom(z){ photoZoom=Math.max(1,Math.min(6,z)); if(photoZoom===1){ panX=0; panY=0; } applyStageTransform(); }
+function setZoom(z){ photoZoom=Math.max(0.3,Math.min(6,z)); if(photoZoom<=1){ panX=0; panY=0; } applyStageTransform(); }
 function resetZoom(){ photoZoom=1; panX=0; panY=0; applyStageTransform(); }
 document.querySelectorAll('#zoomctl button').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-z');
   if(k==='in') setZoom(photoZoom*1.25); else if(k==='out') setZoom(photoZoom/1.25); else resetZoom(); });
@@ -485,7 +485,8 @@ document.getElementById('stage-wrap').addEventListener('wheel', e=>{ e.preventDe
   const pts=new Map(); let panning=false, sx=0, sy=0, spx=0, spy=0, pinchD0=0, zoom0=1;
   wrap.addEventListener('pointerdown', e=>{
     if(addType) return;                                   // 配置モード中はパンしない
-    if(e.target.closest('.fig')||e.target.closest('.markerbox')||e.target.closest('#zoomctl')) return;
+    if(e.target.closest('.fig')||e.target.closest('.markerbox')) return;
+    if(!e.target.closest('#stage')) return;               // ツール/戻る校正保存/校正パネル/ズーム等のUI上ではパンしない（クリックを奪わない）
     pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(pts.size===1){ panning=true; sx=e.clientX; sy=e.clientY; spx=panX; spy=panY; }
     else if(pts.size===2){ panning=false; const a=[...pts.values()]; pinchD0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); zoom0=photoZoom; }
@@ -573,9 +574,12 @@ function deleteStep(){ if(ED.steps.length<=1){ alert('最後のステップは�
 // ══════════ 図形プロパティ ══════════
 function selectFig(i){ figIdx=i; renderPropbar(); renderOverlay(); }
 function updatePosLabel(){ const el=document.getElementById('pp-pos'); const f=curFig(); if(el&&f) el.textContent=posCmLabel(f); }
+// 下段(#bottom)の高さに合わせてステージ下端を調整（ラベル欄の全幅折返しで高さが変わるため）
+function syncBottomHeight(){ const b=document.getElementById('bottom'), w=document.getElementById('stage-wrap');
+  if(b&&w) w.style.bottom=b.offsetHeight+'px'; }
 function renderPropbar(){
   const bar=document.querySelector('#propbar .inner'); const f=curFig();
-  if(!f){ bar.innerHTML='<span class="none">図形を選択、または左のツールから追加してください</span>'; return; }
+  if(!f){ bar.innerHTML='<span class="none">図形を選択、または左のツールから追加してください</span>'; syncBottomHeight(); return; }
   const isText=f.type==='text';
   let h='';
   h+=`<span class="grp">${f.type}</span>`;
@@ -604,6 +608,8 @@ function renderPropbar(){
     renderOverlay(); });
   bar.querySelectorAll('[data-fs]').forEach(b=>b.onclick=()=>{ f.fontScale=+(Math.max(0.5,Math.min(3,(f.fontScale||1)+(b.getAttribute('data-fs')==='+'?0.1:-0.1)))).toFixed(1); renderOverlay(); });
   bar.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{ f.lineThick=+Math.max(0.003,Math.min(0.06,(f.lineThick||0.03)*(b.getAttribute('data-lt')==='+'?1.25:0.8))).toFixed(4); renderOverlay(); });
+  const labTa=document.getElementById('pp-label'); if(labTa) labTa.addEventListener('input', syncBottomHeight);
+  syncBottomHeight();
 }
 function deleteFig(){ const s=curStep(); if(!s||figIdx<0)return; s.ar.splice(figIdx,1); figIdx=-1; renderOverlay(); renderPropbar(); }
 
@@ -974,7 +980,7 @@ document.getElementById('ver').textContent='Editor '+APP_VERSION;
   if(t) document.getElementById('gh-token').value=t;
   document.getElementById('gh-repo').value=r||'ifx-mori/IFX_AR-';
 })();
-window.addEventListener('resize', ()=>{ if(document.getElementById('editor').classList.contains('on')) renderOverlay(); });
+window.addEventListener('resize', ()=>{ if(document.getElementById('editor').classList.contains('on')){ syncBottomHeight(); renderOverlay(); } });
 </script>
 </body>
 </html>
