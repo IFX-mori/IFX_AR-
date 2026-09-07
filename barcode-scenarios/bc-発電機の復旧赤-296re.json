@@ -1,0 +1,221 @@
+{
+  "id": "bc-発電機の復旧赤-296re",
+  "barcode": 4,
+  "name": "発電機の復旧（赤）",
+  "subtitle": "",
+  "device": "発電機",
+  "calib": {
+    "scale": 6.67,
+    "ox": 0,
+    "oy": 0,
+    "rot": 0
+  },
+  "imageFile": "barcode-targets/bc-発電機の復旧赤-296re.jpg",
+  "markerSizeMM": 40,
+  "markerPos": {
+    "u": 0.8288,
+    "v": 0.8785,
+    "w": 0.15
+  },
+  "steps": [
+    {
+      "title": "ステップ1：赤色ランプの点灯を確認 ・",
+      "detail": "赤色ランプの点灯を確認 ・",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "赤色ランプの点灯を確認",
+          "pos": [
+            -0.194,
+            1.05,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "color": "#ef4444",
+          "size": 0.12,
+          "label": "",
+          "pos": [
+            0,
+            0.92,
+            0
+          ],
+          "lineThick": 0.0123
+        }
+      ]
+    },
+    {
+      "title": "ステップ2：ダイヤルを左へ回す（20の位置）",
+      "detail": "ダイヤルを左へ回す（20の位置） ダイヤルを右へ回す（80の位置） ・",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "ダイヤルを回す",
+          "pos": [
+            -0.491,
+            1.064,
+            0
+          ]
+        },
+        {
+          "type": "curvedArrow",
+          "pos": [
+            -0.61,
+            0.927,
+            0
+          ],
+          "color": "#60a5fa",
+          "dir": "left",
+          "scale": 1.58,
+          "label": "左へ"
+        },
+        {
+          "type": "curvedArrow",
+          "pos": [
+            -0.415,
+            0.929,
+            0
+          ],
+          "color": "#60a5fa",
+          "dir": "right",
+          "scale": 1.58,
+          "label": "右へ"
+        },
+        {
+          "type": "text",
+          "pos": [
+            -0.159,
+            0.922,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "（80の位置）",
+          "fontScale": 1
+        },
+        {
+          "type": "text",
+          "pos": [
+            -0.877,
+            0.931,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "（20の位置）",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "title": "ステップ3：白色ボタンを1回押す 青色ボタン",
+      "detail": "白色ボタンを1回押す 青色ボタンを1回押す ・",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "白色ボタンと青色ボタンを\nそれぞれ1回押す",
+          "pos": [
+            -0.329,
+            0.69,
+            0
+          ]
+        },
+        {
+          "type": "arrow",
+          "color": "#60a5fa",
+          "label": "押す",
+          "pos": [
+            -0.427,
+            0.473,
+            0
+          ],
+          "h": 0.164
+        },
+        {
+          "type": "arrow",
+          "pos": [
+            -0.237,
+            0.463,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "押す",
+          "h": 0.164
+        }
+      ]
+    },
+    {
+      "title": "ステップ4：トグルスイッチを上げる トグルス",
+      "detail": "トグルスイッチを上げる トグルスイッチを下げる ・",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "トグルスイッチを操作する",
+          "pos": [
+            -0.365,
+            0.427,
+            0
+          ]
+        },
+        {
+          "type": "arrow",
+          "color": "#60a5fa",
+          "label": "上に",
+          "pos": [
+            -0.517,
+            0.295,
+            0
+          ],
+          "h": 0.164
+        },
+        {
+          "type": "arrowDown",
+          "color": "#60a5fa",
+          "label": "下に",
+          "pos": [
+            -0.312,
+            0.113,
+            0
+          ],
+          "h": 0.164
+        }
+      ]
+    },
+    {
+      "title": "ステップ5：青色ランプの点灯を確認",
+      "detail": "青色ランプの点灯を確認",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "青色ランプの点灯を確認",
+          "pos": [
+            -0.245,
+            0.785,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "color": "#ef4444",
+          "size": 0.12,
+          "label": "",
+          "pos": [
+            -0.265,
+            0.92,
+            0
+          ],
+          "lineThick": 0.0123
+        }
+      ]
+    }
+  ]
+}
