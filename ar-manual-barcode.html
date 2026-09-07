@@ -43,6 +43,15 @@
   #counter { text-align:center; font-size:11px; color:#64748b; margin-top:8px; }
   .cbtn { width:34px; height:30px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-weight:700; color:#334155; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .cbtn:active { background:#e0e7ff; }
+  #btn-menu { pointer-events:auto; border:none; border-radius:9px; background:#1d4ed8; color:#fff; font-size:12px; font-weight:700; padding:6px 10px; cursor:pointer; }
+  #scenpick { position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.5); padding:20px; }
+  #scenpick .sp-box { background:#fff; border-radius:16px; padding:16px; width:100%; max-width:360px; max-height:80vh; overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+  #scenpick .sp-head { font-size:15px; font-weight:800; color:#1e293b; margin-bottom:12px; }
+  .sp-item { display:block; width:100%; text-align:left; padding:14px; margin-bottom:9px; border:1px solid #e2e8f0; border-radius:11px; background:#f8fafc; cursor:pointer; }
+  .sp-item b { display:block; font-size:15px; color:#1e293b; }
+  .sp-item small { display:block; font-size:11px; color:#64748b; margin-top:2px; }
+  .sp-item:active { background:#e0e7ff; }
+  .sp-cancel { width:100%; padding:11px; border:none; border-radius:10px; background:#e2e8f0; color:#334155; font-weight:700; font-size:14px; cursor:pointer; margin-top:2px; }
 </style>
 </head>
 <body>
@@ -72,7 +81,8 @@
 <div id="ui">
   <div id="topbar">
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
-    <div id="ver">Barcode v1.3</div>
+    <button id="btn-menu" style="display:none">≡ 操作</button>
+    <div id="ver">Barcode v1.5</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>value=0→発電機／value=1→踏切</small></div>
@@ -93,6 +103,15 @@
     <div id="sdetail">–</div>
     <div id="nav"><button id="btn-prev">‹ 戻る</button><button id="btn-next">次へ ›</button></div>
     <div id="counter">– / –</div>
+  </div>
+</div>
+
+<!-- シナリオ選択メニュー（1マーカーに複数操作） -->
+<div id="scenpick">
+  <div class="sp-box">
+    <div class="sp-head">操作を選択　<span id="sp-dev" style="font-weight:500;color:#94a3b8;font-size:11px"></span></div>
+    <div id="sp-list"></div>
+    <button id="sp-close" class="sp-cancel">閉じる</button>
   </div>
 </div>
 
@@ -224,33 +243,44 @@ function makeItem(it, cal){
 const anchor=document.getElementById('anchor');
 const wrapper=document.getElementById('wrapper');
 const content=document.getElementById('content');
-let curKey=null, idx=0;
+let curKey=null, idx=0, cur=null, curMid=null;
+// バーコード値ごとに複数シナリオを保持（1機器=1マーカーに複数操作：起動/再起動/終了など）
+const SCENARIOS={}; const _ghKeys=new Set();
+Object.keys(SCEN).forEach(k=>{ SCENARIOS[k]=[SCEN[k]]; });
 
 // ══════ 認識中バーコードの位置確認枠（マーカー実寸=1x1単位で囲う） ══════
 // ?frame=off で非表示。文字がズレて見えても、この枠が印刷バーコードにピタリ重なっていれば「位置認識はOK」。
-(function buildMarkerFrame(){
-  if(new URLSearchParams(location.search).get('frame')==='off') return;
+// 認識中＝緑／未認識（見失い中）＝黄（ステータスと同色）で色を切替える。
+let _framePlane=null, _frameURL={};
+function _makeFrameURL(color){
   const S=512, cv=document.createElement('canvas'); cv.width=cv.height=S; const ctx=cv.getContext('2d');
   ctx.clearRect(0,0,S,S);
-  ctx.strokeStyle='#22ff88'; ctx.lineWidth=S*0.035;
+  ctx.strokeStyle=color; ctx.lineWidth=S*0.035;
   const m=ctx.lineWidth/2+1; ctx.strokeRect(m,m,S-2*m,S-2*m);
-  // 四隅のL字マーク（角を強調）
   ctx.lineWidth=S*0.06; ctx.lineCap='round'; const L=S*0.16, o=S*0.04;
   [[o,o,1,1],[S-o,o,-1,1],[o,S-o,1,-1],[S-o,S-o,-1,-1]].forEach(([x,y,sx,sy])=>{
     ctx.beginPath(); ctx.moveTo(x, y+sy*L); ctx.lineTo(x,y); ctx.lineTo(x+sx*L, y); ctx.stroke(); });
+  return cv.toDataURL('image/png');
+}
+const FRAME_GREEN='#22c55e', FRAME_YELLOW='#f59e0b';  // 認識中 / 未認識（ステータスと同色）
+function setFrameRecognized(ok){ if(_framePlane) _framePlane.setAttribute('material','src', ok?_frameURL.green:_frameURL.yellow); }
+(function buildMarkerFrame(){
+  if(new URLSearchParams(location.search).get('frame')==='off') return;
+  _frameURL.green=_makeFrameURL(FRAME_GREEN); _frameURL.yellow=_makeFrameURL(FRAME_YELLOW);
   const pl=document.createElement('a-plane');
   pl.setAttribute('width','1'); pl.setAttribute('height','1');
-  pl.setAttribute('material',{shader:'flat',transparent:true,side:'double',opacity:0.95,src:cv.toDataURL('image/png')});
+  pl.setAttribute('material',{shader:'flat',transparent:true,side:'double',opacity:0.95,src:_frameURL.yellow});
   document.getElementById('markerframe').appendChild(pl);
+  _framePlane=pl;
 })();
 
-function applyCal(){ const sc=SCEN[curKey]; if(!sc) return; const c=sc.calib;
+function applyCal(){ const sc=cur; if(!sc) return; const c=sc.calib;
   wrapper.setAttribute('scale',`${c.scale} ${c.scale} ${c.scale}`);
   wrapper.setAttribute('rotation',`0 ${c.rot} 0`);
   const g=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
   g('cal-target',sc.name); g('cal-s',c.scale.toFixed(2)); g('cal-x',c.ox.toFixed(2)); g('cal-y',c.oy.toFixed(2)); g('cal-r',c.rot);
 }
-function renderStep(){ const sc=SCEN[curKey]; if(!sc) return; const step=sc.steps[idx]; const w=WARN[step.warn]||WARN.normal; const col=w.c;
+function renderStep(){ const sc=cur; if(!sc) return; const step=sc.steps[idx]; const w=WARN[step.warn]||WARN.normal; const col=w.c;
   document.getElementById('stitle').textContent=(w.sym?w.sym+' ':'')+step.title;
   document.getElementById('sdetail').textContent=(w.sym?w.sym+' ':'')+(step.detail||'');
   const b=document.getElementById('badge'); b.textContent=`STEP ${idx+1}`; b.style.background=col;
@@ -261,28 +291,58 @@ function renderStep(){ const sc=SCEN[curKey]; if(!sc) return; const step=sc.step
   while(content.firstChild) content.removeChild(content.firstChild);
   step.ar.forEach(it=>content.appendChild(makeItem(it,sc.calib)));
 }
-function setScenario(key,markerId){ if(curKey===key) return; curKey=key; idx=0;
-  const sc=SCEN[key]; document.getElementById('scname').textContent=sc.name;
-  document.getElementById('scsub').textContent=sc.subtitle||'';
-  anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: 0.3; beta: 1.0`);
+// アンカー追従先を認識マーカーへ（選択前でも枠が正しく追従するように）
+function followMarker(markerId){ if(curMid===markerId) return; curMid=markerId;
+  anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: 0.3; beta: 1.0`); }
+// 指定シナリオをアクティブにして表示
+function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=key; cur=scenario; idx=0;
+  followMarker(markerId);
+  document.getElementById('scname').textContent=scenario.name;
+  document.getElementById('scsub').textContent=scenario.subtitle||'';
   applyCal(); renderStep();
+  // 複数操作があるときだけ「≡操作」ボタンを表示
+  const list=SCENARIOS[key]||[]; document.getElementById('btn-menu').style.display = list.length>1 ? 'inline-block':'none';
 }
-document.getElementById('btn-next').onclick=()=>{ const sc=SCEN[curKey]; if(sc&&idx<sc.steps.length-1){idx++;renderStep();} };
-document.getElementById('btn-prev').onclick=()=>{ if(curKey&&idx>0){idx--;renderStep();} };
+document.getElementById('btn-next').onclick=()=>{ if(cur&&idx<cur.steps.length-1){idx++;renderStep();} };
+document.getElementById('btn-prev').onclick=()=>{ if(cur&&idx>0){idx--;renderStep();} };
+
+// ══════ シナリオ選択メニュー（1マーカーに複数操作） ══════
+function showPicker(key,markerId){
+  const list=SCENARIOS[key]||[]; if(!list.length) return;
+  followMarker(markerId);
+  const box=document.getElementById('sp-list'); box.innerHTML='';
+  document.getElementById('sp-dev').textContent = 'value='+key + ((list[0]&&list[0].device)?(' ／ '+list[0].device):'');
+  list.forEach((s,i)=>{ const b=document.createElement('button'); b.className='sp-item';
+    b.innerHTML=`<b>${(s.name||('操作'+(i+1)))}</b>`+(s.subtitle?`<small>${s.subtitle}</small>`:'');
+    b.onclick=()=>{ hidePicker(); setScenario(s,key,markerId); };
+    box.appendChild(b); });
+  document.getElementById('scenpick').style.display='flex';
+}
+function hidePicker(){ document.getElementById('scenpick').style.display='none'; }
+document.getElementById('btn-menu').onclick=()=>{ if(curKey) showPicker(curKey, curMid); };
+document.getElementById('sp-close').onclick=hidePicker;
 
 // ══════ マーカー認識（値でシナリオ自動判別） ══════
 const dot=document.getElementById('dot'), stxt=document.getElementById('stxt'), hint=document.getElementById('hint');
 let lostTimer=null;
 function onFound(key,markerId){ if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
-  setScenario(key,markerId); dot.classList.add('on'); stxt.textContent='認識中：'+SCEN[key].name; hint.classList.add('hidden'); }
+  const list=SCENARIOS[key]||[]; dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true);
+  followMarker(markerId);
+  if(list.length===1){ setScenario(list[0],key,markerId); stxt.textContent='認識中：'+list[0].name; }
+  else {
+    stxt.textContent='認識中：操作を選択（'+list.length+'件）';
+    // まだこのマーカーの操作を選んでいなければ選択メニューを出す
+    if(curKey!==key || !cur){ curKey=key; showPicker(key,markerId); }
+  }
+}
 function onLost(){ if(lostTimer)clearTimeout(lostTimer);
-  lostTimer=setTimeout(()=>{lostTimer=null; dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.classList.remove('hidden');},1000); }
+  lostTimer=setTimeout(()=>{lostTimer=null; dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.classList.remove('hidden'); setFrameRecognized(false);},1000); }
 // マーカー0〜9すべてに認識ハンドラを付ける（シナリオ未登録の値はヒント表示のみ）
 for(let v=0; v<=9; v++){
   const el=document.getElementById('m'+v); if(!el) continue;
   const key=String(v), mid='m'+v;
   el.addEventListener('markerFound',()=>{
-    if(!SCEN[key]){ // 未登録バーコード
+    if(!SCENARIOS[key]||!SCENARIOS[key].length){ // 未登録バーコード
       if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
       dot.classList.remove('on'); stxt.textContent='未登録のバーコード（value='+key+'）';
       return;
@@ -308,18 +368,23 @@ async function loadRemoteScenarios(){
         .then(r=>r.ok?r.json():null).catch(()=>null))))
       .filter(s=>s&&Number.isInteger(s.barcode)&&Array.isArray(s.steps));
     jsons.forEach(s=>{
-      SCEN[String(s.barcode)]={ name:s.name||('barcode '+s.barcode), subtitle:s.subtitle||'',
-        calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}), steps:s.steps };
+      const key=String(s.barcode);
+      // そのバーコードに初めてGitHubシナリオが来たら、内蔵デモを置き換える
+      if(!_ghKeys.has(key)){ _ghKeys.add(key); SCENARIOS[key]=[]; }
+      SCENARIOS[key].push({ id:s.id, name:s.name||('barcode '+s.barcode), subtitle:s.subtitle||'', device:s.device||'',
+        calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}), steps:s.steps });
     });
-    // 既に認識中のマーカーがGitHub側で更新された場合に備えて再描画
-    if(curKey&&SCEN[curKey]){ applyCal(); renderStep(); }
+    // 各バーコード内は名前順で安定表示
+    Object.keys(SCENARIOS).forEach(k=>SCENARIOS[k].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja')));
+    // 既に認識中なら再描画（選択済みシナリオがGitHub側で更新された場合など）
+    if(cur){ applyCal(); renderStep(); }
   }catch(_){ /* オフライン等：内蔵SCENのまま動作 */ }
 }
 loadRemoteScenarios();
 
 // ══════ 校正パネル（現在のシナリオを調整） ══════
 document.getElementById('cal-toggle').onclick=()=>{ const p=document.getElementById('calib'); p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'; };
-document.querySelectorAll('#calib .cbtn').forEach(bn=>{ bn.onclick=()=>{ const sc=SCEN[curKey]; if(!sc){return;} const c=sc.calib; const k=bn.getAttribute('data-cal');
+document.querySelectorAll('#calib .cbtn').forEach(bn=>{ bn.onclick=()=>{ const sc=cur; if(!sc){return;} const c=sc.calib; const k=bn.getAttribute('data-cal');
   if(k==='s+') c.scale=+Math.min(30,c.scale*1.1).toFixed(2);
   else if(k==='s-') c.scale=+Math.max(0.5,c.scale/1.1).toFixed(2);
   else if(k==='x+') c.ox=+(c.ox+0.02).toFixed(2);
