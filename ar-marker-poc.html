@@ -74,6 +74,8 @@
   #btn-prev { background:rgba(0,0,0,0.18); color:#1e293b; }
   #btn-next { background:#1d4ed8; }
   #counter { text-align:center; font-size:11px; color:#64748b; margin-top:8px; }
+  .cbtn { width:34px; height:30px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-weight:700; color:#334155; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .cbtn:active { background:#e0e7ff; }
 </style>
 </head>
 <body>
@@ -97,7 +99,7 @@
 <div id="ui">
   <div id="topbar">
     <div id="title">発電機 ｜ ARマーカー準本番PoC<small id="markerinfo"></small></div>
-    <div id="ver">PoC v0.7</div>
+    <div id="ver">PoC v0.8</div>
   </div>
 
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
@@ -110,6 +112,16 @@
   </div>
 
   <div id="hint">マーカーにカメラを向けてください<small id="hint-sub"></small></div>
+
+  <button id="cal-toggle" style="position:absolute;left:12px;top:96px;pointer-events:auto;background:rgba(15,23,42,0.82);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer">校正</button>
+  <div id="calib" style="position:absolute;left:12px;top:134px;pointer-events:auto;display:none;background:rgba(255,255,255,0.97);backdrop-filter:blur(8px);border-radius:12px;padding:10px 12px;box-shadow:0 4px 14px rgba(0,0,0,.2);font-size:12px;color:#1e293b;min-width:186px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">サイズ</span><button class="cbtn" data-cal="s-">－</button><b id="cal-s" style="flex:1;text-align:center">1.00</b><button class="cbtn" data-cal="s+">＋</button></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">左右</span><button class="cbtn" data-cal="x-">←</button><b id="cal-x" style="flex:1;text-align:center">0.0</b><button class="cbtn" data-cal="x+">→</button></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">上下</span><button class="cbtn" data-cal="y-">↓</button><b id="cal-y" style="flex:1;text-align:center">0.0</b><button class="cbtn" data-cal="y+">↑</button></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="width:36px">回転</span><button class="cbtn" data-cal="r" style="flex:1;width:auto">90°回す</button><b id="cal-r" style="width:36px;text-align:center">0</b></div>
+    <button id="cal-copy" style="width:100%;padding:8px;border:none;border-radius:9px;background:#1d4ed8;color:#fff;font-weight:700;font-size:12px;cursor:pointer">校正値をコピー</button>
+    <div id="cal-msg" style="font-size:10px;color:#475569;margin-top:6px;line-height:1.5;word-break:break-all"></div>
+  </div>
 
   <div id="card">
     <div id="card-head">
@@ -159,15 +171,15 @@ const WARN = { normal:{c:'#1d4ed8',label:'通常'}, caution:{c:'#d97706',label:'
 // パラメータ（マーカー種別・校正）
 // ══════════════════════════════════════════
 const params = new URLSearchParams(location.search);
-// marker= pattern（既定=Gマーカー）/ hiro / barcode
-const markerMode  = ['barcode','hiro'].includes(params.get('marker')) ? params.get('marker') : 'pattern';
+// marker= barcode（既定）/ hiro / pattern
+const markerMode  = ['barcode','hiro','pattern'].includes(params.get('marker')) ? params.get('marker') : 'barcode';
 const barcodeValue = params.get('value') || '0';
 const pattUrl = params.get('patt') || 'markers/G.patt'; // pattern時に読み込む学習ファイル
-// 座標系：1単位 = マーカー1辺 = 50mm。原点=Gマーカー中心。x:右+ / y:上+
-const S   = parseFloat(params.get('scale') || '1');   // 全体倍率（実寸=1。校正で微調整可）
-const ROT = parseFloat(params.get('rot')   || '0');   // マーカー上での向き（校正用, face=marker時）
-const offX = parseFloat(params.get('ox') || '0');     // 全体オフセットX（単位, 校正用）
-const offY = parseFloat(params.get('oy') || '0');     // 全体オフセットY（単位, 校正用）
+// 座標系：1単位 = マーカー1辺 = 50mm。原点=マーカー中心。x:右+ / y:上+
+let S   = parseFloat(params.get('scale') || '1');   // 全体倍率（校正で調整）
+let ROT = parseFloat(params.get('rot')   || '0');   // マーカー上での向き（校正）
+let offX = parseFloat(params.get('ox') || '0');     // 全体オフセットX（単位, 校正）
+let offY = parseFloat(params.get('oy') || '0');     // 全体オフセットY（単位, 校正）
 // 表示向き： marker=マーカー面と同一平面（既定・実パネル貼付向け）
 //           camera=常にカメラを向く（机上テストで傾いて見える時に）
 const faceMode = params.get('face') === 'camera' ? 'camera' : 'marker';
@@ -401,7 +413,47 @@ setInterval(() => {
 }, 800);
 window.addEventListener('arjs-video-loaded', () => { mcam.textContent = '映像OK'; });
 
-renderStep();
+// ══════════════════════════════════════════
+// 校正パネル（サイズ／左右／上下／回転 を実機で調整）
+// ══════════════════════════════════════════
+function applyCal(){
+  wrapper.setAttribute('scale', `${S} ${S} ${S}`);
+  if (faceMode==='marker') wrapper.setAttribute('rotation', `0 ${ROT} 0`);
+  const g=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  g('cal-s',S.toFixed(2)); g('cal-x',offX.toFixed(1)); g('cal-y',offY.toFixed(1)); g('cal-r',ROT);
+  document.getElementById('markerinfo').textContent =
+    `${markerLabel} ／ scale=${S.toFixed(2)} ox=${offX.toFixed(1)} oy=${offY.toFixed(1)} rot=${ROT}`;
+  renderStep();
+}
+document.getElementById('cal-toggle').onclick = () => {
+  const p=document.getElementById('calib');
+  p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+};
+document.querySelectorAll('#calib .cbtn').forEach(b=>{
+  b.onclick = () => {
+    const k=b.getAttribute('data-cal');
+    if      (k==='s+') S=Math.min(6, +(S+0.1).toFixed(2));
+    else if (k==='s-') S=Math.max(0.2, +(S-0.1).toFixed(2));
+    else if (k==='x+') offX=+(offX+0.2).toFixed(1);
+    else if (k==='x-') offX=+(offX-0.2).toFixed(1);
+    else if (k==='y+') offY=+(offY+0.2).toFixed(1);
+    else if (k==='y-') offY=+(offY-0.2).toFixed(1);
+    else if (k==='r')  ROT=(ROT+90)%360;
+    applyCal();
+  };
+});
+document.getElementById('cal-copy').onclick = () => {
+  const url = `${location.origin}${location.pathname}?marker=${markerMode}`
+    + (markerMode==='barcode' ? `&value=${barcodeValue}` : '')
+    + `&scale=${S}&ox=${offX}&oy=${offY}&rot=${ROT}`;
+  const msg=document.getElementById('cal-msg');
+  const show=()=>{ msg.textContent='コピーしました ↓\n'+url; };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(show, ()=>{ msg.textContent=url; });
+  } else { msg.textContent=url; }
+};
+
+applyCal();
 </script>
 </body>
 </html>
