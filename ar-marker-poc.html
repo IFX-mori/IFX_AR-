@@ -84,11 +84,11 @@
   embedded
   vr-mode-ui="enabled: false"
   renderer="logarithmicDepthBuffer: true; precision: medium;"
-  arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; debugUIEnabled: false;">
+  arjs="sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; debugUIEnabled: false;">
   <!-- マーカーと追従コンテンツは静的に配置（動的生成だとAR.js初期化で子が外れるため）。
        マーカー種別・校正値は起動時にJSで属性を上書きする。 -->
   <a-marker id="marker" preset="hiro"
-    smooth="true" smoothCount="8" smoothTolerance="0.01" smoothThreshold="4">
+    smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5">
     <a-entity id="wrapper" position="0 0.01 0">
       <a-entity id="content" rotation="-90 0 0"></a-entity>
     </a-entity>
@@ -99,7 +99,7 @@
 <div id="ui">
   <div id="topbar">
     <div id="title">発電機 ｜ ARマーカー準本番PoC<small id="markerinfo"></small></div>
-    <div id="ver">PoC v0.9</div>
+    <div id="ver">PoC v1.0</div>
   </div>
 
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
@@ -213,6 +213,11 @@ if (markerMode === 'barcode') {
   marker.setAttribute('type', 'pattern');
   marker.setAttribute('url', pattUrl);
 }
+// 平滑化（ジッター抑制）。URLで調整可： ?sc=平均frame数 ?st=許容 ?sth=しきい値
+marker.setAttribute('smooth', 'true');
+marker.setAttribute('smoothCount',     params.get('sc')  || '15');
+marker.setAttribute('smoothTolerance', params.get('st')  || '0.02');
+marker.setAttribute('smoothThreshold', params.get('sth') || '5');
 // 倍率
 wrapper.setAttribute('scale', `${S} ${S} ${S}`);
 // 表示向き
