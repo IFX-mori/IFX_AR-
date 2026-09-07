@@ -50,6 +50,11 @@
   .fig { position:absolute; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; transform:translate(-50%,-50%); }
   .fig img { display:block; width:100%; height:100%; }
   .fig.sel::after { content:''; position:absolute; inset:-6px; border:2px dashed #fff; border-radius:8px; box-shadow:0 0 0 2px rgba(0,0,0,.4); }
+  .markerpin { position:absolute; transform:translate(-50%,-50%); pointer-events:auto; cursor:grab; touch-action:none; text-align:center; z-index:5; }
+  .markerpin .mk-ic { font-size:26px; line-height:1; color:#f43f5e; text-shadow:0 0 3px #fff,0 0 3px #fff,0 1px 4px rgba(0,0,0,.6); }
+  .markerpin .mk-lb { margin-top:1px; font-size:10px; font-weight:800; color:#fff; background:#f43f5e; border-radius:6px; padding:1px 5px; white-space:nowrap; }
+  #tools button.mk { background:rgba(244,63,94,.85); border-color:#fda4af; }
+  #tools button.mk.on { background:#e11d48; }
 
   /* 左：図形追加ツール */
   #tools { position:absolute; left:8px; top:8px; display:flex; flex-direction:column; gap:6px; z-index:10; }
@@ -153,6 +158,7 @@
 <div id="editor">
   <div id="stage-wrap">
     <div id="tools">
+      <button data-add="marker" class="mk">▦<br>位置</button>
       <button data-add="box">⬜<br>囲み</button>
       <button data-add="arrow">↑<br>上矢印</button>
       <button data-add="arrowDown">↓<br>下矢印</button>
@@ -220,7 +226,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v1.1';
+const APP_VERSION = 'v1.2';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -232,6 +238,7 @@ let ED = {
   id: '', name: '', subtitle: '', barcode: null,
   calib: { ...CALIB_DEFAULT },
   imageFile: '',        // 参照写真のGitHubパス（再編集用。プレイヤーは未使用）
+  marker: { u: 0.5, v: 0.5 },  // 写真上のバーコード位置(0..1)＝座標原点。再編集用（プレイヤー未使用）
   steps: []
 };
 let stepIdx = 0, figIdx = -1, addType = null;
@@ -293,12 +300,29 @@ function imgAspect(){ const im=document.getElementById('edit-img'); return (im.n
 function screenToNorm(clientX, clientY){
   const r=imgRect(); const u=(clientX-r.left)/r.width, v=(clientY-r.top)/r.height;
   const aspect=imgAspect();
-  return { x:+(u-0.5).toFixed(3), y:+((0.5-v)*aspect).toFixed(3), inside:(u>=0&&u<=1&&v>=0&&v<=1) };
+  // 原点＝バーコード位置(ED.marker)。x:右+ y:上+（1単位=画像幅, 等方）
+  return { x:+(u-ED.marker.u).toFixed(3), y:+((ED.marker.v-v)*aspect).toFixed(3), inside:(u>=0&&u<=1&&v>=0&&v<=1) };
 }
-// 正規化座標 → オーバーレイ内%（オーバーレイ＝画像と同一矩形）
+// 正規化座標 → オーバーレイ内%（オーバーレイ＝画像と同一矩形。原点＝ED.marker）
 function normToPct(x, y){
   const aspect=imgAspect();
-  return { left:(x+0.5)*100, top:(0.5 - y/aspect)*100 };
+  return { left:(ED.marker.u + x)*100, top:(ED.marker.v - y/aspect)*100 };
+}
+// バーコード原点を写真上の(u,v)へ移動。図形は写真上で静止させ pos だけ再計算する。
+function setMarker(u, v){
+  const aspect=imgAspect();
+  const abs=[];
+  ED.steps.forEach(s=>s.ar.forEach(f=>abs.push({ f, u:ED.marker.u+f.pos[0], v:ED.marker.v-f.pos[1]/aspect })));
+  ED.marker.u=+Math.max(0,Math.min(1,u)).toFixed(4);
+  ED.marker.v=+Math.max(0,Math.min(1,v)).toFixed(4);
+  abs.forEach(a=>{ a.f.pos=[ +(a.u-ED.marker.u).toFixed(3), +((ED.marker.v-a.v)*aspect).toFixed(3), a.f.pos[2]||0 ]; });
+  renderOverlay(); updatePosLabel();
+}
+function startMarkerDrag(ev){
+  ev.preventDefault();
+  const onMove=e=>{ const r=imgRect(); setMarker((e.clientX-r.left)/r.width, (e.clientY-r.top)/r.height); };
+  const onUp=()=>{ document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); document.removeEventListener('pointercancel',onUp); };
+  document.addEventListener('pointermove',onMove); document.addEventListener('pointerup',onUp); document.addEventListener('pointercancel',onUp);
 }
 
 // ══════════ オーバーレイ描画 ══════════
@@ -320,6 +344,12 @@ function renderOverlay(){
     el.addEventListener('pointerdown', ev=>{ ev.stopPropagation(); startDrag(ev,i); });
     ov.appendChild(el);
   });
+  // バーコード位置ピン（＝座標原点）。ドラッグで移動可。
+  const pin=document.createElement('div'); pin.className='markerpin';
+  pin.style.left=(ED.marker.u*100)+'%'; pin.style.top=(ED.marker.v*100)+'%';
+  pin.innerHTML='<div class="mk-ic">▦</div><div class="mk-lb">バーコード位置</div>';
+  pin.addEventListener('pointerdown', ev=>{ ev.stopPropagation(); startMarkerDrag(ev); });
+  ov.appendChild(pin);
 }
 
 function startDrag(ev, i){
@@ -337,7 +367,10 @@ function startDrag(ev, i){
 // 既存図形タップは .fig 側で stopPropagation するのでここには来ない（＝空き部分のみ配置）。
 document.getElementById('stage').addEventListener('pointerdown', ev=>{
   if(!addType) return;
-  const n=screenToNorm(ev.clientX,ev.clientY); if(!n.inside) return;
+  const r=imgRect(); const u=(ev.clientX-r.left)/r.width, v=(ev.clientY-r.top)/r.height;
+  if(u<0||u>1||v<0||v>1) return;
+  if(addType==='marker'){ setMarker(u,v); clearAddType(); return; }  // バーコード位置を指定
+  const n=screenToNorm(ev.clientX,ev.clientY);
   const it=defaultFig(addType, n.x, n.y);
   curStep().ar.push(it); figIdx=curStep().ar.length-1;
   clearAddType();
@@ -360,7 +393,7 @@ document.querySelectorAll('#tools button').forEach(b=>{
   b.onclick=()=>{ const t=b.getAttribute('data-add');
     if(addType===t){ clearAddType(); return; }
     addType=t; document.querySelectorAll('#tools button').forEach(x=>x.classList.toggle('on', x===b));
-    setSub('タップで「'+t+'」を配置'); };
+    setSub(t==='marker' ? '写真上のバーコード位置をタップ' : 'タップで図形を配置'); };
 });
 function clearAddType(){ addType=null; document.querySelectorAll('#tools button').forEach(x=>x.classList.remove('on')); setSub(''); }
 function setSub(t){ document.getElementById('sub').textContent = t || (ED.name||'.mind不要／写真に図形を配置してJSON化'); }
@@ -478,6 +511,7 @@ function buildScenarioJSON(){
     subtitle: ED.subtitle||'',
     calib: ED.calib,
     imageFile: ED.imageFile||'',  // 参照写真パス（再編集用・プレイヤーは未使用）
+    markerPos: ED.marker,         // 写真上のバーコード位置（再編集用・プレイヤーは未使用）
     steps: ED.steps
   }, null, 2);
 }
@@ -564,6 +598,7 @@ function loadScenario(data,owner,repo){
   ED.barcode=Number.isInteger(data.barcode)?data.barcode:null;
   ED.calib=Object.assign({...CALIB_DEFAULT}, data.calib||{});
   ED.imageFile=data.imageFile||''; ED.steps=(data.steps&&data.steps.length)?data.steps:[mkStep('ステップ1')];
+  ED.marker=(data.markerPos&&typeof data.markerPos.u==='number')?{u:data.markerPos.u,v:data.markerPos.v}:{u:0.5,v:0.5};
   _photoDataURL=null; ED._loadedImg='';
   // 参照写真をGitHubから復元（あれば）
   if(ED.imageFile){ ED._loadedImg=`https://raw.githubusercontent.com/${owner}/${repo}/main/${ED.imageFile}?t=${Date.now()}`; }
