@@ -111,6 +111,21 @@
   .remote-item { text-align:left; width:100%; padding:11px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; margin-bottom:8px; }
   .remote-item b { display:block; color:#1e293b; }
   .remote-item small { color:#64748b; font-size:11px; }
+  /* バーコード表示 */
+  #bc-view { text-align:center; }
+  #bc-view img { width:180px; height:180px; image-rendering:pixelated; border:1px solid #e2e8f0; background:#fff; }
+  #bc-view .cap { margin-top:8px; font-size:13px; font-weight:800; }
+  #bc-view .sub { font-size:11px; color:#64748b; margin-top:2px; line-height:1.6; }
+  #bc-view .err { color:#dc2626; font-size:12px; }
+  /* 印刷領域（通常は非表示、印刷時のみ表示） */
+  #bc-print { display:none; }
+  @media print {
+    body.bc-printing * { visibility:hidden !important; }
+    body.bc-printing #bc-print, body.bc-printing #bc-print * { visibility:visible !important; }
+    body.bc-printing #bc-print { display:block !important; position:fixed; inset:0; margin:0; padding:14mm; }
+    #bc-print img { width:40mm; height:40mm; image-rendering:pixelated; display:block; }
+    #bc-print .pl { margin-top:4mm; font-size:10pt; font-weight:700; font-family:sans-serif; }
+  }
 </style>
 </head>
 <body>
@@ -133,6 +148,7 @@
     </div>
     <div class="fld"><label>マーカー実寸（1辺・mm）</label><input id="cfg-markermm" value="40" inputmode="numeric">
       <div class="hint">印刷するバーコードの1辺の長さ。既定40mm（＝4cm角）。配置は実寸(cm)で扱われます。</div></div>
+    <button class="btn full d" onclick="showBarcodeFromField()">▦ このバーコードを表示 / 印刷</button>
   </div>
 
   <div class="card">
@@ -218,11 +234,29 @@
     <div id="json-status" style="font-size:12px;white-space:pre-line;margin-top:8px;color:#64748b"></div>
     <div class="mact">
       <button class="btn d" onclick="closeModal('json-modal')">閉じる</button>
+      <button class="btn d" onclick="showBarcode(ED.barcode)">▦ バーコード</button>
       <button class="btn" onclick="copyJSON()">📋 コピー</button>
       <button class="btn g" id="btn-upload" onclick="githubUpload()">☁️ GitHubへ保存</button>
     </div>
   </div>
 </div>
+
+<!-- バーコード表示モーダル -->
+<div class="modal" id="barcode-modal">
+  <div class="box" style="max-width:340px">
+    <h3>▦ バーコードマーカー</h3>
+    <div id="bc-view"></div>
+    <div style="margin-top:10px;padding:10px;background:#f8fafc;border-radius:9px;font-size:11.5px;color:#475569;line-height:1.6">
+      印刷は<b>1辺40mm（4cm角）</b>。黒枠の外に<b>白余白5mm程度</b>を残して切り出すと安定します。<br>画像はネット接続時に読み込まれます。
+    </div>
+    <div class="mact">
+      <button class="btn d" onclick="closeModal('barcode-modal')">閉じる</button>
+      <button class="btn" onclick="printBarcode()">🖨 印刷 / PDF</button>
+    </div>
+  </div>
+</div>
+<!-- 印刷専用領域 -->
+<div id="bc-print"></div>
 
 <!-- GitHub読込モーダル -->
 <div class="modal" id="remote-modal">
@@ -234,7 +268,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v1.4';
+const APP_VERSION = 'v1.5';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -635,6 +669,41 @@ async function githubUpload(){
     setJsonStatus(`✅ 保存完了！\nバーコード番号：${ED.barcode}\n・${BARCODE_DIR}/${ED.id}.json`+(ED.imageFile?`\n・${ED.imageFile}`:'')+`\n\nプレイヤーで value=${ED.barcode} のマーカーを読むと表示されます。`);
   }catch(e){ setJsonStatus('❌ 失敗: '+e.message,true); }
   btn.disabled=false;
+}
+
+// ══════════ バーコード表示 / 印刷 ══════════
+// AR.js matrixCodeType:3x3 用の公式互換マーカー画像（jsDelivr→rawフォールバック）
+const BC_PRIMARY  = n => `https://cdn.jsdelivr.net/gh/nicolocarpignoli/artoolkit-barcode-markers-collection@master/3x3/${n}.png`;
+const BC_FALLBACK = n => `https://raw.githubusercontent.com/nicolocarpignoli/artoolkit-barcode-markers-collection/master/3x3/${n}.png`;
+function bcImgEl(n, cls){
+  const img=document.createElement('img'); if(cls) img.className=cls; img.alt='barcode '+n; img.src=BC_PRIMARY(n);
+  img.onerror=function(){ if(!img._fb){ img._fb=1; img.src=BC_FALLBACK(n); } };
+  return img;
+}
+function showBarcode(n){
+  if(n===null||n===undefined||n===''||isNaN(n)){
+    alert('バーコード番号が未確定です。番号欄に入力するか、先に保存（自動採番）してください。'); return;
+  }
+  n=parseInt(n,10);
+  const v=document.getElementById('bc-view'); v.innerHTML='';
+  const img=bcImgEl(n); v.appendChild(img);
+  const cap=document.createElement('div'); cap.className='cap'; cap.textContent='value = '+n;
+  const sub=document.createElement('div'); sub.className='sub'; sub.textContent='3x3 matrix ／ 印刷40mm角';
+  v.appendChild(cap); v.appendChild(sub);
+  // 印刷領域も用意
+  const p=document.getElementById('bc-print'); p.innerHTML='';
+  p.appendChild(bcImgEl(n)); const pl=document.createElement('div'); pl.className='pl'; pl.textContent='value = '+n+' ／ 40mm'; p.appendChild(pl);
+  document.getElementById('barcode-modal').classList.add('on');
+}
+function showBarcodeFromField(){
+  const bc=document.getElementById('cfg-barcode').value.trim();
+  showBarcode(bc===''?(ED.barcode):bc);
+}
+function printBarcode(){
+  document.body.classList.add('bc-printing');
+  const done=()=>{ document.body.classList.remove('bc-printing'); window.removeEventListener('afterprint',done); };
+  window.addEventListener('afterprint',done);
+  setTimeout(()=>{ window.print(); }, 60);
 }
 
 // ══════════ GitHubから既存シナリオを読込 ══════════
