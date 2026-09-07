@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>AR手動ナビ（バーコード）</title>
+<!-- ════════════════════════════════════════════════════════════
+  バーコードマーカー方式の手動ナビ（AR.js）／独立ファイル・既存無改変
+  ・バーコード value=0→発電機 / value=1→踏切制御器リセット手順-2 を自動判別
+  ・1€フィルタで揺れ抑制、シナリオごとに校正（scale/ox/oy/rot）
+  ・マーカー印刷：3x3 matrix の 0.png / 1.png
+════════════════════════════════════════════════════════════ -->
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.5/aframe/build/aframe-ar.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; font-family:-apple-system,'Helvetica Neue',sans-serif; }
+  .a-enter-vr, .a-orientation-modal { display:none !important; }
+  #ui { position:fixed; inset:0; pointer-events:none; z-index:10; }
+  #topbar { position:absolute; top:0; left:0; right:0; display:flex; align-items:center; gap:10px;
+    padding:10px 14px; background:rgba(255,255,255,0.92); backdrop-filter:blur(8px); box-shadow:0 1px 6px rgba(0,0,0,0.12); }
+  #title { font-size:14px; font-weight:700; color:#1e293b; flex:1; line-height:1.3; }
+  #title small { display:block; font-size:10px; font-weight:500; color:#64748b; }
+  #ver { font-size:10px; font-weight:700; color:#7c3aed; background:rgba(124,58,237,0.12); padding:2px 7px; border-radius:8px; }
+  #status { position:absolute; top:58px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px;
+    background:rgba(0,0,0,0.62); color:#fff; padding:7px 14px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+  #dot { width:10px; height:10px; border-radius:50%; background:#f59e0b; transition:background .2s; }
+  #dot.on { background:#22c55e; box-shadow:0 0 8px #22c55e; }
+  #hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.55); color:#fff;
+    padding:16px 22px; border-radius:16px; text-align:center; font-size:14px; font-weight:600; line-height:1.6; max-width:80%; }
+  #hint.hidden { display:none; }
+  #hint small { display:block; margin-top:6px; font-size:11px; font-weight:500; color:#cbd5e1; }
+  #card { position:absolute; left:12px; right:12px; bottom:14px; background:rgba(255,255,255,0.96); backdrop-filter:blur(10px);
+    border-radius:16px; padding:14px 16px; box-shadow:0 6px 20px rgba(0,0,0,0.18); pointer-events:auto; }
+  #card-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  #badge { padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; color:#fff; }
+  #stitle { font-size:15px; font-weight:700; color:#1e293b; flex:1; line-height:1.3; }
+  #sdetail { font-size:12.5px; color:#475569; line-height:1.6; white-space:pre-line; margin-bottom:12px; }
+  #nav { display:flex; gap:8px; }
+  #nav button { flex:1; padding:12px 0; border:none; border-radius:12px; font-size:14px; font-weight:700; color:#fff; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  #btn-prev { background:rgba(0,0,0,0.18); color:#1e293b; }
+  #btn-next { background:#1d4ed8; }
+  #counter { text-align:center; font-size:11px; color:#64748b; margin-top:8px; }
+  .cbtn { width:34px; height:30px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-weight:700; color:#334155; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .cbtn:active { background:#e0e7ff; }
+</style>
+</head>
+<body>
+<a-scene embedded vr-mode-ui="enabled: false"
+  renderer="logarithmicDepthBuffer: true; precision: medium;"
+  arjs="sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; debugUIEnabled: false;">
+  <a-marker id="m0" type="barcode" value="0" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m1" type="barcode" value="1" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-entity id="anchor" smooth-follow="target: #m0; mc: 0.3; beta: 1.0">
+    <a-entity id="wrapper"><a-entity id="content" rotation="-90 0 0"></a-entity></a-entity>
+  </a-entity>
+  <a-entity camera></a-entity>
+</a-scene>
+
+<div id="ui">
+  <div id="topbar">
+    <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
+    <div id="ver">Barcode v1.0</div>
+  </div>
+  <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
+  <div id="hint">バーコードマーカーにカメラを向けてください<small>value=0→発電機／value=1→踏切</small></div>
+
+  <button id="cal-toggle" style="position:absolute;left:12px;top:96px;pointer-events:auto;background:rgba(15,23,42,0.82);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer">校正</button>
+  <div id="calib" style="position:absolute;left:12px;top:134px;pointer-events:auto;display:none;background:rgba(255,255,255,0.97);backdrop-filter:blur(8px);border-radius:12px;padding:10px 12px;box-shadow:0 4px 14px rgba(0,0,0,.2);font-size:12px;color:#1e293b;min-width:186px">
+    <div style="font-size:11px;color:#64748b;margin-bottom:6px">校正対象: <b id="cal-target">-</b></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">サイズ</span><button class="cbtn" data-cal="s-">－</button><b id="cal-s" style="flex:1;text-align:center">1.00</b><button class="cbtn" data-cal="s+">＋</button></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">左右</span><button class="cbtn" data-cal="x-">←</button><b id="cal-x" style="flex:1;text-align:center">0.00</b><button class="cbtn" data-cal="x+">→</button></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">上下</span><button class="cbtn" data-cal="y-">↓</button><b id="cal-y" style="flex:1;text-align:center">0.00</b><button class="cbtn" data-cal="y+">↑</button></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="width:36px">回転</span><button class="cbtn" data-cal="r" style="flex:1;width:auto">90°回す</button><b id="cal-r" style="width:36px;text-align:center">0</b></div>
+    <button id="cal-copy" style="width:100%;padding:8px;border:none;border-radius:9px;background:#1d4ed8;color:#fff;font-weight:700;font-size:12px;cursor:pointer">校正値をコピー</button>
+    <div id="cal-msg" style="font-size:10px;color:#475569;margin-top:6px;line-height:1.5;word-break:break-all"></div>
+  </div>
+
+  <div id="card">
+    <div id="card-head"><span id="badge">STEP</span><span id="stitle">–</span></div>
+    <div id="sdetail">–</div>
+    <div id="nav"><button id="btn-prev">‹ 戻る</button><button id="btn-next">次へ ›</button></div>
+    <div id="counter">– / –</div>
+  </div>
+</div>
+
+<script>
+const WARN = { normal:{c:'#1d4ed8',label:'通常'}, caution:{c:'#d97706',label:'注意'}, danger:{c:'#dc2626',label:'危険'} };
+
+// ══════ シナリオ（図形は画像正規化座標。バーコード値で自動判別） ══════
+const SCEN = {
+  '0': { name:'発電機', subtitle:'発電機の復旧手順', calib:{scale:6, ox:0, oy:0, rot:0}, steps:[
+    { title:'ランプ点灯色の確認', warn:'caution', detail:'盤面右上のランプを目視で確認し、点灯している色のボタンを押してください。',
+      ar:[{type:'box', pos:[0.36,0.46,0], color:'#ef4444', sizeW:0.30, sizeH:0.14, lineThick:0.008, label:'ランプ点灯色を確認', labelBelow:true, textColor:'#fff', textBg:'#ef4444'}] },
+    { title:'つまみを左右に回す', warn:'normal', detail:'左側のつまみを左へ30、右側のつまみを右へ70回してください。',
+      ar:[{type:'curvedArrow', pos:[-0.395,0.525,0], color:'#60a5fa', dir:'left', label:'左へ回す\n30', scale:2.4},
+          {type:'curvedArrow', pos:[-0.115,0.525,0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', scale:2.4}] },
+    { title:'ボタンを1回ずつ押す', warn:'normal', detail:'中央左・中央のボタンをそれぞれ1回押してください。',
+      ar:[{type:'arrow', pos:[-0.125,-0.05,0], color:'#60a5fa', label:'1回押す'},
+          {type:'arrow', pos:[0.125,-0.05,0], color:'#60a5fa', label:'1回押す'}] },
+    { title:'レバーを操作する', warn:'caution', detail:'左下レバーを上に、右下レバーを下に押してください。',
+      ar:[{type:'arrow', pos:[-0.24,-0.44,0], color:'#60a5fa', label:'上に押す', labelAbove:true},
+          {type:'arrowDown', pos:[0.30,-0.42,0], color:'#60a5fa', label:'下に押す'}] },
+    { title:'青ランプの点灯確認', warn:'normal', detail:'中央のランプが青色に点灯したことを確認して作業完了です。',
+      ar:[{type:'box', pos:[0.085,0.46,0], color:'#3b82f6', size:0.10, label:'青の点灯を確認', labelBelow:true, textColor:'#3b82f6', textBg:'#facc15'}] },
+  ]},
+  '1': { name:'踏切制御器リセット手順-2', subtitle:'', calib:{scale:6, ox:0, oy:0, rot:0}, steps:[
+    { title:'液晶表示の確認', warn:'normal', detail:'液晶表示を確認する',
+      ar:[{type:'text', color:'#60a5fa', label:'液晶表示の「重故障」欄の表示を確認する', pos:[-0.008,-0.015,0], fontScale:0.9},
+          {type:'box', color:'#429cf0', size:0.12, label:'確認', pos:[-0.063,0.109,0]}] },
+    { title:'液晶表示の番号を確認', warn:'caution', detail:'液晶表示に「01」が表示されていることを確認する　＜注意＞「01」以外の場合は通信指令へ連絡する',
+      ar:[{type:'text', color:'#60a5fa', label:'液晶表示に\n「01」が表示されていることを確認する', pos:[-0.051,-0.022,0], fontScale:1.1},
+          {type:'box', color:'#428df0', size:0.12, label:'確認', pos:[-0.063,0.112,0]},
+          {type:'text', color:'#f87171', label:'⚠ 注意', pos:[-0.38,-0.223,0]},
+          {type:'text', color:'#fb6060', label:'「01」以外の場合は通信指令へ連絡する', pos:[-0.103,-0.314,0], fontScale:0.8}] },
+    { title:'リセット実行', warn:'caution', detail:'赤色のリセットボタンを2秒以上押す　その後音が鳴る',
+      ar:[{type:'text', color:'#fb6060', label:'停止しない場合、通信指令へ連絡', pos:[-0.162,-0.328,0], fontScale:0.8},
+          {type:'arrow', color:'#60a5fa', label:'リセットボタンを2秒以上押す', pos:[0.023,-0.03,0]},
+          {type:'text', color:'#f87171', label:'⚠ 注意', pos:[-0.377,-0.25,0]},
+          {type:'box', color:'#60a5fa', size:0.1, label:'', pos:[0.026,0.005,0], labelBelow:true}] },
+    { title:'復旧確認', warn:'normal', detail:'正常に復旧した場合は、踏切鳴動が停止します。停止しない場合、通信指令へ連絡します。',
+      ar:[{type:'text', color:'#60a5fa', label:'正常に復旧した場合は、\n踏切鳴動が停止する', pos:[-0.015,0.111,0], fontScale:1.4},
+          {type:'text', color:'#fb6060', label:'鳴動が停止しない場合は通信指令へ連絡する', pos:[-0.06,-0.311,0], fontScale:0.8},
+          {type:'text', color:'#f87171', label:'⚠ 注意', pos:[-0.377,-0.222,0]}] },
+    { title:'正常動作の確認', warn:'normal', detail:'1列車の通過で正常動作を確認して作業終了',
+      ar:[{type:'text', color:'#60a5fa', label:'1列車の通過で\n正常に動作することを確認する', pos:[0.01,0.109,0], fontScale:1.2},
+          {type:'text', color:'#60a5fa', label:'以上で作業終了', pos:[-0.002,-0.015,0], fontScale:1}] },
+  ]},
+};
+
+// ══════ 1€(OneEuro)フィルタ＋マーカー追従 ══════
+function _LP(){ this.s=null; }
+_LP.prototype.f=function(x,a){ this.s=(this.s===null)?x:(a*x+(1-a)*this.s); return this.s; };
+function _euA(cut,dt){ const tau=1/(2*Math.PI*cut); return 1/(1+tau/dt); }
+function OneEuro(mc,beta,dc){ this.mc=mc; this.beta=beta; this.dc=dc||1.0; this.x=new _LP(); this.dx=new _LP(); this.lx=null; }
+OneEuro.prototype.f=function(x,dt){ const dv=(this.lx===null)?0:(x-this.lx)/dt; this.lx=x; const ed=this.dx.f(dv,_euA(this.dc,dt)); const cut=this.mc+this.beta*Math.abs(ed); return this.x.f(x,_euA(cut,dt)); };
+AFRAME.registerComponent('smooth-follow', {
+  schema: { target:{type:'selector'}, mc:{default:0.3}, beta:{default:1.0} },
+  init: function(){ this._p=new THREE.Vector3(); this._q=new THREE.Quaternion(); this._s=new THREE.Vector3();
+    const mk=()=>new OneEuro(this.data.mc,this.data.beta);
+    this._fp=[mk(),mk(),mk()]; this._fq=[mk(),mk(),mk(),mk()]; this._started=false; this._lastT=null; this.el.object3D.visible=false; },
+  update: function(){ this._started=false; const mk=()=>new OneEuro(this.data.mc,this.data.beta);
+    this._fp=[mk(),mk(),mk()]; this._fq=[mk(),mk(),mk(),mk()]; },
+  tick: function(time){ const t=this.data.target; if(!t) return; const o=t.object3D, me=this.el.object3D;
+    if(o.visible){ o.updateMatrixWorld(); o.matrixWorld.decompose(this._p,this._q,this._s);
+      const now=(time||performance.now())/1000; let dt=(this._lastT!=null&&now>this._lastT)?(now-this._lastT):1/60; if(dt>0.1)dt=0.1; this._lastT=now;
+      if(!this._started){ me.position.copy(this._p); me.quaternion.copy(this._q); this._started=true; }
+      else { me.position.set(this._fp[0].f(this._p.x,dt),this._fp[1].f(this._p.y,dt),this._fp[2].f(this._p.z,dt));
+             me.quaternion.set(this._fq[0].f(this._q.x,dt),this._fq[1].f(this._q.y,dt),this._fq[2].f(this._q.z,dt),this._fq[3].f(this._q.w,dt)).normalize(); }
+      me.visible=true; } }
+});
+
+// ══════ 図形描画（canvasテクスチャ plane。1認証単位=1000px） ══════
+const PXREF = 1000;
+function planeFromCanvas(cv,x,y,z){ const el=document.createElement('a-plane');
+  el.setAttribute('width',(cv.width/PXREF).toFixed(4)); el.setAttribute('height',(cv.height/PXREF).toFixed(4));
+  el.setAttribute('position',`${x} ${y} ${z||0}`);
+  el.setAttribute('material',{shader:'flat',transparent:true,side:'double',src:cv.toDataURL('image/png')}); return el; }
+function labelMetrics(ctx,text,fp){ ctx.font=`bold ${fp}px sans-serif`; const lines=String(text).split('\n');
+  let w=0; lines.forEach(l=>w=Math.max(w,ctx.measureText(l).width)); const lh=fp*1.25; return {lines,w,lh,h:lines.length*lh}; }
+function drawLabel(ctx,cx,cy,text,fp,bg,fg){ const m=labelMetrics(ctx,text,fp); const padX=26,padY=16;
+  const w=m.w+padX*2,h=m.h+padY*2,x=cx-w/2,y=cy-h/2,r=Math.min(28,h/2);
+  ctx.fillStyle=bg; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=fg; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font=`bold ${fp}px sans-serif`;
+  m.lines.forEach((l,i)=>ctx.fillText(l,cx,cy-m.h/2+m.lh*(i+0.5))); return {w,h}; }
+function iconArrow(ctx,cx,cy,w,h,color,dir){ ctx.save(); ctx.translate(cx,cy); if(dir==='up')ctx.scale(1,-1);
+  ctx.fillStyle=color; ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=6; ctx.lineJoin='round'; const sw=w*0.34;
+  ctx.beginPath(); ctx.moveTo(-sw/2,-h/2); ctx.lineTo(sw/2,-h/2); ctx.lineTo(sw/2,h*0.05); ctx.lineTo(w/2,h*0.05); ctx.lineTo(0,h/2); ctx.lineTo(-w/2,h*0.05); ctx.lineTo(-sw/2,h*0.05); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); }
+function iconBox(ctx,cx,cy,w,h,color,thick){ ctx.lineWidth=thick||14; ctx.strokeStyle=color; ctx.lineJoin='round';
+  const r=Math.min(24,h/2),x=cx-w/2,y=cy-h/2; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.stroke(); }
+function iconCurved(ctx,cx,cy,r,color,dir){ ctx.save(); ctx.translate(cx,cy); if(dir==='left')ctx.scale(-1,1);
+  ctx.strokeStyle=color; ctx.lineWidth=Math.max(12,r*0.26); ctx.lineCap='round';
+  ctx.beginPath(); ctx.arc(0,0,r,Math.PI*0.85,Math.PI*0.15,false); ctx.stroke();
+  const a=Math.PI*0.15,ex=r*Math.cos(a),ey=r*Math.sin(a),hs=r*0.5; ctx.fillStyle=color;
+  ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex-hs*0.2,ey-hs); ctx.lineTo(ex+hs*0.7,ey-hs*0.35); ctx.closePath(); ctx.fill(); ctx.restore(); }
+function makeItem(it, cal){
+  const tmp=document.createElement('canvas').getContext('2d');
+  const color=it.color||'#60a5fa'; const fp=Math.round(46*(it.fontScale||1));
+  const bg=it.textBg||'rgba(0,0,0,0.82)'; const fg=it.textColor||'#ffffff';
+  const lm=it.label ? labelMetrics(tmp,it.label,fp) : null;
+  const labelW=lm?lm.w+52:0, labelH=lm?lm.h+32:0;
+  let iw=0,ih=0;
+  if(it.type==='box'){ iw=(it.sizeW||it.size||0.5)*PXREF; ih=(it.sizeH||it.size||0.5)*PXREF; }
+  else if(it.type==='ring'){ iw=ih=(it.size||0.6)*PXREF; }
+  else if(it.type==='arrow'||it.type==='arrowDown'){ ih=(it.h||0.5)*PXREF; iw=ih*0.7; }
+  else if(it.type==='curvedArrow'){ iw=ih=(it.size||(it.scale?it.scale*0.09:0.2))*PXREF; }
+  const gap=22, labelAbove=!!it.labelAbove;
+  const cw=Math.max(iw,labelW)+30;
+  const ch=(it.type==='text')?(labelH+20):(ih+2*(gap+labelH)+20);
+  const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
+  const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
+  if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.03)*PXREF);
+  else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
+  else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
+  else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
+  else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir);
+  if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg);
+    else { const ly=labelAbove?(CY-ih/2-gap-labelH/2):(CY+ih/2+gap+labelH/2); drawLabel(ctx,CX,ly,it.label,fp,bg,fg); } }
+  return planeFromCanvas(cv, it.pos[0]+cal.ox, it.pos[1]+cal.oy, it.pos[2]);
+}
+
+// ══════ 状態・描画 ══════
+const anchor=document.getElementById('anchor');
+const wrapper=document.getElementById('wrapper');
+const content=document.getElementById('content');
+let curKey=null, idx=0;
+
+function applyCal(){ const sc=SCEN[curKey]; if(!sc) return; const c=sc.calib;
+  wrapper.setAttribute('scale',`${c.scale} ${c.scale} ${c.scale}`);
+  wrapper.setAttribute('rotation',`0 ${c.rot} 0`);
+  const g=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
+  g('cal-target',sc.name); g('cal-s',c.scale.toFixed(2)); g('cal-x',c.ox.toFixed(2)); g('cal-y',c.oy.toFixed(2)); g('cal-r',c.rot);
+}
+function renderStep(){ const sc=SCEN[curKey]; if(!sc) return; const step=sc.steps[idx]; const col=WARN[step.warn].c;
+  document.getElementById('stitle').textContent=step.title;
+  document.getElementById('sdetail').textContent=step.detail;
+  const b=document.getElementById('badge'); b.textContent=`STEP ${idx+1}`; b.style.background=col;
+  document.getElementById('btn-next').style.background=col;
+  document.getElementById('counter').textContent=`${idx+1} / ${sc.steps.length}`;
+  document.getElementById('btn-prev').style.visibility=idx>0?'visible':'hidden';
+  document.getElementById('btn-next').style.visibility=idx<sc.steps.length-1?'visible':'hidden';
+  while(content.firstChild) content.removeChild(content.firstChild);
+  step.ar.forEach(it=>content.appendChild(makeItem(it,sc.calib)));
+}
+function setScenario(key,markerId){ if(curKey===key) return; curKey=key; idx=0;
+  const sc=SCEN[key]; document.getElementById('scname').textContent=sc.name;
+  document.getElementById('scsub').textContent=sc.subtitle||'';
+  anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: 0.3; beta: 1.0`);
+  applyCal(); renderStep();
+}
+document.getElementById('btn-next').onclick=()=>{ const sc=SCEN[curKey]; if(sc&&idx<sc.steps.length-1){idx++;renderStep();} };
+document.getElementById('btn-prev').onclick=()=>{ if(curKey&&idx>0){idx--;renderStep();} };
+
+// ══════ マーカー認識（値でシナリオ自動判別） ══════
+const dot=document.getElementById('dot'), stxt=document.getElementById('stxt'), hint=document.getElementById('hint');
+let lostTimer=null;
+function onFound(key,markerId){ if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
+  setScenario(key,markerId); dot.classList.add('on'); stxt.textContent='認識中：'+SCEN[key].name; hint.classList.add('hidden'); }
+function onLost(){ if(lostTimer)clearTimeout(lostTimer);
+  lostTimer=setTimeout(()=>{lostTimer=null; dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.classList.remove('hidden');},1000); }
+document.getElementById('m0').addEventListener('markerFound',()=>onFound('0','m0'));
+document.getElementById('m1').addEventListener('markerFound',()=>onFound('1','m1'));
+document.getElementById('m0').addEventListener('markerLost',onLost);
+document.getElementById('m1').addEventListener('markerLost',onLost);
+
+// ══════ 校正パネル（現在のシナリオを調整） ══════
+document.getElementById('cal-toggle').onclick=()=>{ const p=document.getElementById('calib'); p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'; };
+document.querySelectorAll('#calib .cbtn').forEach(bn=>{ bn.onclick=()=>{ const sc=SCEN[curKey]; if(!sc){return;} const c=sc.calib; const k=bn.getAttribute('data-cal');
+  if(k==='s+') c.scale=+Math.min(30,c.scale*1.1).toFixed(2);
+  else if(k==='s-') c.scale=+Math.max(0.5,c.scale/1.1).toFixed(2);
+  else if(k==='x+') c.ox=+(c.ox+0.02).toFixed(2);
+  else if(k==='x-') c.ox=+(c.ox-0.02).toFixed(2);
+  else if(k==='y+') c.oy=+(c.oy+0.02).toFixed(2);
+  else if(k==='y-') c.oy=+(c.oy-0.02).toFixed(2);
+  else if(k==='r') c.rot=(c.rot+90)%360;
+  applyCal(); renderStep(); }; });
+document.getElementById('cal-copy').onclick=()=>{ const sc=SCEN[curKey]; const msg=document.getElementById('cal-msg');
+  if(!sc){ msg.textContent='シナリオ未選択'; return; } const c=sc.calib;
+  const txt=`${sc.name}: scale=${c.scale} ox=${c.ox} oy=${c.oy} rot=${c.rot}`;
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>{msg.textContent='コピー: '+txt;},()=>{msg.textContent=txt;});
+  else msg.textContent=txt; };
+
+const mcam=null; // 診断は省略
+</script>
+</body>
+</html>
