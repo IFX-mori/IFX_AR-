@@ -43,8 +43,11 @@
   /* ── エディタ画面 ── */
   #editor { position:fixed; inset:52px 0 0 0; display:none; }
   #editor.on { display:block; }
-  #stage-wrap { position:absolute; inset:0 0 148px 0; background:#0f172a; overflow:hidden; display:flex; align-items:center; justify-content:center; }
-  #stage { position:relative; }
+  #stage-wrap { position:absolute; inset:0 0 148px 0; background:#0f172a; overflow:hidden; display:flex; align-items:center; justify-content:center; touch-action:none; }
+  #stage { position:relative; transform-origin:center center; will-change:transform; }
+  #zoomctl { position:absolute; left:8px; bottom:8px; z-index:12; display:flex; gap:6px; align-items:center; }
+  #zoomctl button { width:40px; height:36px; border-radius:9px; border:1px solid rgba(255,255,255,.25); background:rgba(15,23,42,.78); color:#fff; font-size:16px; font-weight:800; }
+  #zoomlabel { font-size:11px; color:#cbd5e1; background:rgba(15,23,42,.6); padding:4px 7px; border-radius:7px; }
   #edit-img { display:block; max-width:100%; max-height:100%; }
   #overlay { position:absolute; inset:0; pointer-events:none; }
   .fig { position:absolute; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; transform:translate(-50%,-50%); }
@@ -91,11 +94,13 @@
   #stepmeta input.title { flex:1; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; }
   #stepmeta select { padding:7px 8px; border:1px solid #cbd5e1; border-radius:8px; }
   #stepmeta .del { padding:7px 9px; border:1px solid #fecaca; color:#dc2626; background:#fff; border-radius:8px; font-weight:700; font-size:12px; }
+  #stepmeta .mv { width:32px; padding:7px 0; border:1px solid #cbd5e1; background:#fff; border-radius:8px; font-weight:800; color:#334155; font-size:13px; }
   #propbar { padding:0 10px 8px; overflow-x:auto; }
   #propbar .inner { display:flex; gap:8px; align-items:center; min-height:36px; }
   #propbar .none { font-size:12px; color:#94a3b8; }
   #propbar .grp { display:flex; align-items:center; gap:5px; flex:0 0 auto; font-size:12px; color:#475569; font-weight:700; }
   #propbar input[type=text] { width:150px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; }
+  #propbar textarea { width:160px; min-height:32px; max-height:80px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; font-size:12px; resize:vertical; line-height:1.4; }
   #propbar input[type=color] { width:34px; height:30px; padding:0; border:1px solid #cbd5e1; border-radius:6px; background:#fff; }
   #propbar select { padding:6px 6px; border:1px solid #cbd5e1; border-radius:7px; }
   #propbar .sbtn { width:30px; height:30px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; font-weight:800; color:#334155; }
@@ -232,16 +237,24 @@
       <img id="edit-img" alt="target">
       <div id="overlay"></div>
     </div>
+    <div id="zoomctl">
+      <button data-z="out" title="縮小">－</button>
+      <button data-z="in" title="拡大">＋</button>
+      <button data-z="fit" title="全体表示にリセット">⤢</button>
+      <span id="zoomlabel">100%</span>
+    </div>
   </div>
 
   <div id="bottom">
     <div id="steptabs"></div>
     <div id="stepmeta">
+      <button class="mv" onclick="moveStep(-1)" title="前へ">↑</button>
+      <button class="mv" onclick="moveStep(1)" title="後へ">↓</button>
       <input class="title" id="step-title" placeholder="ステップ名">
       <select id="step-warn">
         <option value="normal">通常</option>
-        <option value="caution">注意</option>
-        <option value="danger">危険</option>
+        <option value="caution">注意⚠️</option>
+        <option value="danger">危険⛔</option>
       </select>
       <button class="del" onclick="deleteStep()">削除</button>
     </div>
@@ -294,7 +307,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v1.7';
+const APP_VERSION = 'v1.8';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -332,15 +345,26 @@ function iconArrow(ctx,cx,cy,w,h,color,dir){ ctx.save(); ctx.translate(cx,cy); i
 function iconBox(ctx,cx,cy,w,h,color,thick){ ctx.lineWidth=thick||14; ctx.strokeStyle=color; ctx.lineJoin='round';
   const r=Math.min(24,h/2),x=cx-w/2,y=cy-h/2; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.stroke(); }
 function iconCurved(ctx,cx,cy,r,color,dir){ ctx.save(); ctx.translate(cx,cy); if(dir==='left')ctx.scale(-1,1);
-  ctx.strokeStyle=color; ctx.lineWidth=Math.max(12,r*0.26); ctx.lineCap='round';
-  ctx.beginPath(); ctx.arc(0,0,r,Math.PI*0.85,Math.PI*0.15,false); ctx.stroke();
-  const a=Math.PI*0.15,ex=r*Math.cos(a),ey=r*Math.sin(a),hs=r*0.5; ctx.fillStyle=color;
-  ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex-hs*0.2,ey-hs); ctx.lineTo(ex+hs*0.7,ey-hs*0.35); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=Math.max(12,r*0.22); ctx.lineCap='round';
+  const a1=Math.PI*0.15;
+  ctx.beginPath(); ctx.arc(0,0,r,Math.PI*0.85,a1,false); ctx.stroke();
+  // 終端(a1)に矢じり。arc(false,canvasはy下向き)の進行方向＝角度が増える向き → 接線 t=(-sin a1, cos a1)
+  const P=[r*Math.cos(a1), r*Math.sin(a1)];
+  const t=[-Math.sin(a1), Math.cos(a1)];
+  const n=[-t[1], t[0]];
+  const hs=r*0.62, hw=r*0.42;
+  const tip=[P[0]+t[0]*hs, P[1]+t[1]*hs];
+  const b1=[P[0]+n[0]*hw, P[1]+n[1]*hw];
+  const b2=[P[0]-n[0]*hw, P[1]-n[1]*hw];
+  ctx.beginPath(); ctx.moveTo(tip[0],tip[1]); ctx.lineTo(b1[0],b1[1]); ctx.lineTo(b2[0],b2[1]); ctx.closePath(); ctx.fill();
+  ctx.restore(); }
 // 図形1個 → {canvas, wUnits, hUnits}（プレイヤーの makeItem と同じ寸法計算）
 function figCanvas(it){
   const tmp=document.createElement('canvas').getContext('2d');
   const color=it.color||'#60a5fa'; const fp=Math.round(46*(it.fontScale||1));
-  const bg=it.textBg||'rgba(0,0,0,0.82)'; const fg=it.textColor||'#ffffff';
+  const bg=it.textBg||'rgba(0,0,0,0.82)';
+  // テキスト図形は color を文字色として使う（枠等のラベルは既定白、textColorで上書き可）
+  const fg=(it.type==='text') ? (it.textColor||it.color||'#ffffff') : (it.textColor||'#ffffff');
   const lm=it.label ? labelMetrics(tmp,it.label,fp) : null;
   const labelW=lm?lm.w+52:0, labelH=lm?lm.h+32:0;
   let iw=0,ih=0;
@@ -442,6 +466,39 @@ function renderOverlay(){
   ov.appendChild(box);
 }
 
+// ══════════ 背景写真のズーム／移動 ══════════
+let photoZoom=1, panX=0, panY=0;
+function applyStageTransform(){
+  document.getElementById('stage').style.transform=`translate(${panX}px,${panY}px) scale(${photoZoom})`;
+  const lb=document.getElementById('zoomlabel'); if(lb) lb.textContent=Math.round(photoZoom*100)+'%';
+}
+function setZoom(z){ photoZoom=Math.max(1,Math.min(6,z)); if(photoZoom===1){ panX=0; panY=0; } applyStageTransform(); }
+function resetZoom(){ photoZoom=1; panX=0; panY=0; applyStageTransform(); }
+document.querySelectorAll('#zoomctl button').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-z');
+  if(k==='in') setZoom(photoZoom*1.25); else if(k==='out') setZoom(photoZoom/1.25); else resetZoom(); });
+// ホイールズーム
+document.getElementById('stage-wrap').addEventListener('wheel', e=>{ e.preventDefault(); setZoom(photoZoom*(e.deltaY<0?1.12:0.89)); }, {passive:false});
+// 空き領域ドラッグでパン／2本指ピンチでズーム（図形・枠は各自 stopPropagation 済み）
+(function initPanPinch(){
+  const wrap=document.getElementById('stage-wrap');
+  const pts=new Map(); let panning=false, sx=0, sy=0, spx=0, spy=0, pinchD0=0, zoom0=1;
+  wrap.addEventListener('pointerdown', e=>{
+    if(addType) return;                                   // 配置モード中はパンしない
+    if(e.target.closest('.fig')||e.target.closest('.markerbox')||e.target.closest('#zoomctl')) return;
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1){ panning=true; sx=e.clientX; sy=e.clientY; spx=panX; spy=panY; }
+    else if(pts.size===2){ panning=false; const a=[...pts.values()]; pinchD0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); zoom0=photoZoom; }
+    try{ wrap.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  wrap.addEventListener('pointermove', e=>{
+    if(!pts.has(e.pointerId)) return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size>=2){ const a=[...pts.values()]; const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); if(pinchD0>0) setZoom(zoom0*d/pinchD0); }
+    else if(panning && photoZoom>1){ panX=spx+(e.clientX-sx); panY=spy+(e.clientY-sy); applyStageTransform(); }
+  });
+  const up=e=>{ pts.delete(e.pointerId); if(pts.size<2) pinchD0=0; if(pts.size===0) panning=false; try{ wrap.releasePointerCapture(e.pointerId); }catch(_){} };
+  wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
+})();
+
 function startDrag(ev, i){
   ev.preventDefault();
   selectFig(i);
@@ -503,9 +560,14 @@ function syncStepMeta(){ const s=curStep(); if(!s)return;
   document.getElementById('step-warn').value=s.warn||'normal'; }
 document.getElementById('step-title').oninput=e=>{ const s=curStep(); if(s){ s.title=e.target.value; renderStepTabs(); } };
 document.getElementById('step-warn').onchange=e=>{ const s=curStep(); if(s) s.warn=e.target.value; };
+// タイトル先頭が「ステップN」形式のものだけ並び順に番号を振り直す
+function renumberStepTitles(){ ED.steps.forEach((s,i)=>{ if(/^ステップ\s*[0-9０-９]+/.test(s.title||'')) s.title=(s.title||'').replace(/^ステップ\s*[0-9０-９]+/,'ステップ'+(i+1)); }); }
+function moveStep(dir){ const ni=stepIdx+dir; if(ni<0||ni>=ED.steps.length) return;
+  const [s]=ED.steps.splice(stepIdx,1); ED.steps.splice(ni,0,s); stepIdx=ni; figIdx=-1;
+  renumberStepTitles(); syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 function deleteStep(){ if(ED.steps.length<=1){ alert('最後のステップは削除できません'); return; }
   if(!confirm('このステップを削除しますか？')) return;
-  ED.steps.splice(stepIdx,1); stepIdx=Math.max(0,stepIdx-1); figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
+  ED.steps.splice(stepIdx,1); stepIdx=Math.max(0,stepIdx-1); figIdx=-1; renumberStepTitles(); syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 
 // ══════════ 図形プロパティ ══════════
 function selectFig(i){ figIdx=i; renderPropbar(); renderOverlay(); }
@@ -517,13 +579,14 @@ function renderPropbar(){
   let h='';
   h+=`<span class="grp">${f.type}</span>`;
   h+=`<span class="grp">色<input type="color" id="pp-color" value="${toHex(f.color)}"></span>`;
-  h+=`<input type="text" id="pp-label" placeholder="ラベル" value="${escAttr(f.label||'')}">`;
+  h+=`<textarea id="pp-label" placeholder="ラベル（改行可）" rows="1">${escHtml(f.label||'')}</textarea>`;
   // サイズ
   if(f.type==='curvedArrow'){ h+=`<span class="grp">向き<select id="pp-dir"><option value="right"${f.dir==='right'?' selected':''}>右</option><option value="left"${f.dir==='left'?' selected':''}>左</option></select></span>`; }
   // 大きさ：全種で調整可（text は文字サイズ、それ以外は図形サイズ）
   if(isText){ h+=`<span class="grp">字<button class="sbtn" data-fs="-">－</button><button class="sbtn" data-fs="+">＋</button></span>`; }
   else { h+=`<span class="grp">大<button class="sbtn" data-sz="-">－</button><button class="sbtn" data-sz="+">＋</button></span>`; }
-  if(f.type==='box'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
+  if(f.type==='box'){ h+=`<span class="grp">線<button class="sbtn" data-lt="-">－</button><button class="sbtn" data-lt="+">＋</button></span>`;
+    h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
   if(f.type==='arrow'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-above" ${f.labelAbove?'checked':''}> ラベル上</label></span>`; }
   h+=`<span class="grp" id="pp-pos">${posCmLabel(f)}</span>`;
   h+=`<button class="delfig" onclick="deleteFig()">図形削除</button>`;
@@ -539,6 +602,7 @@ function renderPropbar(){
     else { const cur=f.size||f.sizeW||0.12; f.size=+Math.max(0.02,cur*k).toFixed(3); delete f.sizeW; delete f.sizeH; }
     renderOverlay(); });
   bar.querySelectorAll('[data-fs]').forEach(b=>b.onclick=()=>{ f.fontScale=+(Math.max(0.5,Math.min(3,(f.fontScale||1)+(b.getAttribute('data-fs')==='+'?0.1:-0.1)))).toFixed(1); renderOverlay(); });
+  bar.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{ f.lineThick=+Math.max(0.003,Math.min(0.06,(f.lineThick||0.03)*(b.getAttribute('data-lt')==='+'?1.25:0.8))).toFixed(4); renderOverlay(); });
 }
 function deleteFig(){ const s=curStep(); if(!s||figIdx<0)return; s.ar.splice(figIdx,1); figIdx=-1; renderOverlay(); renderPropbar(); }
 
@@ -585,7 +649,7 @@ function startEditor(){
   img.src=_photoDataURL || ED._loadedImg || '';
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').classList.add('on');
-  stepIdx=0; figIdx=-1; addType=null;
+  stepIdx=0; figIdx=-1; addType=null; resetZoom();
   syncStepMeta(); renderStepTabs(); renderPropbar(); syncCalib(); setSub('');
 }
 function backToSetup(){

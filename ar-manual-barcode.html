@@ -70,7 +70,7 @@
 <div id="ui">
   <div id="topbar">
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
-    <div id="ver">Barcode v1.1</div>
+    <div id="ver">Barcode v1.2</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>value=0→発電機／value=1→踏切</small></div>
@@ -95,7 +95,7 @@
 </div>
 
 <script>
-const WARN = { normal:{c:'#1d4ed8',label:'通常'}, caution:{c:'#d97706',label:'注意'}, danger:{c:'#dc2626',label:'危険'} };
+const WARN = { normal:{c:'#1d4ed8',label:'通常',sym:''}, caution:{c:'#d97706',label:'注意',sym:'⚠️'}, danger:{c:'#dc2626',label:'危険',sym:'⛔'} };
 
 // ══════ シナリオ（図形は画像正規化座標。バーコード値で自動判別） ══════
 const SCEN = {
@@ -179,14 +179,23 @@ function iconArrow(ctx,cx,cy,w,h,color,dir){ ctx.save(); ctx.translate(cx,cy); i
 function iconBox(ctx,cx,cy,w,h,color,thick){ ctx.lineWidth=thick||14; ctx.strokeStyle=color; ctx.lineJoin='round';
   const r=Math.min(24,h/2),x=cx-w/2,y=cy-h/2; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.stroke(); }
 function iconCurved(ctx,cx,cy,r,color,dir){ ctx.save(); ctx.translate(cx,cy); if(dir==='left')ctx.scale(-1,1);
-  ctx.strokeStyle=color; ctx.lineWidth=Math.max(12,r*0.26); ctx.lineCap='round';
-  ctx.beginPath(); ctx.arc(0,0,r,Math.PI*0.85,Math.PI*0.15,false); ctx.stroke();
-  const a=Math.PI*0.15,ex=r*Math.cos(a),ey=r*Math.sin(a),hs=r*0.5; ctx.fillStyle=color;
-  ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex-hs*0.2,ey-hs); ctx.lineTo(ex+hs*0.7,ey-hs*0.35); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=Math.max(12,r*0.22); ctx.lineCap='round';
+  const a1=Math.PI*0.15;
+  ctx.beginPath(); ctx.arc(0,0,r,Math.PI*0.85,a1,false); ctx.stroke();
+  const P=[r*Math.cos(a1), r*Math.sin(a1)];
+  const t=[-Math.sin(a1), Math.cos(a1)];
+  const n=[-t[1], t[0]];
+  const hs=r*0.62, hw=r*0.42;
+  const tip=[P[0]+t[0]*hs, P[1]+t[1]*hs];
+  const b1=[P[0]+n[0]*hw, P[1]+n[1]*hw];
+  const b2=[P[0]-n[0]*hw, P[1]-n[1]*hw];
+  ctx.beginPath(); ctx.moveTo(tip[0],tip[1]); ctx.lineTo(b1[0],b1[1]); ctx.lineTo(b2[0],b2[1]); ctx.closePath(); ctx.fill();
+  ctx.restore(); }
 function makeItem(it, cal){
   const tmp=document.createElement('canvas').getContext('2d');
   const color=it.color||'#60a5fa'; const fp=Math.round(46*(it.fontScale||1));
-  const bg=it.textBg||'rgba(0,0,0,0.82)'; const fg=it.textColor||'#ffffff';
+  const bg=it.textBg||'rgba(0,0,0,0.82)';
+  const fg=(it.type==='text') ? (it.textColor||it.color||'#ffffff') : (it.textColor||'#ffffff');
   const lm=it.label ? labelMetrics(tmp,it.label,fp) : null;
   const labelW=lm?lm.w+52:0, labelH=lm?lm.h+32:0;
   let iw=0,ih=0;
@@ -221,9 +230,9 @@ function applyCal(){ const sc=SCEN[curKey]; if(!sc) return; const c=sc.calib;
   const g=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
   g('cal-target',sc.name); g('cal-s',c.scale.toFixed(2)); g('cal-x',c.ox.toFixed(2)); g('cal-y',c.oy.toFixed(2)); g('cal-r',c.rot);
 }
-function renderStep(){ const sc=SCEN[curKey]; if(!sc) return; const step=sc.steps[idx]; const col=WARN[step.warn].c;
-  document.getElementById('stitle').textContent=step.title;
-  document.getElementById('sdetail').textContent=step.detail;
+function renderStep(){ const sc=SCEN[curKey]; if(!sc) return; const step=sc.steps[idx]; const w=WARN[step.warn]||WARN.normal; const col=w.c;
+  document.getElementById('stitle').textContent=(w.sym?w.sym+' ':'')+step.title;
+  document.getElementById('sdetail').textContent=(w.sym?w.sym+' ':'')+(step.detail||'');
   const b=document.getElementById('badge'); b.textContent=`STEP ${idx+1}`; b.style.background=col;
   document.getElementById('btn-next').style.background=col;
   document.getElementById('counter').textContent=`${idx+1} / ${sc.steps.length}`;
