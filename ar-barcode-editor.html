@@ -50,9 +50,15 @@
   .fig { position:absolute; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; transform:translate(-50%,-50%); }
   .fig img { display:block; width:100%; height:100%; }
   .fig.sel::after { content:''; position:absolute; inset:-6px; border:2px dashed #fff; border-radius:8px; box-shadow:0 0 0 2px rgba(0,0,0,.4); }
-  .markerpin { position:absolute; transform:translate(-50%,-50%); pointer-events:auto; cursor:grab; touch-action:none; text-align:center; z-index:5; }
-  .markerpin .mk-ic { font-size:26px; line-height:1; color:#f43f5e; text-shadow:0 0 3px #fff,0 0 3px #fff,0 1px 4px rgba(0,0,0,.6); }
-  .markerpin .mk-lb { margin-top:1px; font-size:10px; font-weight:800; color:#fff; background:#f43f5e; border-radius:6px; padding:1px 5px; white-space:nowrap; }
+  /* バーコード基準ボックス（実寸マーカーの写真上の大きさ＝原点＆cm基準） */
+  .markerbox { position:absolute; transform:translate(-50%,-50%); pointer-events:auto; cursor:grab; touch-action:none;
+    border:2px solid #f43f5e; background:rgba(244,63,94,.12); box-shadow:0 0 0 1px rgba(255,255,255,.5) inset; z-index:5; }
+  .markerbox .mk-lb { position:absolute; left:50%; top:-9px; transform:translate(-50%,-100%); font-size:10px; font-weight:800; color:#fff; background:#f43f5e; border-radius:6px; padding:1px 6px; white-space:nowrap; }
+  .markerbox .mk-cross { position:absolute; left:50%; top:50%; width:14px; height:14px; transform:translate(-50%,-50%); }
+  .markerbox .mk-cross::before,.markerbox .mk-cross::after { content:''; position:absolute; background:#f43f5e; }
+  .markerbox .mk-cross::before { left:50%; top:0; width:2px; height:100%; transform:translateX(-50%); }
+  .markerbox .mk-cross::after { top:50%; left:0; height:2px; width:100%; transform:translateY(-50%); }
+  .markerbox .mk-handle { position:absolute; right:-8px; bottom:-8px; width:16px; height:16px; border-radius:50%; background:#f43f5e; border:2px solid #fff; cursor:nwse-resize; }
   #tools button.mk { background:rgba(244,63,94,.85); border-color:#fda4af; }
   #tools button.mk.on { background:#e11d48; }
 
@@ -125,6 +131,8 @@
       <div class="fld"><label>バーコード番号</label><input id="cfg-barcode" placeholder="空＝自動採番" inputmode="numeric">
         <div class="hint">3x3マトリクスの番号。空欄なら保存時に空き番号を自動割当。</div></div>
     </div>
+    <div class="fld"><label>マーカー実寸（1辺・mm）</label><input id="cfg-markermm" value="40" inputmode="numeric">
+      <div class="hint">印刷するバーコードの1辺の長さ。既定40mm（＝4cm角）。配置は実寸(cm)で扱われます。</div></div>
   </div>
 
   <div class="card">
@@ -226,10 +234,11 @@
 </div>
 
 <script>
-const APP_VERSION = 'v1.2';
+const APP_VERSION = 'v1.3';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
+const MARKER_MM_DEFAULT = 40;   // マーカー標準実寸（4cm角）
 const WARN = { normal:{c:'#1d4ed8',label:'通常'}, caution:{c:'#d97706',label:'注意'}, danger:{c:'#dc2626',label:'危険'} };
 const PXREF = 1000;
 
@@ -238,7 +247,8 @@ let ED = {
   id: '', name: '', subtitle: '', barcode: null,
   calib: { ...CALIB_DEFAULT },
   imageFile: '',        // 参照写真のGitHubパス（再編集用。プレイヤーは未使用）
-  marker: { u: 0.5, v: 0.5 },  // 写真上のバーコード位置(0..1)＝座標原点。再編集用（プレイヤー未使用）
+  markerSizeMM: MARKER_MM_DEFAULT, // マーカー実寸（1辺mm）
+  marker: { u: 0.5, v: 0.5, w: 0.15 }, // 写真上のバーコード位置(u,v)＝原点／w=写真幅に対するマーカー幅の割合。再編集用
   steps: []
 };
 let stepIdx = 0, figIdx = -1, addType = null;
@@ -324,6 +334,23 @@ function startMarkerDrag(ev){
   const onUp=()=>{ document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); document.removeEventListener('pointercancel',onUp); };
   document.addEventListener('pointermove',onMove); document.addEventListener('pointerup',onUp); document.addEventListener('pointercancel',onUp);
 }
+// マーカー基準ボックスのサイズ変更（w=写真幅に対する割合）。これが cm 換算スケールを決める。
+function setMarkerSize(w){
+  ED.marker.w=+Math.max(0.02,Math.min(1,w)).toFixed(4);
+  syncScaleFromMarker(); renderOverlay(); renderPropbar();
+}
+function startMarkerResize(ev){
+  ev.preventDefault(); ev.stopPropagation();
+  const r=imgRect(); const cx=r.left+ED.marker.u*r.width;
+  const onMove=e=>{ const halfPx=Math.abs(e.clientX-cx); setMarkerSize(2*halfPx/r.width); };
+  const onUp=()=>{ document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); document.removeEventListener('pointercancel',onUp); };
+  document.addEventListener('pointermove',onMove); document.addEventListener('pointerup',onUp); document.addEventListener('pointercancel',onUp);
+}
+// calib.scale = 「正規化1単位(=写真幅) が何マーカー幅か」 = 1/w
+function syncScaleFromMarker(){ ED.calib.scale=+(1/ED.marker.w).toFixed(2); if(typeof syncCalib==='function') syncCalib(); }
+// 正規化pos → 実寸cm（pos × scale × マーカーmm ÷ 10）
+function normToCm(v){ return v*ED.calib.scale*ED.markerSizeMM/10; }
+function posCmLabel(f){ return `x:${normToCm(f.pos[0]).toFixed(1)}cm y:${normToCm(f.pos[1]).toFixed(1)}cm`; }
 
 // ══════════ オーバーレイ描画 ══════════
 function renderOverlay(){
@@ -344,12 +371,15 @@ function renderOverlay(){
     el.addEventListener('pointerdown', ev=>{ ev.stopPropagation(); startDrag(ev,i); });
     ov.appendChild(el);
   });
-  // バーコード位置ピン（＝座標原点）。ドラッグで移動可。
-  const pin=document.createElement('div'); pin.className='markerpin';
-  pin.style.left=(ED.marker.u*100)+'%'; pin.style.top=(ED.marker.v*100)+'%';
-  pin.innerHTML='<div class="mk-ic">▦</div><div class="mk-lb">バーコード位置</div>';
-  pin.addEventListener('pointerdown', ev=>{ ev.stopPropagation(); startMarkerDrag(ev); });
-  ov.appendChild(pin);
+  // バーコード基準ボックス（＝座標原点＆実寸マーカーの写真上サイズ）。本体ドラッグで移動、右下ハンドルでサイズ。
+  const box=document.createElement('div'); box.className='markerbox';
+  const aspect=imgAspect();
+  box.style.left=(ED.marker.u*100)+'%'; box.style.top=(ED.marker.v*100)+'%';
+  box.style.width=(ED.marker.w*100)+'%'; box.style.height=(ED.marker.w/aspect*100)+'%';
+  box.innerHTML=`<div class="mk-lb">バーコード ${ED.markerSizeMM}mm</div><div class="mk-cross"></div><div class="mk-handle"></div>`;
+  box.addEventListener('pointerdown', ev=>{ ev.stopPropagation(); startMarkerDrag(ev); });
+  box.querySelector('.mk-handle').addEventListener('pointerdown', startMarkerResize);
+  ov.appendChild(box);
 }
 
 function startDrag(ev, i){
@@ -419,7 +449,7 @@ function deleteStep(){ if(ED.steps.length<=1){ alert('最後のステップは�
 
 // ══════════ 図形プロパティ ══════════
 function selectFig(i){ figIdx=i; renderPropbar(); renderOverlay(); }
-function updatePosLabel(){ const el=document.getElementById('pp-pos'); const f=curFig(); if(el&&f) el.textContent=`x:${f.pos[0]} y:${f.pos[1]}`; }
+function updatePosLabel(){ const el=document.getElementById('pp-pos'); const f=curFig(); if(el&&f) el.textContent=posCmLabel(f); }
 function renderPropbar(){
   const bar=document.querySelector('#propbar .inner'); const f=curFig();
   if(!f){ bar.innerHTML='<span class="none">図形を選択、または左のツールから追加してください</span>'; return; }
@@ -435,7 +465,7 @@ function renderPropbar(){
   if(isText){ h+=`<span class="grp">字<button class="sbtn" data-fs="-">－</button><button class="sbtn" data-fs="+">＋</button></span>`; }
   if(f.type==='box'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
   if(f.type==='arrow'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-above" ${f.labelAbove?'checked':''}> ラベル上</label></span>`; }
-  h+=`<span class="grp" id="pp-pos">x:${f.pos[0]} y:${f.pos[1]}</span>`;
+  h+=`<span class="grp" id="pp-pos">${posCmLabel(f)}</span>`;
   h+=`<button class="delfig" onclick="deleteFig()">図形削除</button>`;
   bar.innerHTML=h;
   const col=document.getElementById('pp-color'); if(col) col.oninput=e=>{ f.color=e.target.value; renderOverlay(); };
@@ -481,6 +511,8 @@ function startEditor(){
   ED.subtitle=document.getElementById('cfg-sub').value.trim();
   const bc=document.getElementById('cfg-barcode').value.trim();
   ED.barcode = bc==='' ? null : parseInt(bc,10);
+  const mm=parseFloat(document.getElementById('cfg-markermm').value); ED.markerSizeMM = (mm>0?mm:MARKER_MM_DEFAULT);
+  syncScaleFromMarker();
   if(!ED.id) ED.id=document.getElementById('cfg-id').value.trim() || genId(ED.name);
   document.getElementById('cfg-id').value=ED.id;
   if(!ED.steps.length) ED.steps=[mkStep('ステップ1')];
@@ -511,7 +543,8 @@ function buildScenarioJSON(){
     subtitle: ED.subtitle||'',
     calib: ED.calib,
     imageFile: ED.imageFile||'',  // 参照写真パス（再編集用・プレイヤーは未使用）
-    markerPos: ED.marker,         // 写真上のバーコード位置（再編集用・プレイヤーは未使用）
+    markerSizeMM: ED.markerSizeMM,// マーカー実寸（再編集用・プレイヤーは未使用）
+    markerPos: ED.marker,         // 写真上のバーコード位置/サイズ（再編集用・プレイヤーは未使用）
     steps: ED.steps
   }, null, 2);
 }
@@ -598,7 +631,10 @@ function loadScenario(data,owner,repo){
   ED.barcode=Number.isInteger(data.barcode)?data.barcode:null;
   ED.calib=Object.assign({...CALIB_DEFAULT}, data.calib||{});
   ED.imageFile=data.imageFile||''; ED.steps=(data.steps&&data.steps.length)?data.steps:[mkStep('ステップ1')];
-  ED.marker=(data.markerPos&&typeof data.markerPos.u==='number')?{u:data.markerPos.u,v:data.markerPos.v}:{u:0.5,v:0.5};
+  ED.markerSizeMM=(data.markerSizeMM>0)?data.markerSizeMM:MARKER_MM_DEFAULT;
+  ED.marker=(data.markerPos&&typeof data.markerPos.u==='number')
+    ? {u:data.markerPos.u, v:data.markerPos.v, w:(data.markerPos.w>0?data.markerPos.w:0.15)}
+    : {u:0.5, v:0.5, w:0.15};
   _photoDataURL=null; ED._loadedImg='';
   // 参照写真をGitHubから復元（あれば）
   if(ED.imageFile){ ED._loadedImg=`https://raw.githubusercontent.com/${owner}/${repo}/main/${ED.imageFile}?t=${Date.now()}`; }
@@ -606,6 +642,7 @@ function loadScenario(data,owner,repo){
   document.getElementById('cfg-sub').value=ED.subtitle;
   document.getElementById('cfg-id').value=ED.id;
   document.getElementById('cfg-barcode').value=ED.barcode??'';
+  document.getElementById('cfg-markermm').value=ED.markerSizeMM;
   closeModal('remote-modal');
   if(ED._loadedImg){ const pv=document.getElementById('photo-preview'); pv.src=ED._loadedImg; pv.style.display='block'; document.getElementById('btn-start').disabled=false;
     setStatus(`「${ED.name}」を読込（バーコード${ED.barcode??'未割当'}／${ED.steps.length}ステップ）。「編集を開始」で続行。`); }
