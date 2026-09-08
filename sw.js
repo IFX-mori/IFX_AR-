@@ -1,74 +1,80 @@
-// ══════════════════════════════════════════
-// AR操作ナビ Service Worker
-// 目的：電波が悪い/混線した会場でも、一度取り込んだ資産で
-//       アプリ・.mind・画像・資料をオフライン動作させる
-// ══════════════════════════════════════════
-const CACHE = 'arnavi-v2';
-
-// インストール時に確実にキャッシュする中核ファイル（存在しないものは無視）
-const CORE = [
-  './ar-auto-manual.html',
-  './manifest.webmanifest',
-  './apple-touch-icon.png',
-  './icon-192.png',
-  './icon-512.png',
-  './aframe.min.js',
-  './mindar-image-aframe.prod.js',
-  './libs/pdf.min.js',
-  './libs/pdf.worker.min.js',
-  './targets/crossing2.mind',
-  './targets/crossing2.jpg',
-  './docs/crossing.pdf',
-  './docs/crossing.mp4',
+// ══════════════════════════════════════════════════════════════
+//  Service Worker（作業記録ナビ ar-worklog-player.html のオフライン化）
+//  ・アプリ本体/HTML/JSON … network-first（オンライン時は最新、オフライン時はキャッシュ）
+//  ・CDNライブラリ(AR.js/A-Frame/PDF.js) … cache-first（バージョン固定で安定）
+//  ・GitHub API … network-first
+//  ・その他(資料/画像/AR.jsの付随ファイル) … cache-first
+//  ※ iOS制約によりPWA standalone化はしない（Safariで開く）。SWはキャッシュのみ担当。
+//  更新時は CACHE の版数を上げるとキャッシュが刷新される。
+// ══════════════════════════════════════════════════════════════
+const CACHE = 'worklog-cache-v1';
+const PRECACHE = [
+  './ar-worklog-player.html',
+  'https://aframe.io/releases/1.5.0/aframe.min.js',
+  'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.5/aframe/build/aframe-ar.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
 ];
 
-self.addEventListener('install', (e) => {
-  self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE).then((c) => Promise.allSettled(CORE.map((u) => c.add(u))))
-  );
+self.addEventListener('install', e=>{
+  e.waitUntil((async()=>{
+    const c = await caches.open(CACHE);
+    // クロスオリジンCDNは no-cors で取得して opaque でも保存（1件失敗しても続行）
+    await Promise.all(PRECACHE.map(async u=>{
+      try{
+        const cross = u.startsWith('http') && !u.startsWith(self.location.origin);
+        const res = await fetch(new Request(u, cross ? {mode:'no-cors'} : {cache:'no-store'}));
+        await c.put(u, res.clone());
+      }catch(_){}
+    }));
+    self.skipWaiting();
+  })());
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
+self.addEventListener('activate', e=>{
+  e.waitUntil((async()=>{
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', (e) => {
+self.addEventListener('fetch', e=>{
   const req = e.request;
-  // GET と HEAD（存在確認）のみ処理。HEADもキャッシュ照合でオフライン対応する
-  if (req.method !== 'GET' && req.method !== 'HEAD') return;
-  const url = new URL(req.url);
-
-  const isApi = url.hostname === 'api.github.com';
-  const isScenarioJson = url.pathname.includes('/scenarios/') && url.pathname.endsWith('.json');
-
-  if (isApi || isScenarioJson) {
-    // シナリオ一覧・JSON：最新優先。失敗時はキャッシュ（クエリ差は無視して照合）
-    e.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok && req.method === 'GET') { const cp = res.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); }
-          return res;
-        })
-        .catch(() => caches.match(req, { ignoreSearch: true, ignoreMethod: true }))
-    );
+  if(req.method !== 'GET') return;
+  let url; try{ url = new URL(req.url); }catch(_){ return; }
+  const sameOrigin = url.origin === self.location.origin;
+  const isDoc = req.mode==='navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('.json');
+  if((sameOrigin && isDoc) || url.hostname==='api.github.com'){
+    e.respondWith(networkFirst(req));
   } else {
-    // 静的資産（HTML/JS/.mind/画像/PDF/動画）：キャッシュ優先＋背景更新
-    // ignoreMethod:true … HEAD（存在確認）でもキャッシュ済みGETに一致させる
-    e.respondWith(
-      caches.match(req, { ignoreSearch: true, ignoreMethod: true }).then((cached) => {
-        const network = fetch(req)
-          .then((res) => {
-            if (res.ok && req.method === 'GET') { const cp = res.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); }
-            return res;
-          })
-          .catch(() => cached);
-        return cached || network;
-      })
-    );
+    e.respondWith(cacheFirst(req));
   }
 });
+
+async function cacheFirst(req){
+  const cache = await caches.open(CACHE);
+  const hit = await cache.match(req);
+  if(hit) return hit;
+  try{
+    const res = await fetch(req);
+    if(res && (res.ok || res.type==='opaque')) cache.put(req, res.clone());
+    return res;
+  }catch(e){
+    const alt = await cache.match(req, {ignoreSearch:true});
+    if(alt) return alt;
+    throw e;
+  }
+}
+async function networkFirst(req){
+  const cache = await caches.open(CACHE);
+  try{
+    const res = await fetch(req);
+    if(res && res.ok) cache.put(req, res.clone());
+    return res;
+  }catch(e){
+    const hit = await cache.match(req) || await cache.match(req, {ignoreSearch:true});
+    if(hit) return hit;
+    throw e;
+  }
+}
