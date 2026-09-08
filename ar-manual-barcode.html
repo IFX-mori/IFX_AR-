@@ -52,6 +52,8 @@
   .sp-item small { display:block; font-size:11px; color:#64748b; margin-top:2px; }
   .sp-item:active { background:#e0e7ff; }
   .sp-cancel { width:100%; padding:11px; border:none; border-radius:10px; background:#e2e8f0; color:#334155; font-weight:700; font-size:14px; cursor:pointer; margin-top:2px; }
+  .doc-btn { flex:1; padding:9px 8px; border:none; border-radius:10px; font-size:12.5px; font-weight:700; color:#fff; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .doc-btn-pdf { background:#b91c1c; } .doc-btn-video { background:#7c3aed; }
 </style>
 </head>
 <body>
@@ -82,7 +84,7 @@
   <div id="topbar">
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Barcode v1.6</div>
+    <div id="ver">Barcode v1.7</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -101,9 +103,22 @@
   <div id="card">
     <div id="card-head"><span id="badge">STEP</span><span id="stitle">–</span></div>
     <div id="sdetail">–</div>
+    <div id="doc-btn-row" style="display:none; gap:8px; margin-bottom:10px;"></div>
     <div id="nav"><button id="btn-prev">‹ 戻る</button><button id="btn-next">次へ ›</button></div>
     <div id="counter">– / –</div>
   </div>
+</div>
+
+<!-- ドキュメント閲覧フロート窓（AR画面内・移動/リサイズ可） -->
+<div id="doc-viewer" style="display:none; position:fixed; z-index:300; left:50vw; top:12vh; width:46vw; height:34vh; min-width:160px; min-height:120px; background:#fff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.35); flex-direction:column; overflow:hidden;">
+  <div id="doc-viewer-head" style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:#1e293b; cursor:move; touch-action:none;">
+    <span style="color:#64748b; font-size:14px;">⠿</span>
+    <div id="doc-viewer-title" style="flex:1; color:#fff; font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+    <a id="doc-viewer-ext" href="#" target="_blank" rel="noopener" style="color:#93c5fd; font-size:11px; text-decoration:underline; white-space:nowrap;">別タブ</a>
+    <button onclick="closeDoc()" style="width:28px; height:28px; border-radius:50%; border:none; background:rgba(255,255,255,0.9); color:#1e293b; font-size:16px; font-weight:700; cursor:pointer; flex-shrink:0;">✕</button>
+  </div>
+  <div id="doc-viewer-body" style="flex:1; background:#fff; overflow:hidden;"></div>
+  <div id="doc-viewer-resize" title="サイズ変更" style="position:absolute; right:0; bottom:0; width:28px; height:28px; cursor:nwse-resize; touch-action:none; background:linear-gradient(135deg, transparent 45%, rgba(30,41,59,0.55) 45%); border-bottom-right-radius:12px;"></div>
 </div>
 
 <!-- シナリオ選択メニュー（1マーカーに複数操作） -->
@@ -261,12 +276,68 @@ function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=k
   followMarker(markerId);
   document.getElementById('scname').textContent=scenario.name;
   document.getElementById('scsub').textContent=scenario.subtitle||'';
-  applyCal(); renderStep();
+  applyCal(); renderStep(); updateDocButtons();
   // 複数操作があるときだけ「≡操作」ボタンを表示
   const list=SCENARIOS[key]||[]; document.getElementById('btn-menu').style.display = list.length>1 ? 'inline-block':'none';
 }
 document.getElementById('btn-next').onclick=()=>{ if(cur&&idx<cur.steps.length-1){idx++;renderStep();} };
 document.getElementById('btn-prev').onclick=()=>{ if(cur&&idx>0){idx--;renderStep();} };
+
+// ══════ 資料(PDF/動画)フロート表示（ar-auto-manual v2.8 から移植） ══════
+function updateDocButtons(){
+  const row=document.getElementById('doc-btn-row'); if(!row) return; row.innerHTML='';
+  const docs=cur&&cur.docs;
+  if(docs&&docs.pdf){ const b=document.createElement('button'); b.className='doc-btn doc-btn-pdf'; b.innerHTML='📄 作業手順書';
+    b.onclick=()=>openDoc('pdf',docs.pdf,'作業手順書'); row.appendChild(b); }
+  if(docs&&docs.video){ const b=document.createElement('button'); b.className='doc-btn doc-btn-video'; b.innerHTML='🎬 操作動画';
+    b.onclick=()=>openDoc('video',docs.video,'操作動画'); row.appendChild(b); }
+  row.style.display = row.children.length>0 ? 'flex':'none';
+}
+function openDoc(type,url,label){
+  initDocViewerDragResize();
+  const body=document.getElementById('doc-viewer-body');
+  document.getElementById('doc-viewer-title').textContent=label||'';
+  document.getElementById('doc-viewer-ext').href=url;
+  document.getElementById('doc-viewer').style.display='flex';
+  if(type==='video'){ body.innerHTML=`<video src="${url}" controls autoplay playsinline style="width:100%;height:100%;background:#000;"></video>`; }
+  else { renderPdf(url,body); }
+}
+let _pdfjsLoading=null;
+const PDFJS_LOCAL='libs/pdf.min.js', PDFJS_LOCAL_W='libs/pdf.worker.min.js';
+const PDFJS_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', PDFJS_CDN_W='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+function loadScriptEl(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('読み込み失敗: '+src)); document.head.appendChild(s); }); }
+function loadPdfJs(){ if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib); if(_pdfjsLoading) return _pdfjsLoading;
+  _pdfjsLoading=(async()=>{ try{ await loadScriptEl(PDFJS_LOCAL); window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_LOCAL_W; }
+    catch(_){ await loadScriptEl(PDFJS_CDN); window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_CDN_W; }
+    if(!window.pdfjsLib) throw new Error('PDF.jsの読み込みに失敗'); return window.pdfjsLib; })(); return _pdfjsLoading; }
+async function renderPdf(url,container){
+  container.innerHTML='<div style="padding:16px;color:#64748b;font-size:13px;">PDF読み込み中…</div>';
+  try{ const pdfjsLib=await loadPdfJs(); const pdf=await pdfjsLib.getDocument(url).promise;
+    const scroll=document.createElement('div'); scroll.style.cssText='width:100%;height:100%;overflow:auto;-webkit-overflow-scrolling:touch;background:#525659;';
+    container.innerHTML=''; container.appendChild(scroll);
+    for(let n=1;n<=pdf.numPages;n++){ const page=await pdf.getPage(n); const viewport=page.getViewport({scale:1.5});
+      const canvas=document.createElement('canvas'); canvas.width=viewport.width; canvas.height=viewport.height;
+      canvas.style.cssText='display:block;margin:8px auto;max-width:100%;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+      scroll.appendChild(canvas); await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise; }
+  }catch(e){ container.innerHTML=`<div style="padding:16px;color:#dc2626;font-size:13px;">PDFの表示に失敗しました。上部の「別タブ」から開いてください。<br>${e.message}</div>`; }
+}
+function closeDoc(){ document.getElementById('doc-viewer-body').innerHTML=''; document.getElementById('doc-viewer').style.display='none'; }
+let _docDragInit=false;
+function initDocViewerDragResize(){
+  if(_docDragInit) return; const panel=document.getElementById('doc-viewer'); const head=document.getElementById('doc-viewer-head'); const grip=document.getElementById('doc-viewer-resize');
+  if(!panel||!head||!grip) return; _docDragInit=true;
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v)); let mode=null,sx=0,sy=0,sl=0,st=0,sw=0,sh=0;
+  head.addEventListener('pointerdown',e=>{ if(e.target.closest('a,button')) return; const r=panel.getBoundingClientRect(); sx=e.clientX;sy=e.clientY;sl=r.left;st=r.top; mode='move'; try{head.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); });
+  grip.addEventListener('pointerdown',e=>{ const r=panel.getBoundingClientRect(); sx=e.clientX;sy=e.clientY;sw=r.width;sh=r.height;sl=r.left;st=r.top; mode='resize'; try{grip.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); });
+  function onMove(e){ if(!mode) return;
+    if(mode==='move'){ const w=panel.offsetWidth,h=panel.offsetHeight;
+      panel.style.left=clamp(sl+(e.clientX-sx),0,window.innerWidth-w)+'px'; panel.style.top=clamp(st+(e.clientY-sy),0,window.innerHeight-h)+'px'; panel.style.right='auto'; panel.style.bottom='auto'; }
+    else { panel.style.width=clamp(sw+(e.clientX-sx),160,window.innerWidth-sl)+'px'; panel.style.height=clamp(sh+(e.clientY-sy),120,window.innerHeight-st)+'px'; }
+    e.preventDefault(); }
+  const end=()=>{mode=null;};
+  head.addEventListener('pointermove',onMove); grip.addEventListener('pointermove',onMove);
+  head.addEventListener('pointerup',end); grip.addEventListener('pointerup',end); head.addEventListener('pointercancel',end); grip.addEventListener('pointercancel',end);
+}
 
 // ══════ シナリオ選択メニュー（1マーカーに複数操作） ══════
 function showPicker(key,markerId){
@@ -366,12 +437,12 @@ async function loadRemoteScenarios(){
       // そのバーコードに初めてGitHubシナリオが来たら、内蔵デモを置き換える
       if(!_ghKeys.has(key)){ _ghKeys.add(key); SCENARIOS[key]=[]; }
       SCENARIOS[key].push({ id:s.id, name:s.name||('barcode '+s.barcode), subtitle:s.subtitle||'', device:s.device||'',
-        calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}), steps:s.steps });
+        docs:s.docs||null, calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}), steps:s.steps });
     });
     // 各バーコード内は名前順で安定表示
     Object.keys(SCENARIOS).forEach(k=>SCENARIOS[k].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja')));
     // 既に認識中なら再描画（選択済みシナリオがGitHub側で更新された場合など）
-    if(cur){ applyCal(); renderStep(); }
+    if(cur){ applyCal(); renderStep(); updateDocButtons(); }
   }catch(_){ /* オフライン等：内蔵SCENのまま動作 */ }
 }
 loadRemoteScenarios();

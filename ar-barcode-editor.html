@@ -152,6 +152,10 @@
         <div class="hint">3x3マトリクスの番号。空欄なら空き番号を自動割当。<b>同じ機器に複数の操作（起動/再起動/終了 等）を登録する場合は、その機器と同じ番号を入力</b>してください。認識後にプレイヤーで操作を選べます。</div></div>
     </div>
     <div class="fld"><label>機器名（任意・選択メニューの見出しに表示）</label><input id="cfg-device" placeholder="例：踏切制御器"></div>
+    <div class="fld"><label>資料PDFのURL（任意）</label><input id="cfg-pdf" placeholder="https://.../手順書.pdf">
+      <div class="hint">再生中に「📄 作業手順書」ボタンで全ページ表示（PDF.js）。GitHubに置くなら raw.githubusercontent.com のURL。</div></div>
+    <div class="fld"><label>操作動画のURL（任意）</label><input id="cfg-video" placeholder="https://.../操作.mp4">
+      <div class="hint">再生中に「🎬 操作動画」ボタンでフロート再生。mp4等の直リンクURL。</div></div>
     <div class="fld"><label>マーカー実寸（1辺・mm）</label><input id="cfg-markermm" value="40" inputmode="numeric">
       <div class="hint">印刷するバーコードの1辺の長さ。既定40mm（＝4cm角）。配置は実寸(cm)で扱われます。</div></div>
     <button class="btn full d" onclick="showBarcodeFromField()">▦ このバーコードを表示 / 印刷</button>
@@ -320,7 +324,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v2.3';
+const APP_VERSION = 'v2.4';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -331,6 +335,7 @@ const PXREF = 1000;
 // ══════════ 編集データ ══════════
 let ED = {
   id: '', name: '', subtitle: '', device: '', barcode: null,
+  docs: {},          // { pdf, video } 資料URL（任意）
   calib: { ...CALIB_DEFAULT },
   imageFile: '',        // 参照写真のGitHubパス（再編集用。プレイヤーは未使用）
   markerSizeMM: MARKER_MM_DEFAULT, // マーカー実寸（1辺mm）
@@ -662,6 +667,8 @@ function startEditor(){
   ED.name=document.getElementById('cfg-name').value.trim()||'新規シナリオ';
   ED.subtitle=document.getElementById('cfg-sub').value.trim();
   ED.device=document.getElementById('cfg-device').value.trim();
+  const pdf=document.getElementById('cfg-pdf').value.trim(), vid=document.getElementById('cfg-video').value.trim();
+  ED.docs={}; if(pdf) ED.docs.pdf=pdf; if(vid) ED.docs.video=vid;
   const bc=document.getElementById('cfg-barcode').value.trim();
   ED.barcode = bc==='' ? null : parseInt(bc,10);
   const mm=parseFloat(document.getElementById('cfg-markermm').value); ED.markerSizeMM = (mm>0?mm:MARKER_MM_DEFAULT);
@@ -695,6 +702,7 @@ function buildScenarioJSON(){
     name: ED.name,
     subtitle: ED.subtitle||'',
     device: ED.device||'',
+    docs: ED.docs||{},
     calib: ED.calib,
     imageFile: ED.imageFile||'',  // 参照写真パス（再編集用・プレイヤーは未使用）
     markerSizeMM: ED.markerSizeMM,// マーカー実寸（再編集用・プレイヤーは未使用）
@@ -851,7 +859,7 @@ async function openRemotePicker(){
   }catch(e){ list.innerHTML='<div style="color:#dc2626;font-size:13px">取得失敗: '+e.message+'</div>'; }
 }
 function loadScenario(data,owner,repo){
-  ED.id=data.id; ED.name=data.name||'シナリオ'; ED.subtitle=data.subtitle||''; ED.device=data.device||'';
+  ED.id=data.id; ED.name=data.name||'シナリオ'; ED.subtitle=data.subtitle||''; ED.device=data.device||''; ED.docs=data.docs||{};
   ED.barcode=Number.isInteger(data.barcode)?data.barcode:null;
   ED.calib=Object.assign({...CALIB_DEFAULT}, data.calib||{});
   ED.imageFile=data.imageFile||''; ED.steps=(data.steps&&data.steps.length)?data.steps:[mkStep('ステップ1')];
@@ -865,6 +873,8 @@ function loadScenario(data,owner,repo){
   document.getElementById('cfg-name').value=ED.name;
   document.getElementById('cfg-sub').value=ED.subtitle;
   document.getElementById('cfg-device').value=ED.device;
+  document.getElementById('cfg-pdf').value=ED.docs.pdf||'';
+  document.getElementById('cfg-video').value=ED.docs.video||'';
   document.getElementById('cfg-id').value=ED.id;
   document.getElementById('cfg-barcode').value=ED.barcode??'';
   document.getElementById('cfg-markermm').value=ED.markerSizeMM;
