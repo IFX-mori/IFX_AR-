@@ -31,6 +31,8 @@
   .fld label { display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px; }
   .fld input, .fld textarea { width:100%; padding:9px 11px; border:1px solid #cbd5e1; border-radius:9px; }
   .fld .hint { font-size:11px; color:#94a3b8; margin-top:4px; line-height:1.5; }
+  .dropzone { margin-top:6px; border:2px dashed #cbd5e1; border-radius:10px; padding:14px 10px; text-align:center; font-size:12px; font-weight:700; color:#64748b; background:#f8fafc; cursor:pointer; transition:.15s; }
+  .dropzone.over { border-color:#7c3aed; background:#f3e8ff; color:#7c3aed; }
   .row2 { display:flex; gap:10px; }
   .row2 > * { flex:1; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:11px 16px; border:none; border-radius:10px; font-size:14px; font-weight:700; color:#fff; background:#1d4ed8; }
@@ -152,10 +154,16 @@
         <div class="hint">3x3マトリクスの番号。空欄なら空き番号を自動割当。<b>同じ機器に複数の操作（起動/再起動/終了 等）を登録する場合は、その機器と同じ番号を入力</b>してください。認識後にプレイヤーで操作を選べます。</div></div>
     </div>
     <div class="fld"><label>機器名（任意・選択メニューの見出しに表示）</label><input id="cfg-device" placeholder="例：踏切制御器"></div>
-    <div class="fld"><label>資料PDFのURL（任意）</label><input id="cfg-pdf" placeholder="https://.../手順書.pdf">
-      <div class="hint">再生中に「📄 作業手順書」ボタンで全ページ表示（PDF.js）。GitHubに置くなら raw.githubusercontent.com のURL。</div></div>
-    <div class="fld"><label>操作動画のURL（任意）</label><input id="cfg-video" placeholder="https://.../操作.mp4">
-      <div class="hint">再生中に「🎬 操作動画」ボタンでフロート再生。mp4等の直リンクURL。</div></div>
+    <div class="fld"><label>資料PDF（任意）</label>
+      <input id="cfg-pdf" placeholder="URLを貼付、または下にドロップ">
+      <div class="dropzone" id="drop-pdf" data-kind="pdf">📄 PDFをドラッグ&ドロップ／クリックで選択</div>
+      <input type="file" id="file-pdf" accept="application/pdf,.pdf" style="display:none">
+      <div class="hint" id="pdf-status">GitHubの <code>docs/</code> に自動アップロードしてURL登録します（③のリポジトリ・トークンが必要）。blob/raw URLは保存時にPages URLへ自動変換。</div></div>
+    <div class="fld"><label>操作動画（任意）</label>
+      <input id="cfg-video" placeholder="URLを貼付、または下にドロップ">
+      <div class="dropzone" id="drop-video" data-kind="video">🎬 動画をドラッグ&ドロップ／クリックで選択</div>
+      <input type="file" id="file-video" accept="video/*" style="display:none">
+      <div class="hint" id="video-status">mp4等。大きい動画はアップロードに時間がかかります（目安40MB以下推奨）。</div></div>
     <div class="fld"><label>マーカー実寸（1辺・mm）</label><input id="cfg-markermm" value="40" inputmode="numeric">
       <div class="hint">印刷するバーコードの1辺の長さ。既定40mm（＝4cm角）。配置は実寸(cm)で扱われます。</div></div>
     <button class="btn full d" onclick="showBarcodeFromField()">▦ このバーコードを表示 / 印刷</button>
@@ -324,7 +332,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v2.4';
+const APP_VERSION = 'v2.6';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -667,7 +675,8 @@ function startEditor(){
   ED.name=document.getElementById('cfg-name').value.trim()||'新規シナリオ';
   ED.subtitle=document.getElementById('cfg-sub').value.trim();
   ED.device=document.getElementById('cfg-device').value.trim();
-  const pdf=document.getElementById('cfg-pdf').value.trim(), vid=document.getElementById('cfg-video').value.trim();
+  const pdf=normalizeGhUrl(document.getElementById('cfg-pdf').value), vid=normalizeGhUrl(document.getElementById('cfg-video').value);
+  document.getElementById('cfg-pdf').value=pdf; document.getElementById('cfg-video').value=vid;
   ED.docs={}; if(pdf) ED.docs.pdf=pdf; if(vid) ED.docs.video=vid;
   const bc=document.getElementById('cfg-barcode').value.trim();
   ED.barcode = bc==='' ? null : parseInt(bc,10);
@@ -723,6 +732,50 @@ function closeModal(id){ document.getElementById(id).classList.remove('on'); }
 
 function utf8ToBase64(s){ return btoa(unescape(encodeURIComponent(s))); }
 function dataURLToBase64(u){ return u.split(',')[1]; }
+function abToBase64(buf){ const b=new Uint8Array(buf); let s=''; const ch=0x8000; for(let i=0;i<b.length;i+=ch) s+=String.fromCharCode.apply(null,b.subarray(i,i+ch)); return btoa(s); }
+
+// ── 資料(PDF/動画)のドラッグ&ドロップ／クリック選択 → GitHub docs/ へアップロードしてURL登録 ──
+async function uploadDoc(kind, file){
+  const statusEl=document.getElementById(kind+'-status');
+  const set=(t,err)=>{ statusEl.innerHTML=t; statusEl.style.color=err?'#dc2626':'#16a34a'; };
+  if(!file){ return; }
+  const repoStr=(document.getElementById('gh-repo').value.trim())||'ifx-mori/IFX_AR-';
+  const token=document.getElementById('gh-token').value.trim();
+  if(!token){ set('❌ ③GitHub連携にトークンを入力してください',true); return; }
+  if(!repoStr.includes('/')){ set('❌ リポジトリは owner/repo 形式で入力してください',true); return; }
+  // 種別チェック
+  if(kind==='pdf' && !(file.type==='application/pdf' || /\.pdf$/i.test(file.name))){ set('❌ PDFファイルを選んでください',true); return; }
+  if(kind==='video' && !(/^video\//.test(file.type) || /\.(mp4|mov|webm|m4v|ogg)$/i.test(file.name))){ set('❌ 動画ファイルを選んでください',true); return; }
+  if(file.size > 95*1024*1024){ set('❌ 95MBを超えるファイルはアップロードできません。URL指定をご利用ください。',true); return; }
+  const [owner,repo]=repoStr.split('/');
+  localStorage.setItem('bc_gh_token',token); localStorage.setItem('bc_gh_repo',repoStr);
+  // ファイル名はシナリオIDベースで衝突回避（docs/{id}.{ext}）
+  if(!ED.id) ED.id=document.getElementById('cfg-id').value.trim() || genId(document.getElementById('cfg-name').value.trim()||'bc');
+  document.getElementById('cfg-id').value=ED.id;
+  const ext=((file.name.split('.').pop()||(kind==='pdf'?'pdf':'mp4')).toLowerCase().replace(/[^a-z0-9]/g,''))||(kind==='pdf'?'pdf':'mp4');
+  // ファイル名はASCIIに正規化（URLでの取り扱いを安全に）。IDが日本語のみならランダム名にフォールバック
+  const base=(ED.id.replace(/[^A-Za-z0-9._-]/g,'').replace(/^-+|-+$/g,''))||('doc-'+Date.now().toString(36));
+  const path=`docs/${base}-${kind}.${ext}`;
+  set(`アップロード中… (${(file.size/1e6).toFixed(1)}MB)`);
+  try{
+    const buf=await file.arrayBuffer();
+    await ghPutFile(owner,repo,token,path,abToBase64(buf),`Add doc ${path}`);
+    const url=`https://${owner.toLowerCase()}.github.io/${repo}/${path}`;
+    document.getElementById(kind==='pdf'?'cfg-pdf':'cfg-video').value=url;
+    set(`✅ 登録：<span style="word-break:break-all">${url}</span>`);
+  }catch(e){ set('❌ 失敗: '+e.message,true); }
+}
+['pdf','video'].forEach(kind=>{
+  const zone=document.getElementById('drop-'+kind);
+  const input=document.getElementById('file-'+kind);
+  if(!zone||!input) return;
+  zone.addEventListener('click', ()=>input.click());
+  input.addEventListener('change', e=>{ const f=e.target.files&&e.target.files[0]; uploadDoc(kind,f); e.target.value=''; });
+  ['dragenter','dragover'].forEach(ev=>zone.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); zone.classList.add('over'); }));
+  ['dragleave','dragend'].forEach(ev=>zone.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); zone.classList.remove('over'); }));
+  zone.addEventListener('drop', e=>{ e.preventDefault(); e.stopPropagation(); zone.classList.remove('over');
+    const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; uploadDoc(kind,f); });
+});
 async function ghGetJson(url){ const r=await fetch(url+(url.includes('?')?'&':'?')+'t='+Date.now(),{headers:{Accept:'application/vnd.github+json'},cache:'no-store'}); return r.ok?r.json():null; }
 async function ghPutFile(owner,repo,token,path,contentB64,message){
   const api=`https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
@@ -1002,6 +1055,17 @@ function buildStepsFromTranscript(){
 // ══════════ util ══════════
 function toHex(c){ if(!c) return '#60a5fa'; if(c[0]==='#'&&c.length===7) return c;
   const m=String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); if(m) return '#'+[1,2,3].map(i=>(+m[i]).toString(16).padStart(2,'0')).join(''); return '#60a5fa'; }
+// GitHubのblob/raw URLを、プレイヤーと同一オリジンのPages URLへ自動変換（資料URLの貼り間違い対策）
+function normalizeGhUrl(u){
+  u=String(u==null?'':u).trim(); if(!u) return '';
+  // https://github.com/OWNER/REPO/blob/BRANCH/PATH → https://owner.github.io/REPO/PATH
+  let m=u.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/[^/]+\/(.+)$/i);
+  if(m) return `https://${m[1].toLowerCase()}.github.io/${m[2]}/${m[3]}`;
+  // https://raw.githubusercontent.com/OWNER/REPO/BRANCH/PATH → Pages
+  m=u.match(/^https?:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/[^/]+\/(.+)$/i);
+  if(m) return `https://${m[1].toLowerCase()}.github.io/${m[2]}/${m[3]}`;
+  return u;
+}
 function escAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -1012,6 +1076,9 @@ document.getElementById('ver').textContent='Editor '+APP_VERSION;
   if(t) document.getElementById('gh-token').value=t;
   document.getElementById('gh-repo').value=r||'ifx-mori/IFX_AR-';
 })();
+// 資料URL欄：フォーカスを外したら blob/raw を Pages URL に自動変換
+['cfg-pdf','cfg-video'].forEach(id=>{ const el=document.getElementById(id);
+  if(el) el.addEventListener('blur', ()=>{ const n=normalizeGhUrl(el.value); if(n!==el.value.trim()) el.value=n; }); });
 window.addEventListener('resize', ()=>{ if(document.getElementById('editor').classList.contains('on')){ syncBottomHeight(); renderOverlay(); } });
 </script>
 </body>
