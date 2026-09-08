@@ -79,7 +79,7 @@
   .lm-act { display:flex; gap:8px; margin-top:12px; }
   .lm-act button { flex:1; padding:11px; border:none; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer; }
   #lm-csv { background:#16a34a; color:#fff; } #lm-json { background:#1d4ed8; color:#fff; } #lm-clear { background:#fee2e2; color:#b91c1c; }
-  #toast { position:fixed; left:50%; bottom:calc(14px + 150px); transform:translateX(-50%); z-index:80; background:rgba(15,23,42,.92); color:#fff; padding:10px 16px; border-radius:12px; font-size:13px; font-weight:700; opacity:0; transition:opacity .25s; pointer-events:none; max-width:80%; text-align:center; }
+  #toast { position:fixed; left:50%; bottom:calc(14px + 150px); transform:translateX(-50%); z-index:80; background:rgba(15,23,42,.92); color:#fff; padding:10px 16px; border-radius:12px; font-size:13px; font-weight:700; opacity:0; transition:opacity .25s; pointer-events:none; max-width:88%; text-align:center; white-space:pre-line; line-height:1.5; word-break:break-all; }
 </style>
 </head>
 <body>
@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v1.2</div>
+    <div id="ver">Worklog v1.3</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -275,7 +275,7 @@ async function idbGet(store,key){ const db=await idbOpen(); return new Promise((
 async function idbAll(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readonly'); const rq=tx.objectStore(store).getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); }); }
 async function idbClear(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
 
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.opacity='1'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.opacity='0',2600); }
+function toast(msg,ms){ const t=document.getElementById('toast'); t.textContent=msg; t.style.opacity='1'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.opacity='0',ms||(String(msg).length>24?6000:2600)); }
 
 // ══════ 作業ログ ══════
 let sessionId=null;
@@ -537,16 +537,19 @@ async function saveDevice(){
   if(!key || !list.length){ toast('先に機器のバーコードを認識してください'); return; }
   toast('端末に保存中…');
   try{
-    let assetOk=0, assetNg=0;
+    let assetOk=0, assetNg=0; const fails=[];
     for(const s of list){
       await idbPut('scenarios', { id:s.id, barcode:key, data:s });
       for(const kind of ['pdf','video']){ const url=s.docs&&s.docs[kind]; if(!url) continue;
-        try{ const r=await fetch(url,{cache:'no-store'}); if(r.ok){ const blob=await r.blob(); await idbPut('assets',{url,blob,type:r.headers.get('content-type')||''}); assetOk++; } else assetNg++; }
-        catch(_){ assetNg++; }
+        const fname=url.split('/').pop();
+        try{ const r=await fetch(url,{cache:'no-store'}); if(r.ok){ const blob=await r.blob(); await idbPut('assets',{url,blob,type:r.headers.get('content-type')||''}); assetOk++; }
+             else { assetNg++; fails.push(fname+' HTTP'+r.status); } }
+        catch(e){ assetNg++; fails.push(fname+' '+((e&&e.name)||'fetch失敗')); console.warn('資料取得失敗',url,e); }
       }
     }
     await idbPut('saved', { barcode:key, device:(list[0].device||''), savedAt:Date.now(), ids:list.map(s=>s.id) });
-    toast(`✅ この機器を保存（${list.length}操作／資料${assetOk}件${assetNg?('・失敗'+assetNg):''}）`);
+    if(assetNg) toast(`⚠ ${list.length}操作保存／資料${assetOk}件・失敗${assetNg}\n`+fails.join(' / '));
+    else toast(`✅ この機器を保存（${list.length}操作／資料${assetOk}件）`);
   }catch(e){ toast('保存失敗: '+((e&&e.message)||e)); }
 }
 document.getElementById('btn-save').onclick=saveDevice;
