@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v1.1</div>
+    <div id="ver">Worklog v1.2</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -492,14 +492,22 @@ function addScenarioToGroup(key, s, replaceBuiltin){
   if(!SCENARIOS[key]) SCENARIOS[key]=[];
   if(!SCENARIOS[key].some(e=>e.id===s.id)) SCENARIOS[key].push(s);
 }
+// GitHubのblob/raw URLを同一オリジンのPages URLへ変換（資料の取得・表示を安定化）
+function normalizeGhUrl(u){ u=String(u==null?'':u).trim(); if(!u) return '';
+  let m=u.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/[^/]+\/(.+)$/i);
+  if(m) return `https://${m[1].toLowerCase()}.github.io/${m[2]}/${m[3]}`;
+  m=u.match(/^https?:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/[^/]+\/(.+)$/i);
+  if(m) return `https://${m[1].toLowerCase()}.github.io/${m[2]}/${m[3]}`;
+  return u; }
+function normDocs(d){ if(!d) return null; const o={}; const p=normalizeGhUrl(d.pdf||''); const v=normalizeGhUrl(d.video||''); if(p)o.pdf=p; if(v)o.video=v; return (o.pdf||o.video)?o:null; }
 function normalizeScenario(s){ return { id:s.id, barcode:s.barcode, name:s.name||('barcode '+s.barcode), subtitle:s.subtitle||'', device:s.device||'',
-  docs:s.docs||null, calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}), steps:s.steps }; }
+  docs:normDocs(s.docs), calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}), steps:s.steps }; }
 // 端末保存分を先に読み込む（オフラインでも表示可能に）
 async function loadLocalScenarios(){
   try{ const saved=await idbAll('saved'); if(!saved.length) return;
     const scen=await idbAll('scenarios');
     saved.forEach(sv=>{ const key=String(sv.barcode);
-      scen.filter(x=>String(x.barcode)===key).forEach(x=> addScenarioToGroup(key, x.data, false));
+      scen.filter(x=>String(x.barcode)===key).forEach(x=>{ const d=Object.assign({}, x.data); d.docs=normDocs(d.docs); addScenarioToGroup(key, d, false); });
     });
     Object.keys(SCENARIOS).forEach(k=>SCENARIOS[k].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja')));
   }catch(_){}
