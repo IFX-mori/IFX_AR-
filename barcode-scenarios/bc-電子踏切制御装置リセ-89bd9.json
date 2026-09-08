@@ -1,0 +1,230 @@
+{
+  "id": "bc-電子踏切制御装置リセ-89bd9",
+  "barcode": 2,
+  "name": "電子踏切制御装置リセット操作",
+  "subtitle": "",
+  "device": "電子踏切制御装置",
+  "docs": {
+    "pdf": "https://ifx-mori.github.io/IFX_AR-/docs/crossing.pdf",
+    "video": "https://ifx-mori.github.io/IFX_AR-/docs/crossing.mp"
+  },
+  "calib": {
+    "scale": 7.29,
+    "ox": 0,
+    "oy": 0,
+    "rot": 0
+  },
+  "imageFile": "barcode-targets/bc-電子踏切制御装置リセ-89bd9.jpg",
+  "markerSizeMM": 40,
+  "markerPos": {
+    "u": 0.3477,
+    "v": 0.3229,
+    "w": 0.1372
+  },
+  "steps": [
+    {
+      "title": "ステップ1：液晶表示を確認",
+      "detail": "液晶表示を確認",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "液晶表示を確認",
+          "pos": [
+            0.167,
+            -0.138,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "color": "#ef4444",
+          "size": 0.12,
+          "label": "",
+          "pos": [
+            0.162,
+            0.009,
+            0
+          ],
+          "lineThick": 0.0098
+        }
+      ]
+    },
+    {
+      "title": "ステップ2：液晶表示に「OXR」が表示されて",
+      "detail": "液晶表示に「OXR」が表示されていることを確認 ※注意「OXR」以外の場合は通信指令へ連絡する",
+      "warn": "caution",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "液晶表示に「OXR」が表示されて\nいることを確認 ",
+          "pos": [
+            0.181,
+            -0.204,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "color": "#ef4444",
+          "size": 0.12,
+          "label": "",
+          "pos": [
+            0.171,
+            0.004,
+            0
+          ],
+          "lineThick": 0.0123
+        },
+        {
+          "type": "text",
+          "color": "#f87171",
+          "label": "⚠ 注意",
+          "pos": [
+            0.155,
+            -0.382,
+            0
+          ]
+        },
+        {
+          "type": "text",
+          "pos": [
+            0.177,
+            -0.503,
+            0
+          ],
+          "color": "#ef706f",
+          "label": "「OXR」以外の場合は\n通信指令へ連絡する",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "title": "ステップ3：「OXR」リセットボタンが赤点灯",
+      "detail": "「OXR」リセットボタンが赤点灯していることを確認",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "「OXR」リセットボタンが\n赤点灯していることを確認",
+          "pos": [
+            0.183,
+            -0.249,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "color": "#ef4444",
+          "size": 0.12,
+          "label": "",
+          "pos": [
+            0.19,
+            -0.408,
+            0
+          ],
+          "lineThick": 0.0123
+        }
+      ]
+    },
+    {
+      "title": "ステップ4：「OXR」リセットボタンを押す",
+      "detail": "「OXR」リセットボタンを押す",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "「OXR」リセットボタンを押す",
+          "pos": [
+            0.202,
+            -0.318,
+            0
+          ]
+        },
+        {
+          "type": "arrow",
+          "color": "#60a5fa",
+          "label": "",
+          "pos": [
+            0.193,
+            -0.519,
+            0
+          ],
+          "h": 0.189
+        }
+      ]
+    },
+    {
+      "title": "ステップ5：時計表示となっていることを確認",
+      "detail": "時計表示となっていることを確認",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "時計表示となっていることを確認",
+          "pos": [
+            0.205,
+            -0.148,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "color": "#ef4444",
+          "size": 0.12,
+          "label": "",
+          "pos": [
+            0.153,
+            0.006,
+            0
+          ],
+          "lineThick": 0.0098
+        }
+      ]
+    },
+    {
+      "title": "ステップ6：無事回復になれば踏切鳴動が停止 ",
+      "detail": "無事回復になれば踏切鳴動が停止 ※上下列車1本ずつの通過確認をする ※停止しない場合は指令へ連絡する",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "無事回復になれば踏切鳴動が停止 ",
+          "pos": [
+            0.19,
+            -0.146,
+            0
+          ]
+        },
+        {
+          "type": "text",
+          "pos": [
+            0.196,
+            -0.244,
+            0
+          ],
+          "color": "#efc355",
+          "label": "※上下列車1本ずつの通過確認をする",
+          "fontScale": 1
+        },
+        {
+          "type": "text",
+          "pos": [
+            0.188,
+            -0.342,
+            0
+          ],
+          "color": "#fbca60",
+          "label": " ※停止しない場合は指令へ連絡する",
+          "fontScale": 1
+        }
+      ]
+    }
+  ]
+}
