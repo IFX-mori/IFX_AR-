@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>AR作業記録ナビ（バーコード）</title>
+<!-- ════════════════════════════════════════════════════════════
+  作業記録ナビ（バーコード版・AR.js）／ ar-manual-barcode を拡張した独立アプリ
+  ・シナリオは GitHub barcode-scenarios/*.json（＋端末保存のローカル）から読込
+  ・①チェック確認（各ステップを確認しないと次へ進めない）
+  ・②作業ログ（端末内 IndexedDB に記録／CSV・JSON 書き出し）
+  ・③「この機器を保存」＝シナリオ＋資料(PDF/動画)を端末保存し、ネット断でも再生
+  ※ 既存の ar-manual-barcode / ar-barcode-editor は無改変
+════════════════════════════════════════════════════════════ -->
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.5/aframe/build/aframe-ar.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; font-family:-apple-system,'Helvetica Neue',sans-serif; }
+  .a-enter-vr, .a-orientation-modal { display:none !important; }
+  #ui { position:fixed; inset:0; pointer-events:none; z-index:10; }
+  #topbar { position:absolute; top:0; left:0; right:0; display:flex; align-items:center; gap:10px;
+    padding:10px 14px; background:rgba(255,255,255,0.92); backdrop-filter:blur(8px); box-shadow:0 1px 6px rgba(0,0,0,0.12); }
+  #title { font-size:14px; font-weight:700; color:#1e293b; flex:1; line-height:1.3; }
+  #title small { display:block; font-size:10px; font-weight:500; color:#64748b; }
+  #ver { font-size:10px; font-weight:700; color:#0e7490; background:rgba(14,116,144,0.12); padding:2px 7px; border-radius:8px; }
+  #status { position:absolute; top:58px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px;
+    background:rgba(0,0,0,0.62); color:#fff; padding:7px 14px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+  #dot { width:10px; height:10px; border-radius:50%; background:#f59e0b; transition:background .2s; }
+  #dot.on { background:#22c55e; box-shadow:0 0 8px #22c55e; }
+  #hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.55); color:#fff;
+    padding:16px 22px; border-radius:16px; text-align:center; font-size:14px; font-weight:600; line-height:1.6; max-width:80%; }
+  #hint.hidden { display:none; }
+  #hint small { display:block; margin-top:6px; font-size:11px; font-weight:500; color:#cbd5e1; }
+  #card { position:absolute; left:12px; right:12px; bottom:14px; background:rgba(255,255,255,0.96); backdrop-filter:blur(10px);
+    border-radius:16px; padding:14px 16px; box-shadow:0 6px 20px rgba(0,0,0,0.18); pointer-events:auto; }
+  #card-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  #badge { padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; color:#fff; }
+  #stitle { font-size:15px; font-weight:700; color:#1e293b; flex:1; line-height:1.3; }
+  #sdetail { font-size:12.5px; color:#475569; line-height:1.6; white-space:pre-line; margin-bottom:10px; }
+  #check-row { margin-bottom:10px; }
+  #btn-check { width:100%; padding:11px 0; border:2px solid #d97706; border-radius:12px; background:#fffbeb; color:#b45309; font-size:14px; font-weight:800; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  #btn-check.checked { border-color:#16a34a; background:#f0fdf4; color:#15803d; }
+  #nav { display:flex; gap:8px; }
+  #nav button { flex:1; padding:12px 0; border:none; border-radius:12px; font-size:14px; font-weight:700; color:#fff; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  #nav button:disabled { opacity:.4; cursor:default; }
+  #btn-prev { background:rgba(0,0,0,0.18); color:#1e293b; }
+  #btn-next { background:#1d4ed8; }
+  #btn-finish { background:#16a34a; }
+  #counter { text-align:center; font-size:11px; color:#64748b; margin-top:8px; }
+  .cbtn { width:34px; height:30px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-weight:700; color:#334155; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .cbtn:active { background:#e0e7ff; }
+  #btn-menu { pointer-events:auto; border:none; border-radius:9px; background:#1d4ed8; color:#fff; font-size:12px; font-weight:700; padding:6px 10px; cursor:pointer; }
+  #doc-btn-row { display:flex; align-items:center; pointer-events:auto; }
+  .doc-btn { padding:6px 10px; border:none; border-radius:9px; font-size:12px; font-weight:700; color:#fff; cursor:pointer; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
+  .doc-btn-pdf { background:#b91c1c; } .doc-btn-video { background:#7c3aed; }
+  /* 右側フローティング操作 */
+  #tool-fab { position:absolute; right:12px; top:96px; display:flex; flex-direction:column; gap:8px; pointer-events:auto; }
+  #tool-fab button { border:none; border-radius:10px; padding:8px 11px; font-size:12px; font-weight:700; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.35); cursor:pointer; white-space:nowrap; }
+  #btn-save { background:#0e7490; } #btn-log { background:#475569; }
+  /* 選択メニュー */
+  #scenpick { position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.5); padding:20px; }
+  #scenpick .sp-box { background:#fff; border-radius:16px; padding:16px; width:100%; max-width:360px; max-height:80vh; overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+  #scenpick .sp-head { font-size:15px; font-weight:800; color:#1e293b; margin-bottom:12px; }
+  .sp-item { display:block; width:100%; text-align:left; padding:14px; margin-bottom:9px; border:1px solid #e2e8f0; border-radius:11px; background:#f8fafc; cursor:pointer; }
+  .sp-item b { display:block; font-size:15px; color:#1e293b; }
+  .sp-item small { display:block; font-size:11px; color:#64748b; margin-top:2px; }
+  .sp-item:active { background:#e0e7ff; }
+  /* 作業記録モーダル */
+  #logmodal { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); padding:16px; }
+  #logmodal .lm-box { background:#fff; border-radius:16px; padding:16px; width:100%; max-width:520px; max-height:84vh; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+  .lm-head { display:flex; align-items:center; font-size:15px; font-weight:800; color:#1e293b; margin-bottom:10px; }
+  .lm-head button { margin-left:auto; width:30px; height:30px; border:none; border-radius:50%; background:#e2e8f0; font-size:15px; cursor:pointer; }
+  #lm-list { overflow:auto; flex:1; }
+  .lm-ses { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:8px; font-size:12.5px; color:#334155; }
+  .lm-ses b { color:#0f172a; }
+  .lm-ses .lm-meta { font-size:11px; color:#64748b; margin-top:3px; }
+  .lm-ses .done { color:#15803d; font-weight:700; } .lm-ses .part { color:#b45309; font-weight:700; }
+  .lm-act { display:flex; gap:8px; margin-top:12px; }
+  .lm-act button { flex:1; padding:11px; border:none; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer; }
+  #lm-csv { background:#16a34a; color:#fff; } #lm-json { background:#1d4ed8; color:#fff; } #lm-clear { background:#fee2e2; color:#b91c1c; }
+  #toast { position:fixed; left:50%; bottom:calc(14px + 150px); transform:translateX(-50%); z-index:80; background:rgba(15,23,42,.92); color:#fff; padding:10px 16px; border-radius:12px; font-size:13px; font-weight:700; opacity:0; transition:opacity .25s; pointer-events:none; max-width:80%; text-align:center; }
+</style>
+</head>
+<body>
+<a-scene embedded vr-mode-ui="enabled: false"
+  renderer="logarithmicDepthBuffer: true; precision: medium;"
+  arjs="sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; debugUIEnabled: false;">
+  <a-marker id="m0" type="barcode" value="0" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m1" type="barcode" value="1" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m2" type="barcode" value="2" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m3" type="barcode" value="3" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m4" type="barcode" value="4" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m5" type="barcode" value="5" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m6" type="barcode" value="6" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m7" type="barcode" value="7" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m8" type="barcode" value="8" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m9" type="barcode" value="9" smooth="true" smoothCount="15" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-entity id="anchor" smooth-follow="target: #m0; mc: 0.3; beta: 1.0">
+    <a-entity id="markerframe" rotation="-90 0 0"></a-entity>
+    <a-entity id="wrapper"><a-entity id="content" rotation="-90 0 0"></a-entity></a-entity>
+  </a-entity>
+  <a-entity camera></a-entity>
+</a-scene>
+
+<div id="ui">
+  <div id="topbar">
+    <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
+    <div id="doc-btn-row" style="display:none; gap:6px;"></div>
+    <button id="btn-menu" style="display:none">≡ 操作</button>
+    <div id="ver">Worklog v1.0</div>
+  </div>
+  <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
+  <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
+
+  <div id="tool-fab">
+    <button id="btn-save">💾 保存</button>
+    <button id="btn-log">📋 記録</button>
+  </div>
+
+  <button id="cal-toggle" style="position:absolute;left:12px;top:96px;pointer-events:auto;background:rgba(15,23,42,0.82);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer">校正</button>
+  <div id="calib" style="position:absolute;left:12px;top:134px;pointer-events:auto;display:none;background:rgba(255,255,255,0.97);backdrop-filter:blur(8px);border-radius:12px;padding:10px 12px;box-shadow:0 4px 14px rgba(0,0,0,.2);font-size:12px;color:#1e293b;min-width:186px">
+    <div style="font-size:11px;color:#64748b;margin-bottom:6px">校正対象: <b id="cal-target">-</b></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">サイズ</span><button class="cbtn" data-cal="s-">－</button><b id="cal-s" style="flex:1;text-align:center">1.00</b><button class="cbtn" data-cal="s+">＋</button></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">左右</span><button class="cbtn" data-cal="x-">←</button><b id="cal-x" style="flex:1;text-align:center">0.00</b><button class="cbtn" data-cal="x+">→</button></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">上下</span><button class="cbtn" data-cal="y-">↓</button><b id="cal-y" style="flex:1;text-align:center">0.00</b><button class="cbtn" data-cal="y+">↑</button></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="width:36px">回転</span><button class="cbtn" data-cal="r" style="flex:1;width:auto">90°回す</button><b id="cal-r" style="width:36px;text-align:center">0</b></div>
+    <button id="cal-copy" style="width:100%;padding:8px;border:none;border-radius:9px;background:#1d4ed8;color:#fff;font-weight:700;font-size:12px;cursor:pointer">校正値をコピー</button>
+    <div id="cal-msg" style="font-size:10px;color:#475569;margin-top:6px;line-height:1.5;word-break:break-all"></div>
+  </div>
+
+  <div id="card">
+    <div id="card-head"><span id="badge">STEP</span><span id="stitle">–</span></div>
+    <div id="sdetail">–</div>
+    <div id="check-row"><button id="btn-check">☑ このステップを確認しました</button></div>
+    <div id="nav"><button id="btn-prev">‹ 戻る</button><button id="btn-next">次へ ›</button><button id="btn-finish" style="display:none">✓ 終了</button></div>
+    <div id="counter">– / –</div>
+  </div>
+</div>
+
+<!-- ドキュメント閲覧フロート窓 -->
+<div id="doc-viewer" style="display:none; position:fixed; z-index:300; left:50vw; top:12vh; width:46vw; height:34vh; min-width:160px; min-height:120px; background:#fff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.35); flex-direction:column; overflow:hidden;">
+  <div id="doc-viewer-head" style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:#1e293b; cursor:move; touch-action:none;">
+    <span style="color:#64748b; font-size:14px;">⠿</span>
+    <div id="doc-viewer-title" style="flex:1; color:#fff; font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+    <a id="doc-viewer-ext" href="#" target="_blank" rel="noopener" style="color:#93c5fd; font-size:11px; text-decoration:underline; white-space:nowrap;">別タブ</a>
+    <button onclick="closeDoc()" style="width:28px; height:28px; border-radius:50%; border:none; background:rgba(255,255,255,0.9); color:#1e293b; font-size:16px; font-weight:700; cursor:pointer; flex-shrink:0;">✕</button>
+  </div>
+  <div id="doc-viewer-body" style="flex:1; background:#fff; overflow:hidden;"></div>
+  <div id="doc-viewer-resize" title="サイズ変更" style="position:absolute; right:0; bottom:0; width:28px; height:28px; cursor:nwse-resize; touch-action:none; background:linear-gradient(135deg, transparent 45%, rgba(30,41,59,0.55) 45%); border-bottom-right-radius:12px;"></div>
+</div>
+
+<!-- シナリオ選択メニュー -->
+<div id="scenpick">
+  <div class="sp-box">
+    <div class="sp-head">操作を選択　<span id="sp-dev" style="font-weight:500;color:#94a3b8;font-size:11px"></span></div>
+    <div id="sp-list"></div>
+  </div>
+</div>
+
+<!-- 作業記録モーダル -->
+<div id="logmodal">
+  <div class="lm-box">
+    <div class="lm-head">作業記録<button id="lm-close">✕</button></div>
+    <div id="lm-list"></div>
+    <div class="lm-act">
+      <button id="lm-csv">CSV書出</button>
+      <button id="lm-json">JSON書出</button>
+      <button id="lm-clear">全消去</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const WARN = { normal:{c:'#1d4ed8',label:'通常',sym:''}, caution:{c:'#d97706',label:'注意',sym:'⚠️'}, danger:{c:'#dc2626',label:'危険',sym:'⛔'} };
+const SCEN = {};
+
+// ══════ 1€(OneEuro)フィルタ＋マーカー追従 ══════
+function _LP(){ this.s=null; }
+_LP.prototype.f=function(x,a){ this.s=(this.s===null)?x:(a*x+(1-a)*this.s); return this.s; };
+function _euA(cut,dt){ const tau=1/(2*Math.PI*cut); return 1/(1+tau/dt); }
+function OneEuro(mc,beta,dc){ this.mc=mc; this.beta=beta; this.dc=dc||1.0; this.x=new _LP(); this.dx=new _LP(); this.lx=null; }
+OneEuro.prototype.f=function(x,dt){ const dv=(this.lx===null)?0:(x-this.lx)/dt; this.lx=x; const ed=this.dx.f(dv,_euA(this.dc,dt)); const cut=this.mc+this.beta*Math.abs(ed); return this.x.f(x,_euA(cut,dt)); };
+AFRAME.registerComponent('smooth-follow', {
+  schema: { target:{type:'selector'}, mc:{default:0.3}, beta:{default:1.0} },
+  init: function(){ this._p=new THREE.Vector3(); this._q=new THREE.Quaternion(); this._s=new THREE.Vector3();
+    const mk=()=>new OneEuro(this.data.mc,this.data.beta);
+    this._fp=[mk(),mk(),mk()]; this._fq=[mk(),mk(),mk(),mk()]; this._started=false; this._lastT=null; this.el.object3D.visible=false; },
+  update: function(){ this._started=false; const mk=()=>new OneEuro(this.data.mc,this.data.beta);
+    this._fp=[mk(),mk(),mk()]; this._fq=[mk(),mk(),mk(),mk()]; },
+  tick: function(time){ const t=this.data.target; if(!t) return; const o=t.object3D, me=this.el.object3D;
+    if(o.visible){ o.updateMatrixWorld(); o.matrixWorld.decompose(this._p,this._q,this._s);
+      const now=(time||performance.now())/1000; let dt=(this._lastT!=null&&now>this._lastT)?(now-this._lastT):1/60; if(dt>0.1)dt=0.1; this._lastT=now;
+      if(!this._started){ me.position.copy(this._p); me.quaternion.copy(this._q); this._started=true; }
+      else { me.position.set(this._fp[0].f(this._p.x,dt),this._fp[1].f(this._p.y,dt),this._fp[2].f(this._p.z,dt));
+             me.quaternion.set(this._fq[0].f(this._q.x,dt),this._fq[1].f(this._q.y,dt),this._fq[2].f(this._q.z,dt),this._fq[3].f(this._q.w,dt)).normalize(); }
+      me.visible=true; } }
+});
+
+// ══════ 図形描画 ══════
+const PXREF = 1000;
+function planeFromCanvas(cv,x,y,z){ const el=document.createElement('a-plane');
+  el.setAttribute('width',(cv.width/PXREF).toFixed(4)); el.setAttribute('height',(cv.height/PXREF).toFixed(4));
+  el.setAttribute('position',`${x} ${y} ${z||0}`);
+  el.setAttribute('material',{shader:'flat',transparent:true,side:'double',src:cv.toDataURL('image/png')}); return el; }
+function labelMetrics(ctx,text,fp){ ctx.font=`bold ${fp}px sans-serif`; const lines=String(text).split('\n');
+  let w=0; lines.forEach(l=>w=Math.max(w,ctx.measureText(l).width)); const lh=fp*1.25; return {lines,w,lh,h:lines.length*lh}; }
+function drawLabel(ctx,cx,cy,text,fp,bg,fg){ const m=labelMetrics(ctx,text,fp); const padX=26,padY=16;
+  const w=m.w+padX*2,h=m.h+padY*2,x=cx-w/2,y=cy-h/2,r=Math.min(28,h/2);
+  ctx.fillStyle=bg; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=fg; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font=`bold ${fp}px sans-serif`;
+  m.lines.forEach((l,i)=>ctx.fillText(l,cx,cy-m.h/2+m.lh*(i+0.5))); return {w,h}; }
+function iconArrow(ctx,cx,cy,w,h,color,dir){ ctx.save(); ctx.translate(cx,cy); if(dir==='up')ctx.scale(1,-1);
+  ctx.fillStyle=color; ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=6; ctx.lineJoin='round'; const sw=w*0.34;
+  ctx.beginPath(); ctx.moveTo(-sw/2,-h/2); ctx.lineTo(sw/2,-h/2); ctx.lineTo(sw/2,h*0.05); ctx.lineTo(w/2,h*0.05); ctx.lineTo(0,h/2); ctx.lineTo(-w/2,h*0.05); ctx.lineTo(-sw/2,h*0.05); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); }
+function iconBox(ctx,cx,cy,w,h,color,thick){ ctx.lineWidth=thick||14; ctx.strokeStyle=color; ctx.lineJoin='round';
+  const r=Math.min(24,h/2),x=cx-w/2,y=cy-h/2; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.stroke(); }
+function iconCurved(ctx,cx,cy,r,color,dir){ ctx.save(); ctx.translate(cx,cy); if(dir==='left')ctx.scale(-1,1);
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=Math.max(12,r*0.22); ctx.lineCap='round';
+  const a1=Math.PI*0.15;
+  ctx.beginPath(); ctx.arc(0,0,r,Math.PI*0.85,a1,false); ctx.stroke();
+  const P=[r*Math.cos(a1), r*Math.sin(a1)]; const t=[-Math.sin(a1), Math.cos(a1)]; const n=[-t[1], t[0]];
+  const hs=r*0.62, hw=r*0.42;
+  const tip=[P[0]+t[0]*hs, P[1]+t[1]*hs]; const b1=[P[0]+n[0]*hw, P[1]+n[1]*hw]; const b2=[P[0]-n[0]*hw, P[1]-n[1]*hw];
+  ctx.beginPath(); ctx.moveTo(tip[0],tip[1]); ctx.lineTo(b1[0],b1[1]); ctx.lineTo(b2[0],b2[1]); ctx.closePath(); ctx.fill();
+  ctx.restore(); }
+function makeItem(it, cal){
+  const tmp=document.createElement('canvas').getContext('2d');
+  const color=it.color||'#60a5fa'; const fp=Math.round(46*(it.fontScale||1));
+  const bg=it.textBg||'rgba(0,0,0,0.82)';
+  const fg=(it.type==='text') ? (it.textColor||it.color||'#ffffff') : (it.textColor||'#ffffff');
+  const lm=it.label ? labelMetrics(tmp,it.label,fp) : null;
+  const labelW=lm?lm.w+52:0, labelH=lm?lm.h+32:0;
+  let iw=0,ih=0;
+  if(it.type==='box'){ iw=(it.sizeW||it.size||0.5)*PXREF; ih=(it.sizeH||it.size||0.5)*PXREF; }
+  else if(it.type==='ring'){ iw=ih=(it.size||0.6)*PXREF; }
+  else if(it.type==='arrow'||it.type==='arrowDown'){ ih=(it.h||0.5)*PXREF; iw=ih*0.7; }
+  else if(it.type==='curvedArrow'){ iw=ih=(it.size||(it.scale?it.scale*0.09:0.2))*PXREF; }
+  const gap=22, labelAbove=!!it.labelAbove;
+  const cw=Math.max(iw,labelW)+30;
+  const ch=(it.type==='text')?(labelH+20):(ih+2*(gap+labelH)+20);
+  const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
+  const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
+  if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
+  else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
+  else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
+  else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
+  else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir);
+  if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg);
+    else { const ly=labelAbove?(CY-ih/2-gap-labelH/2):(CY+ih/2+gap+labelH/2); drawLabel(ctx,CX,ly,it.label,fp,bg,fg); } }
+  return planeFromCanvas(cv, it.pos[0]+cal.ox, it.pos[1]+cal.oy, it.pos[2]);
+}
+
+// ══════ IndexedDB（作業ログ・端末保存） ══════
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open('worklog',1);
+  r.onupgradeneeded=()=>{ const db=r.result;
+    if(!db.objectStoreNames.contains('logs')) db.createObjectStore('logs',{keyPath:'id',autoIncrement:true});
+    if(!db.objectStoreNames.contains('scenarios')) db.createObjectStore('scenarios',{keyPath:'id'});
+    if(!db.objectStoreNames.contains('assets')) db.createObjectStore('assets',{keyPath:'url'});
+    if(!db.objectStoreNames.contains('saved')) db.createObjectStore('saved',{keyPath:'barcode'});
+  };
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbPut(store,val){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).put(val); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+async function idbGet(store,key){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readonly'); const rq=tx.objectStore(store).get(key); rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); }); }
+async function idbAll(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readonly'); const rq=tx.objectStore(store).getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); }); }
+async function idbClear(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.opacity='1'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.opacity='0',2600); }
+
+// ══════ 作業ログ ══════
+let sessionId=null;
+function newSessionId(){ return 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+async function logEvent(event, extra){
+  const rec=Object.assign({ ts:Date.now(), sessionId, barcode:curKey||'', device:(cur&&cur.device)||'', scenarioId:(cur&&cur.id)||'', scenarioName:(cur&&cur.name)||'', event }, extra||{});
+  try{ await idbPut('logs', rec); }catch(_){}
+}
+
+// ══════ 状態・描画 ══════
+const anchor=document.getElementById('anchor');
+const wrapper=document.getElementById('wrapper');
+const content=document.getElementById('content');
+let curKey=null, idx=0, cur=null, curMid=null;
+let checkedSteps=new Set();
+const SCENARIOS={}; const _ghKeys=new Set();
+
+// ══════ 位置確認枠 ══════
+let _framePlane=null, _frameURL={};
+function _makeFrameURL(color){
+  const S=512, cv=document.createElement('canvas'); cv.width=cv.height=S; const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,S,S); ctx.strokeStyle=color; ctx.lineWidth=S*0.035;
+  const m=ctx.lineWidth/2+1; ctx.strokeRect(m,m,S-2*m,S-2*m);
+  ctx.lineWidth=S*0.06; ctx.lineCap='round'; const L=S*0.16, o=S*0.04;
+  [[o,o,1,1],[S-o,o,-1,1],[o,S-o,1,-1],[S-o,S-o,-1,-1]].forEach(([x,y,sx,sy])=>{
+    ctx.beginPath(); ctx.moveTo(x, y+sy*L); ctx.lineTo(x,y); ctx.lineTo(x+sx*L, y); ctx.stroke(); });
+  return cv.toDataURL('image/png');
+}
+const FRAME_GREEN='#22c55e', FRAME_YELLOW='#f59e0b';
+function setFrameRecognized(ok){ if(_framePlane) _framePlane.setAttribute('material','src', ok?_frameURL.green:_frameURL.yellow); }
+(function buildMarkerFrame(){
+  if(new URLSearchParams(location.search).get('frame')==='off') return;
+  _frameURL.green=_makeFrameURL(FRAME_GREEN); _frameURL.yellow=_makeFrameURL(FRAME_YELLOW);
+  const pl=document.createElement('a-plane');
+  pl.setAttribute('width','1'); pl.setAttribute('height','1');
+  pl.setAttribute('material',{shader:'flat',transparent:true,side:'double',opacity:0.95,src:_frameURL.yellow});
+  document.getElementById('markerframe').appendChild(pl); _framePlane=pl;
+})();
+
+function applyCal(){ const sc=cur; if(!sc) return; const c=sc.calib;
+  wrapper.setAttribute('scale',`${c.scale} ${c.scale} ${c.scale}`);
+  wrapper.setAttribute('rotation',`0 ${c.rot} 0`);
+  const g=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
+  g('cal-target',sc.name); g('cal-s',c.scale.toFixed(2)); g('cal-x',c.ox.toFixed(2)); g('cal-y',c.oy.toFixed(2)); g('cal-r',c.rot);
+}
+function renderStep(){ const sc=cur; if(!sc) return; const step=sc.steps[idx]; const w=WARN[step.warn]||WARN.normal; const col=w.c;
+  document.getElementById('stitle').textContent=(w.sym?w.sym+' ':'')+step.title;
+  document.getElementById('sdetail').textContent=(w.sym?w.sym+' ':'')+(step.detail||'');
+  const b=document.getElementById('badge'); b.textContent=`STEP ${idx+1}`; b.style.background=col;
+  document.getElementById('btn-next').style.background=col;
+  document.getElementById('counter').textContent=`${idx+1} / ${sc.steps.length}`;
+  const isLast = idx>=sc.steps.length-1;
+  document.getElementById('btn-prev').style.visibility=idx>0?'visible':'hidden';
+  document.getElementById('btn-next').style.display=isLast?'none':'';
+  document.getElementById('btn-finish').style.display=isLast?'':'none';
+  // ① チェック確認：確認済みでないと次へ／終了に進めない
+  const checked=checkedSteps.has(idx);
+  const bc=document.getElementById('btn-check');
+  bc.textContent = checked?'✓ 確認済み':'☑ このステップを確認しました';
+  bc.classList.toggle('checked', checked);
+  document.getElementById('btn-next').disabled=!checked;
+  document.getElementById('btn-finish').disabled=!checked;
+  while(content.firstChild) content.removeChild(content.firstChild);
+  step.ar.forEach(it=>content.appendChild(makeItem(it,sc.calib)));
+}
+document.getElementById('btn-check').onclick=()=>{
+  if(!cur) return;
+  if(!checkedSteps.has(idx)){ checkedSteps.add(idx); logEvent('check',{step:idx+1, stepTitle:cur.steps[idx].title, totalSteps:cur.steps.length}); }
+  renderStep();
+};
+function followMarker(markerId){ if(curMid===markerId) return; curMid=markerId;
+  anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: 0.3; beta: 1.0`); }
+function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=key; cur=scenario; idx=0;
+  followMarker(markerId);
+  checkedSteps=new Set(); sessionId=newSessionId();
+  document.getElementById('scname').textContent=scenario.name;
+  document.getElementById('scsub').textContent=scenario.subtitle||'';
+  const _st=document.getElementById('stxt'); if(_st) _st.textContent='認識中：'+scenario.name;
+  applyCal(); renderStep(); updateDocButtons();
+  const list=SCENARIOS[key]||[]; document.getElementById('btn-menu').style.display = list.length>1 ? 'inline-block':'none';
+  logEvent('start',{totalSteps:scenario.steps.length});
+}
+document.getElementById('btn-next').onclick=()=>{ if(cur&&!document.getElementById('btn-next').disabled&&idx<cur.steps.length-1){idx++;renderStep();} };
+document.getElementById('btn-prev').onclick=()=>{ if(cur&&idx>0){idx--;renderStep();} };
+
+// ══════ 資料(PDF/動画)フロート表示（端末保存済みならblobで表示＝オフライン可） ══════
+function updateDocButtons(){
+  const row=document.getElementById('doc-btn-row'); if(!row) return; row.innerHTML='';
+  const docs=cur&&cur.docs;
+  if(docs&&docs.pdf){ const b=document.createElement('button'); b.className='doc-btn doc-btn-pdf'; b.innerHTML='📄 作業手順書';
+    b.onclick=()=>openDoc('pdf',docs.pdf,'作業手順書'); row.appendChild(b); }
+  if(docs&&docs.video){ const b=document.createElement('button'); b.className='doc-btn doc-btn-video'; b.innerHTML='🎬 操作動画';
+    b.onclick=()=>openDoc('video',docs.video,'操作動画'); row.appendChild(b); }
+  row.style.display = row.children.length>0 ? 'flex':'none';
+}
+async function openDoc(type,url,label){
+  initDocViewerDragResize();
+  const body=document.getElementById('doc-viewer-body');
+  document.getElementById('doc-viewer-title').textContent=label||'';
+  document.getElementById('doc-viewer-ext').href=url;
+  document.getElementById('doc-viewer').style.display='flex';
+  let realUrl=url;
+  try{ const a=await idbGet('assets',url); if(a&&a.blob) realUrl=URL.createObjectURL(a.blob); }catch(_){}
+  if(type==='video'){ body.innerHTML=`<video src="${realUrl}" controls autoplay playsinline style="width:100%;height:100%;background:#000;"></video>`; }
+  else { renderPdf(realUrl,body); }
+}
+let _pdfjsLoading=null;
+const PDFJS_LOCAL='libs/pdf.min.js', PDFJS_LOCAL_W='libs/pdf.worker.min.js';
+const PDFJS_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', PDFJS_CDN_W='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+function loadScriptEl(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('読み込み失敗: '+src)); document.head.appendChild(s); }); }
+function loadPdfJs(){ if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib); if(_pdfjsLoading) return _pdfjsLoading;
+  _pdfjsLoading=(async()=>{ try{ await loadScriptEl(PDFJS_LOCAL); window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_LOCAL_W; }
+    catch(_){ await loadScriptEl(PDFJS_CDN); window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_CDN_W; }
+    if(!window.pdfjsLib) throw new Error('PDF.jsの読み込みに失敗'); return window.pdfjsLib; })(); return _pdfjsLoading; }
+async function renderPdf(url,container){
+  container.innerHTML='<div style="padding:16px;color:#64748b;font-size:13px;">PDF読み込み中…</div>';
+  try{ const pdfjsLib=await loadPdfJs(); const pdf=await pdfjsLib.getDocument(url).promise;
+    const scroll=document.createElement('div'); scroll.style.cssText='width:100%;height:100%;overflow:auto;-webkit-overflow-scrolling:touch;background:#525659;';
+    container.innerHTML=''; container.appendChild(scroll);
+    for(let n=1;n<=pdf.numPages;n++){ const page=await pdf.getPage(n); const viewport=page.getViewport({scale:1.5});
+      const canvas=document.createElement('canvas'); canvas.width=viewport.width; canvas.height=viewport.height;
+      canvas.style.cssText='display:block;margin:8px auto;max-width:100%;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+      scroll.appendChild(canvas); await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise; }
+  }catch(e){ container.innerHTML=`<div style="padding:16px;color:#dc2626;font-size:13px;">PDFの表示に失敗しました。上部の「別タブ」から開いてください。<br>${e.message}</div>`; }
+}
+function closeDoc(){ document.getElementById('doc-viewer-body').innerHTML=''; document.getElementById('doc-viewer').style.display='none'; }
+let _docDragInit=false;
+function initDocViewerDragResize(){
+  if(_docDragInit) return; const panel=document.getElementById('doc-viewer'); const head=document.getElementById('doc-viewer-head'); const grip=document.getElementById('doc-viewer-resize');
+  if(!panel||!head||!grip) return; _docDragInit=true;
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v)); let mode=null,sx=0,sy=0,sl=0,st=0,sw=0,sh=0;
+  head.addEventListener('pointerdown',e=>{ if(e.target.closest('a,button')) return; const r=panel.getBoundingClientRect(); sx=e.clientX;sy=e.clientY;sl=r.left;st=r.top; mode='move'; try{head.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); });
+  grip.addEventListener('pointerdown',e=>{ const r=panel.getBoundingClientRect(); sx=e.clientX;sy=e.clientY;sw=r.width;sh=r.height;sl=r.left;st=r.top; mode='resize'; try{grip.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); });
+  function onMove(e){ if(!mode) return;
+    if(mode==='move'){ const w=panel.offsetWidth,h=panel.offsetHeight;
+      panel.style.left=clamp(sl+(e.clientX-sx),0,window.innerWidth-w)+'px'; panel.style.top=clamp(st+(e.clientY-sy),0,window.innerHeight-h)+'px'; panel.style.right='auto'; panel.style.bottom='auto'; }
+    else { panel.style.width=clamp(sw+(e.clientX-sx),160,window.innerWidth-sl)+'px'; panel.style.height=clamp(sh+(e.clientY-sy),120,window.innerHeight-st)+'px'; }
+    e.preventDefault(); }
+  const end=()=>{mode=null;};
+  head.addEventListener('pointermove',onMove); grip.addEventListener('pointermove',onMove);
+  head.addEventListener('pointerup',end); grip.addEventListener('pointerup',end); head.addEventListener('pointercancel',end); grip.addEventListener('pointercancel',end);
+}
+
+// ══════ シナリオ選択メニュー ══════
+function showPicker(key,markerId){
+  const list=SCENARIOS[key]||[]; if(!list.length) return;
+  followMarker(markerId);
+  const box=document.getElementById('sp-list'); box.innerHTML='';
+  document.getElementById('sp-dev').textContent = 'value='+key + ((list[0]&&list[0].device)?(' ／ '+list[0].device):'');
+  list.forEach((s,i)=>{ const b=document.createElement('button'); b.className='sp-item';
+    b.innerHTML=`<b>${(s.name||('操作'+(i+1)))}</b>`+(s.subtitle?`<small>${s.subtitle}</small>`:'');
+    b.onclick=()=>{ hidePicker(); setScenario(s,key,markerId); };
+    box.appendChild(b); });
+  document.getElementById('scenpick').style.display='flex';
+}
+function hidePicker(){ document.getElementById('scenpick').style.display='none'; }
+document.getElementById('btn-menu').onclick=()=>{ if(curKey) showPicker(curKey, curMid); };
+function finishScenario(){
+  logEvent('finish',{checked:checkedSteps.size, totalSteps:(cur&&cur.steps.length)||0});
+  closeDoc(); const key=curKey, mid=curMid, list=SCENARIOS[key]||[];
+  cur=null; idx=0; checkedSteps=new Set();
+  toast('✅ 作業を記録しました');
+  if(list.length>1){ curKey=key; showPicker(key,mid); }
+  else if(key){ onFound(key,mid); }
+}
+document.getElementById('btn-finish').onclick=()=>{ if(!document.getElementById('btn-finish').disabled) finishScenario(); };
+
+// ══════ マーカー認識 ══════
+const dot=document.getElementById('dot'), stxt=document.getElementById('stxt'), hint=document.getElementById('hint');
+let lostTimer=null;
+function onFound(key,markerId){ if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
+  const list=SCENARIOS[key]||[]; dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true);
+  followMarker(markerId);
+  if(list.length===1){ setScenario(list[0],key,markerId); stxt.textContent='認識中：'+list[0].name; }
+  else { stxt.textContent='認識中：操作を選択（'+list.length+'件）';
+    if(curKey!==key || !cur){ curKey=key; showPicker(key,markerId); } }
+}
+function onLost(){ if(lostTimer)clearTimeout(lostTimer);
+  lostTimer=setTimeout(()=>{ lostTimer=null;
+    const other=[..._visible].find(k=>k!==curKey && SCENARIOS[k] && SCENARIOS[k].length);
+    if(other){ curKey=null; cur=null; hidePicker(); onFound(other,'m'+other); return; }
+    dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.classList.remove('hidden'); setFrameRecognized(false);
+  },1000); }
+
+// ══════ 誤読ガード（切替安定化） ══════
+const SWITCH_MS = parseInt(new URLSearchParams(location.search).get('switchms')||'700',10);
+const _visible=new Set();
+let pendingKey=null, pendingMid=null, pendingTimer=null;
+function clearPending(){ if(pendingTimer){clearTimeout(pendingTimer);pendingTimer=null;} pendingKey=null; pendingMid=null; }
+function handleFound(key, mid){
+  if(!SCENARIOS[key]||!SCENARIOS[key].length){ if(!cur && !curKey){ dot.classList.remove('on'); stxt.textContent='未登録のバーコード（value='+key+'）'; } return; }
+  _visible.add(key);
+  if(key===curKey){ clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;} dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true); return; }
+  if(!cur && !curKey){ onFound(key,mid); return; }
+  if(pendingKey!==key){ clearPending(); pendingKey=key; pendingMid=mid;
+    pendingTimer=setTimeout(()=>{ pendingTimer=null;
+      if(_visible.has(key) && !_visible.has(curKey)){ clearPending(); curKey=null; cur=null; hidePicker(); onFound(key,mid); }
+      else clearPending();
+    }, SWITCH_MS);
+  }
+}
+function handleLost(key){ _visible.delete(key); if(key===pendingKey) clearPending(); if(key===curKey) onLost(); }
+for(let v=0; v<=9; v++){
+  const el=document.getElementById('m'+v); if(!el) continue;
+  const key=String(v), mid='m'+v;
+  el.addEventListener('markerFound',()=>handleFound(key,mid));
+  el.addEventListener('markerLost',()=>handleLost(key));
+}
+
+// ══════ シナリオ読込（端末保存＋GitHub） ══════
+const GH_OWNER='ifx-mori', GH_REPO='IFX_AR-', BARCODE_DIR='barcode-scenarios';
+function addScenarioToGroup(key, s, replaceBuiltin){
+  if(replaceBuiltin && !_ghKeys.has(key)){ _ghKeys.add(key); SCENARIOS[key]=[]; }
+  if(!SCENARIOS[key]) SCENARIOS[key]=[];
+  if(!SCENARIOS[key].some(e=>e.id===s.id)) SCENARIOS[key].push(s);
+}
+function normalizeScenario(s){ return { id:s.id, barcode:s.barcode, name:s.name||('barcode '+s.barcode), subtitle:s.subtitle||'', device:s.device||'',
+  docs:s.docs||null, calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}), steps:s.steps }; }
+// 端末保存分を先に読み込む（オフラインでも表示可能に）
+async function loadLocalScenarios(){
+  try{ const saved=await idbAll('saved'); if(!saved.length) return;
+    const scen=await idbAll('scenarios');
+    saved.forEach(sv=>{ const key=String(sv.barcode);
+      scen.filter(x=>String(x.barcode)===key).forEach(x=> addScenarioToGroup(key, x.data, false));
+    });
+    Object.keys(SCENARIOS).forEach(k=>SCENARIOS[k].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja')));
+  }catch(_){}
+}
+async function loadRemoteScenarios(){
+  try{
+    const bust='t='+Date.now();
+    const res=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${BARCODE_DIR}?ref=main&${bust}`,
+      {headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
+    if(!res.ok) return;
+    const files=await res.json();
+    const jsons=(await Promise.all((Array.isArray(files)?files:[])
+      .filter(f=>f.name.endsWith('.json')&&f.download_url)
+      .map(f=>fetch(f.download_url+(f.download_url.includes('?')?'&':'?')+bust,{cache:'no-store'})
+        .then(r=>r.ok?r.json():null).catch(()=>null))))
+      .filter(s=>s&&Number.isInteger(s.barcode)&&Array.isArray(s.steps));
+    jsons.forEach(s=> addScenarioToGroup(String(s.barcode), normalizeScenario(s), true));
+    Object.keys(SCENARIOS).forEach(k=>SCENARIOS[k].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja')));
+    if(cur){ applyCal(); renderStep(); updateDocButtons(); }
+  }catch(_){ /* オフライン等：端末保存分で動作 */ }
+}
+(async()=>{ await loadLocalScenarios(); await loadRemoteScenarios(); })();
+
+// ══════ ③「この機器を保存」（オフライン用） ══════
+async function saveDevice(){
+  const key=curKey; const list=(SCENARIOS[key]||[]).slice();
+  if(!key || !list.length){ toast('先に機器のバーコードを認識してください'); return; }
+  toast('端末に保存中…');
+  try{
+    let assetOk=0, assetNg=0;
+    for(const s of list){
+      await idbPut('scenarios', { id:s.id, barcode:key, data:s });
+      for(const kind of ['pdf','video']){ const url=s.docs&&s.docs[kind]; if(!url) continue;
+        try{ const r=await fetch(url,{cache:'no-store'}); if(r.ok){ const blob=await r.blob(); await idbPut('assets',{url,blob,type:r.headers.get('content-type')||''}); assetOk++; } else assetNg++; }
+        catch(_){ assetNg++; }
+      }
+    }
+    await idbPut('saved', { barcode:key, device:(list[0].device||''), savedAt:Date.now(), ids:list.map(s=>s.id) });
+    toast(`✅ この機器を保存（${list.length}操作／資料${assetOk}件${assetNg?('・失敗'+assetNg):''}）`);
+  }catch(e){ toast('保存失敗: '+((e&&e.message)||e)); }
+}
+document.getElementById('btn-save').onclick=saveDevice;
+
+// ══════ 作業記録モーダル ══════
+function download(name, text, mime){ const blob=new Blob([text],{type:mime||'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},1000); }
+function pad2(n){ return (n<10?'0':'')+n; }
+function fmtTs(ts){ const d=new Date(ts); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; }
+function logsToCsv(logs){
+  const cols=['日時','セッション','バーコード','機器','操作','イベント','ステップ番号','ステップ名','総ステップ'];
+  const esc=v=>{ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const rows=logs.slice().sort((a,b)=>a.ts-b.ts).map(l=>[fmtTs(l.ts), l.sessionId, l.barcode||'', l.device||'', l.scenarioName||'', l.event, l.step||'', l.stepTitle||'', l.totalSteps||''].map(esc).join(','));
+  return '﻿'+cols.join(',')+'\n'+rows.join('\n');
+}
+async function openLog(){
+  const logs=await idbAll('logs');
+  const bySes={}; logs.forEach(l=>{ (bySes[l.sessionId]=bySes[l.sessionId]||[]).push(l); });
+  const sessions=Object.values(bySes).map(arr=>{ arr.sort((a,b)=>a.ts-b.ts); const f=arr[0], last=arr[arr.length-1];
+    const checks=new Set(arr.filter(x=>x.event==='check').map(x=>x.step)).size;
+    const fin=arr.some(x=>x.event==='finish');
+    return { start:f.ts, end:last.ts, device:f.device, scenario:f.scenarioName, barcode:f.barcode, checks, total:f.totalSteps||'', fin };
+  }).sort((a,b)=>b.start-a.start);
+  const list=document.getElementById('lm-list');
+  if(!sessions.length){ list.innerHTML='<div style="color:#64748b;font-size:13px;padding:8px">まだ記録がありません</div>'; }
+  else { list.innerHTML=sessions.map(s=>`<div class="lm-ses">
+      <b>${s.scenario||'(操作なし)'}</b> ${s.device?('／ '+s.device):''}
+      <div class="lm-meta">${fmtTs(s.start)}　value=${s.barcode}　確認 ${s.checks}${s.total?('/'+s.total):''}　<span class="${s.fin?'done':'part'}">${s.fin?'完了':'中断'}</span></div>
+    </div>`).join(''); }
+  document.getElementById('logmodal').style.display='flex';
+}
+document.getElementById('btn-log').onclick=openLog;
+document.getElementById('lm-close').onclick=()=>{ document.getElementById('logmodal').style.display='none'; };
+document.getElementById('lm-csv').onclick=async()=>{ const logs=await idbAll('logs'); if(!logs.length){toast('記録がありません');return;} download('worklog_'+Date.now()+'.csv', logsToCsv(logs), 'text/csv;charset=utf-8'); toast('CSVを書き出しました'); };
+document.getElementById('lm-json').onclick=async()=>{ const logs=await idbAll('logs'); if(!logs.length){toast('記録がありません');return;} download('worklog_'+Date.now()+'.json', JSON.stringify(logs,null,2), 'application/json'); toast('JSONを書き出しました'); };
+document.getElementById('lm-clear').onclick=async()=>{ if(!confirm('すべての作業記録を消去します。よろしいですか？')) return; await idbClear('logs'); openLog(); toast('記録を消去しました'); };
+
+// ══════ 校正パネル ══════
+document.getElementById('cal-toggle').onclick=()=>{ const p=document.getElementById('calib'); p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'; };
+document.querySelectorAll('#calib .cbtn').forEach(bn=>{ bn.onclick=()=>{ const sc=cur; if(!sc){return;} const c=sc.calib; const k=bn.getAttribute('data-cal');
+  if(k==='s+') c.scale=+Math.min(30,c.scale*1.1).toFixed(2);
+  else if(k==='s-') c.scale=+Math.max(0.5,c.scale/1.1).toFixed(2);
+  else if(k==='x+') c.ox=+(c.ox+0.02).toFixed(2);
+  else if(k==='x-') c.ox=+(c.ox-0.02).toFixed(2);
+  else if(k==='y+') c.oy=+(c.oy+0.02).toFixed(2);
+  else if(k==='y-') c.oy=+(c.oy-0.02).toFixed(2);
+  else if(k==='r') c.rot=(c.rot+90)%360;
+  applyCal(); renderStep(); }; });
+document.getElementById('cal-copy').onclick=()=>{ const sc=cur; const msg=document.getElementById('cal-msg');
+  if(!sc){ msg.textContent='シナリオ未選択'; return; } const c=sc.calib;
+  const txt=`${sc.name}: scale=${c.scale} ox=${c.ox} oy=${c.oy} rot=${c.rot}`;
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>{msg.textContent='コピー: '+txt;},()=>{msg.textContent=txt;});
+  else msg.textContent=txt; };
+</script>
+</body>
+</html>
