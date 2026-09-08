@@ -1,0 +1,82 @@
+{
+  "id": "bc-電子踏切制御装置の終-f48xi",
+  "barcode": 2,
+  "name": "電子踏切制御装置の終了操作",
+  "subtitle": "",
+  "device": "電子踏切制御装置",
+  "docs": {},
+  "calib": {
+    "scale": 6.96,
+    "ox": 0,
+    "oy": 0,
+    "rot": 0
+  },
+  "imageFile": "barcode-targets/bc-電子踏切制御装置の終-f48xi.jpg",
+  "markerSizeMM": 40,
+  "markerPos": {
+    "u": 0.3461,
+    "v": 0.2904,
+    "w": 0.1436
+  },
+  "steps": [
+    {
+      "title": "ステップ1：トグルスイッチを上に押す ・",
+      "detail": "トグルスイッチを上に押す ・",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "トグルスイッチを上に押す",
+          "pos": [
+            0.189,
+            -0.502,
+            0
+          ]
+        },
+        {
+          "type": "arrow",
+          "color": "#60a5fa",
+          "label": "押す",
+          "pos": [
+            0.322,
+            -0.733,
+            0
+          ],
+          "h": 0.164
+        }
+      ]
+    },
+    {
+      "title": "ステップ2：液晶表示が消灯すれば終了",
+      "detail": "液晶表示が消灯すれば終了",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "液晶表示が消灯すれば終了",
+          "pos": [
+            0.147,
+            -0.275,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.171,
+            -0.038,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "sizeW": 0.241,
+          "sizeH": 0.118
+        }
+      ]
+    }
+  ]
+}
