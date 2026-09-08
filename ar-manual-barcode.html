@@ -87,7 +87,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Barcode v1.8</div>
+    <div id="ver">Barcode v1.9</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -207,7 +207,7 @@ function makeItem(it, cal){
   const ch=(it.type==='text')?(labelH+20):(ih+2*(gap+labelH)+20);
   const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
   const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
-  if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.03)*PXREF);
+  if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
   else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
   else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
   else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');

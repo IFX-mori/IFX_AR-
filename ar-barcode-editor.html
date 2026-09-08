@@ -332,7 +332,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v2.6';
+const APP_VERSION = 'v2.8';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -403,7 +403,7 @@ function figCanvas(it){
   const ch=(it.type==='text')?(labelH+20):(ih+2*(gap+labelH)+20);
   const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
   const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
-  if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.03)*PXREF);
+  if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
   else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
   else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
   else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
@@ -558,7 +558,7 @@ document.getElementById('stage').addEventListener('pointerdown', ev=>{
 
 function defaultFig(type, x, y){
   const base={ type, pos:[x,y,0], color:'#60a5fa' };
-  if(type==='box')          return { ...base, size:0.12, label:'確認', labelBelow:true };
+  if(type==='box')          return { ...base, size:0.12, lineThick:0.015, label:'確認', labelBelow:true };
   if(type==='ring')         return { ...base, size:0.12, label:'押す' };
   if(type==='arrow')        return { ...base, label:'押す' };
   if(type==='arrowDown')    return { ...base, label:'下に' };
@@ -617,8 +617,9 @@ function renderPropbar(){
   h+=`<textarea id="pp-label" placeholder="ラベル（改行可）" rows="1">${escHtml(f.label||'')}</textarea>`;
   // サイズ
   if(f.type==='curvedArrow'){ h+=`<span class="grp">向き<select id="pp-dir"><option value="right"${f.dir==='right'?' selected':''}>右</option><option value="left"${f.dir==='left'?' selected':''}>左</option></select></span>`; }
-  // 大きさ：全種で調整可（text は文字サイズ、それ以外は図形サイズ）
+  // 大きさ：text=文字サイズ／box=横・縦を独立（長方形化）／その他=一律
   if(isText){ h+=`<span class="grp">字<button class="sbtn" data-fs="-">－</button><button class="sbtn" data-fs="+">＋</button></span>`; }
+  else if(f.type==='box'){ h+=`<span class="grp">横<button class="sbtn" data-w="-">－</button><button class="sbtn" data-w="+">＋</button></span><span class="grp">縦<button class="sbtn" data-h="-">－</button><button class="sbtn" data-h="+">＋</button></span>`; }
   else { h+=`<span class="grp">大<button class="sbtn" data-sz="-">－</button><button class="sbtn" data-sz="+">＋</button></span>`; }
   if(f.type==='box'){ h+=`<span class="grp">線<button class="sbtn" data-lt="-">－</button><button class="sbtn" data-lt="+">＋</button></span>`;
     h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
@@ -638,6 +639,13 @@ function renderPropbar(){
     renderOverlay(); });
   bar.querySelectorAll('[data-fs]').forEach(b=>b.onclick=()=>{ f.fontScale=+(Math.max(0.5,Math.min(3,(f.fontScale||1)+(b.getAttribute('data-fs')==='+'?0.1:-0.1)))).toFixed(1); renderOverlay(); });
   bar.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{ f.lineThick=+Math.max(0.003,Math.min(0.06,(f.lineThick||0.03)*(b.getAttribute('data-lt')==='+'?1.25:0.8))).toFixed(4); renderOverlay(); });
+  // 囲み枠の横・縦を独立調整（長方形化）。sizeを sizeW/sizeH に展開してから変更
+  bar.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-w')==='+'?1.15:0.87;
+    const w=(f.sizeW||f.size||0.12), hh=(f.sizeH||f.size||0.12); delete f.size;
+    f.sizeW=+Math.max(0.02,w*k).toFixed(3); f.sizeH=+hh.toFixed(3); renderOverlay(); });
+  bar.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-h')==='+'?1.15:0.87;
+    const w=(f.sizeW||f.size||0.12), hh=(f.sizeH||f.size||0.12); delete f.size;
+    f.sizeH=+Math.max(0.02,hh*k).toFixed(3); f.sizeW=+w.toFixed(3); renderOverlay(); });
   const labTa=document.getElementById('pp-label'); if(labTa) labTa.addEventListener('input', syncBottomHeight);
   syncBottomHeight();
 }
