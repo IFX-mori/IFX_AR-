@@ -52,8 +52,10 @@
   .sp-item small { display:block; font-size:11px; color:#64748b; margin-top:2px; }
   .sp-item:active { background:#e0e7ff; }
   .sp-cancel { width:100%; padding:11px; border:none; border-radius:10px; background:#e2e8f0; color:#334155; font-weight:700; font-size:14px; cursor:pointer; margin-top:2px; }
-  .doc-btn { flex:1; padding:9px 8px; border:none; border-radius:10px; font-size:12.5px; font-weight:700; color:#fff; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  #doc-btn-row { display:flex; align-items:center; pointer-events:auto; }
+  .doc-btn { padding:6px 10px; border:none; border-radius:9px; font-size:12px; font-weight:700; color:#fff; cursor:pointer; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
   .doc-btn-pdf { background:#b91c1c; } .doc-btn-video { background:#7c3aed; }
+  #btn-finish { background:#16a34a; }
 </style>
 </head>
 <body>
@@ -83,8 +85,9 @@
 <div id="ui">
   <div id="topbar">
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
+    <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Barcode v1.7</div>
+    <div id="ver">Barcode v1.8</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -103,8 +106,7 @@
   <div id="card">
     <div id="card-head"><span id="badge">STEP</span><span id="stitle">–</span></div>
     <div id="sdetail">–</div>
-    <div id="doc-btn-row" style="display:none; gap:8px; margin-bottom:10px;"></div>
-    <div id="nav"><button id="btn-prev">‹ 戻る</button><button id="btn-next">次へ ›</button></div>
+    <div id="nav"><button id="btn-prev">‹ 戻る</button><button id="btn-next">次へ ›</button><button id="btn-finish" style="display:none">✓ 終了</button></div>
     <div id="counter">– / –</div>
   </div>
 </div>
@@ -126,7 +128,6 @@
   <div class="sp-box">
     <div class="sp-head">操作を選択　<span id="sp-dev" style="font-weight:500;color:#94a3b8;font-size:11px"></span></div>
     <div id="sp-list"></div>
-    <button id="sp-close" class="sp-cancel">閉じる</button>
   </div>
 </div>
 
@@ -263,8 +264,10 @@ function renderStep(){ const sc=cur; if(!sc) return; const step=sc.steps[idx]; c
   const b=document.getElementById('badge'); b.textContent=`STEP ${idx+1}`; b.style.background=col;
   document.getElementById('btn-next').style.background=col;
   document.getElementById('counter').textContent=`${idx+1} / ${sc.steps.length}`;
+  const isLast = idx>=sc.steps.length-1;
   document.getElementById('btn-prev').style.visibility=idx>0?'visible':'hidden';
-  document.getElementById('btn-next').style.visibility=idx<sc.steps.length-1?'visible':'hidden';
+  document.getElementById('btn-next').style.display=isLast?'none':'';
+  document.getElementById('btn-finish').style.display=isLast?'':'none';
   while(content.firstChild) content.removeChild(content.firstChild);
   step.ar.forEach(it=>content.appendChild(makeItem(it,sc.calib)));
 }
@@ -276,6 +279,7 @@ function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=k
   followMarker(markerId);
   document.getElementById('scname').textContent=scenario.name;
   document.getElementById('scsub').textContent=scenario.subtitle||'';
+  const _st=document.getElementById('stxt'); if(_st) _st.textContent='認識中：'+scenario.name;
   applyCal(); renderStep(); updateDocButtons();
   // 複数操作があるときだけ「≡操作」ボタンを表示
   const list=SCENARIOS[key]||[]; document.getElementById('btn-menu').style.display = list.length>1 ? 'inline-block':'none';
@@ -353,7 +357,14 @@ function showPicker(key,markerId){
 }
 function hidePicker(){ document.getElementById('scenpick').style.display='none'; }
 document.getElementById('btn-menu').onclick=()=>{ if(curKey) showPicker(curKey, curMid); };
-document.getElementById('sp-close').onclick=hidePicker;
+// シナリオ終了：複数操作なら選択メニューへ戻る／単一なら最初から再生し直す
+function finishScenario(){
+  closeDoc(); const key=curKey, mid=curMid, list=SCENARIOS[key]||[];
+  cur=null; idx=0;
+  if(list.length>1){ curKey=key; showPicker(key,mid); }
+  else if(key){ onFound(key,mid); }
+}
+document.getElementById('btn-finish').onclick=finishScenario;
 
 // ══════ マーカー認識（値でシナリオ自動判別） ══════
 const dot=document.getElementById('dot'), stxt=document.getElementById('stxt'), hint=document.getElementById('hint');
