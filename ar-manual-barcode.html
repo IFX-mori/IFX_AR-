@@ -6,7 +6,7 @@
 <title>AR手動ナビ（バーコード）</title>
 <!-- ════════════════════════════════════════════════════════════
   バーコードマーカー方式の手動ナビ（AR.js）／独立ファイル・既存無改変
-  ・バーコード value=0→発電機 / value=1→踏切制御器リセット手順-2 を自動判別
+  ・シナリオはGitHub barcode-scenarios/*.json のみ（内蔵デモ廃止）。1バーコードに複数操作を登録し認識後に選択
   ・1€フィルタで揺れ抑制、シナリオごとに校正（scale/ox/oy/rot）
   ・マーカー印刷：3x3 matrix の 0.png / 1.png
 ════════════════════════════════════════════════════════════ -->
@@ -82,10 +82,10 @@
   <div id="topbar">
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Barcode v1.5</div>
+    <div id="ver">Barcode v1.6</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
-  <div id="hint">バーコードマーカーにカメラを向けてください<small>value=0→発電機／value=1→踏切</small></div>
+  <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
 
   <button id="cal-toggle" style="position:absolute;left:12px;top:96px;pointer-events:auto;background:rgba(15,23,42,0.82);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer">校正</button>
   <div id="calib" style="position:absolute;left:12px;top:134px;pointer-events:auto;display:none;background:rgba(255,255,255,0.97);backdrop-filter:blur(8px);border-radius:12px;padding:10px 12px;box-shadow:0 4px 14px rgba(0,0,0,.2);font-size:12px;color:#1e293b;min-width:186px">
@@ -119,45 +119,7 @@
 const WARN = { normal:{c:'#1d4ed8',label:'通常',sym:''}, caution:{c:'#d97706',label:'注意',sym:'⚠️'}, danger:{c:'#dc2626',label:'危険',sym:'⛔'} };
 
 // ══════ シナリオ（図形は画像正規化座標。バーコード値で自動判別） ══════
-const SCEN = {
-  '0': { name:'発電機', subtitle:'発電機の復旧手順', calib:{scale:6, ox:0, oy:0, rot:0}, steps:[
-    { title:'ランプ点灯色の確認', warn:'caution', detail:'盤面右上のランプを目視で確認し、点灯している色のボタンを押してください。',
-      ar:[{type:'box', pos:[0.36,0.46,0], color:'#ef4444', sizeW:0.30, sizeH:0.14, lineThick:0.008, label:'ランプ点灯色を確認', labelBelow:true, textColor:'#fff', textBg:'#ef4444'}] },
-    { title:'つまみを左右に回す', warn:'normal', detail:'左側のつまみを左へ30、右側のつまみを右へ70回してください。',
-      ar:[{type:'curvedArrow', pos:[-0.395,0.525,0], color:'#60a5fa', dir:'left', label:'左へ回す\n30', scale:2.4},
-          {type:'curvedArrow', pos:[-0.115,0.525,0], color:'#60a5fa', dir:'right', label:'右へ回す\n70', scale:2.4}] },
-    { title:'ボタンを1回ずつ押す', warn:'normal', detail:'中央左・中央のボタンをそれぞれ1回押してください。',
-      ar:[{type:'arrow', pos:[-0.125,-0.05,0], color:'#60a5fa', label:'1回押す'},
-          {type:'arrow', pos:[0.125,-0.05,0], color:'#60a5fa', label:'1回押す'}] },
-    { title:'レバーを操作する', warn:'caution', detail:'左下レバーを上に、右下レバーを下に押してください。',
-      ar:[{type:'arrow', pos:[-0.24,-0.44,0], color:'#60a5fa', label:'上に押す', labelAbove:true},
-          {type:'arrowDown', pos:[0.30,-0.42,0], color:'#60a5fa', label:'下に押す'}] },
-    { title:'青ランプの点灯確認', warn:'normal', detail:'中央のランプが青色に点灯したことを確認して作業完了です。',
-      ar:[{type:'box', pos:[0.085,0.46,0], color:'#3b82f6', size:0.10, label:'青の点灯を確認', labelBelow:true, textColor:'#3b82f6', textBg:'#facc15'}] },
-  ]},
-  '1': { name:'踏切制御器リセット手順-2', subtitle:'', calib:{scale:6, ox:0, oy:0, rot:0}, steps:[
-    { title:'液晶表示の確認', warn:'normal', detail:'液晶表示を確認する',
-      ar:[{type:'text', color:'#60a5fa', label:'液晶表示の「重故障」欄の表示を確認する', pos:[-0.008,-0.015,0], fontScale:0.9},
-          {type:'box', color:'#429cf0', size:0.12, label:'確認', pos:[-0.063,0.109,0]}] },
-    { title:'液晶表示の番号を確認', warn:'caution', detail:'液晶表示に「01」が表示されていることを確認する　＜注意＞「01」以外の場合は通信指令へ連絡する',
-      ar:[{type:'text', color:'#60a5fa', label:'液晶表示に\n「01」が表示されていることを確認する', pos:[-0.051,-0.022,0], fontScale:1.1},
-          {type:'box', color:'#428df0', size:0.12, label:'確認', pos:[-0.063,0.112,0]},
-          {type:'text', color:'#f87171', label:'⚠ 注意', pos:[-0.38,-0.223,0]},
-          {type:'text', color:'#fb6060', label:'「01」以外の場合は通信指令へ連絡する', pos:[-0.103,-0.314,0], fontScale:0.8}] },
-    { title:'リセット実行', warn:'caution', detail:'赤色のリセットボタンを2秒以上押す　その後音が鳴る',
-      ar:[{type:'text', color:'#fb6060', label:'停止しない場合、通信指令へ連絡', pos:[-0.162,-0.328,0], fontScale:0.8},
-          {type:'arrow', color:'#60a5fa', label:'リセットボタンを2秒以上押す', pos:[0.023,-0.03,0]},
-          {type:'text', color:'#f87171', label:'⚠ 注意', pos:[-0.377,-0.25,0]},
-          {type:'box', color:'#60a5fa', size:0.1, label:'', pos:[0.026,0.005,0], labelBelow:true}] },
-    { title:'復旧確認', warn:'normal', detail:'正常に復旧した場合は、踏切鳴動が停止します。停止しない場合、通信指令へ連絡します。',
-      ar:[{type:'text', color:'#60a5fa', label:'正常に復旧した場合は、\n踏切鳴動が停止する', pos:[-0.015,0.111,0], fontScale:1.4},
-          {type:'text', color:'#fb6060', label:'鳴動が停止しない場合は通信指令へ連絡する', pos:[-0.06,-0.311,0], fontScale:0.8},
-          {type:'text', color:'#f87171', label:'⚠ 注意', pos:[-0.377,-0.222,0]}] },
-    { title:'正常動作の確認', warn:'normal', detail:'1列車の通過で正常動作を確認して作業終了',
-      ar:[{type:'text', color:'#60a5fa', label:'1列車の通過で\n正常に動作することを確認する', pos:[0.01,0.109,0], fontScale:1.2},
-          {type:'text', color:'#60a5fa', label:'以上で作業終了', pos:[-0.002,-0.015,0], fontScale:1}] },
-  ]},
-};
+const SCEN = {};  // 内蔵デモは廃止。シナリオはGitHub barcode-scenarios/*.json のみ
 
 // ══════ 1€(OneEuro)フィルタ＋マーカー追従 ══════
 function _LP(){ this.s=null; }
@@ -336,20 +298,52 @@ function onFound(key,markerId){ if(lostTimer){clearTimeout(lostTimer);lostTimer=
   }
 }
 function onLost(){ if(lostTimer)clearTimeout(lostTimer);
-  lostTimer=setTimeout(()=>{lostTimer=null; dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.classList.remove('hidden'); setFrameRecognized(false);},1000); }
-// マーカー0〜9すべてに認識ハンドラを付ける（シナリオ未登録の値はヒント表示のみ）
+  lostTimer=setTimeout(()=>{ lostTimer=null;
+    // 現在マーカーが猶予後も見えない → 他に見えている登録マーカーがあればそれへ切替
+    const other=[..._visible].find(k=>k!==curKey && SCENARIOS[k] && SCENARIOS[k].length);
+    if(other){ curKey=null; cur=null; hidePicker(); onFound(other,'m'+other); return; }
+    dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.classList.remove('hidden'); setFrameRecognized(false);
+  },1000); }
+
+// ══════ 誤読ガード（切替安定化） ══════
+// 3x3マトリクスは誤り訂正が無く一瞬別値に誤読され得る。対策：
+//  ・今のマーカーが見えている間は他へ切り替えない（再認識は維持）
+//  ・別マーカーは SWITCH_MS 連続で見え続けたときだけ切替（一瞬のブリップは無視）
+const SWITCH_MS = parseInt(new URLSearchParams(location.search).get('switchms')||'700',10);
+const _visible=new Set();
+let pendingKey=null, pendingMid=null, pendingTimer=null;
+function clearPending(){ if(pendingTimer){clearTimeout(pendingTimer);pendingTimer=null;} pendingKey=null; pendingMid=null; }
+function handleFound(key, mid){
+  if(!SCENARIOS[key]||!SCENARIOS[key].length){ // 未登録：表示中があれば維持し、無ければ案内のみ
+    if(!cur && !curKey){ dot.classList.remove('on'); stxt.textContent='未登録のバーコード（value='+key+'）'; }
+    return;
+  }
+  _visible.add(key);
+  if(key===curKey){ // 現在のマーカー（選択済み or 選択メニュー表示中）を再認識 → 維持
+    clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
+    dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true); return;
+  }
+  if(!cur && !curKey){ onFound(key,mid); return; }   // 初回取得は即時
+  // 別マーカー：一定時間見え続けたら切替（誤読ブリップは pending キャンセルで無視）
+  if(pendingKey!==key){ clearPending(); pendingKey=key; pendingMid=mid;
+    pendingTimer=setTimeout(()=>{ pendingTimer=null;
+      // 別マーカーが継続して見え、かつ現在マーカーがもう見えていないときだけ切替（見えている間はロックして誤読で奪われない）
+      if(_visible.has(key) && !_visible.has(curKey)){ clearPending(); curKey=null; cur=null; hidePicker(); onFound(key,mid); }
+      else clearPending();
+    }, SWITCH_MS);
+  }
+}
+function handleLost(key){
+  _visible.delete(key);
+  if(key===pendingKey) clearPending();   // 切替候補が消えた＝誤読ブリップ→切替中止
+  if(key===curKey) onLost();             // 現在マーカーのロスト（猶予後に未認識表示・枠黄）
+}
+// マーカー0〜9すべてにハンドラを付ける
 for(let v=0; v<=9; v++){
   const el=document.getElementById('m'+v); if(!el) continue;
   const key=String(v), mid='m'+v;
-  el.addEventListener('markerFound',()=>{
-    if(!SCENARIOS[key]||!SCENARIOS[key].length){ // 未登録バーコード
-      if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
-      dot.classList.remove('on'); stxt.textContent='未登録のバーコード（value='+key+'）';
-      return;
-    }
-    onFound(key,mid);
-  });
-  el.addEventListener('markerLost',onLost);
+  el.addEventListener('markerFound',()=>handleFound(key,mid));
+  el.addEventListener('markerLost',()=>handleLost(key));
 }
 
 // ══════ GitHub から barcode-scenarios/*.json を読み込み SCEN に登録 ══════
