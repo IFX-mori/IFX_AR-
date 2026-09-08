@@ -5,8 +5,8 @@
   "subtitle": "",
   "device": "踏切制御装置",
   "docs": {
-    "pdf": "https://github.com/IFX-mori/IFX_AR-/blob/main/docs/crossing.pdf",
-    "video": "https://github.com/IFX-mori/IFX_AR-/blob/main/docs/crossing.mp4"
+    "pdf": "https://raw.githubusercontent.com/IFX-mori/IFX_AR-/main/docs/crossing.pdf",
+    "video": "https://raw.githubusercontent.com/IFX-mori/IFX_AR-/main/docs/crossing.mp4"
   },
   "calib": {
     "scale": 6.67,
