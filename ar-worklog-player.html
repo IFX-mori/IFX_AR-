@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v1.0</div>
+    <div id="ver">Worklog v1.1</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -176,6 +176,14 @@
 <script>
 const WARN = { normal:{c:'#1d4ed8',label:'通常',sym:''}, caution:{c:'#d97706',label:'注意',sym:'⚠️'}, danger:{c:'#dc2626',label:'危険',sym:'⛔'} };
 const SCEN = {};
+
+// ══════ オフライン対応（Service Worker） ══════
+// アプリ本体・AR.js・PDF.jsをキャッシュし、圏外でもアプリを起動可能に（iOS制約でstandalone化はせずSafariで開く）。
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+window.addEventListener('offline', ()=>{ try{ toast('📴 オフライン：保存済みで動作します'); }catch(_){} });
+window.addEventListener('online',  ()=>{ try{ toast('📶 オンラインに復帰しました'); }catch(_){} });
 
 // ══════ 1€(OneEuro)フィルタ＋マーカー追従 ══════
 function _LP(){ this.s=null; }
