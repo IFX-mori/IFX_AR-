@@ -1,0 +1,139 @@
+{
+  "id": "bc-テスト用-qad5s",
+  "barcode": 1,
+  "name": "テスト用",
+  "subtitle": "電卓でテスト",
+  "device": "電卓",
+  "docs": {},
+  "calib": {
+    "scale": 4.61,
+    "ox": 0,
+    "oy": 0,
+    "rot": 0
+  },
+  "imageFile": "barcode-targets/bc-テスト用-qad5s.jpg",
+  "markerSizeMM": 40,
+  "markerPos": {
+    "u": 0.2468,
+    "v": 0.2399,
+    "w": 0.217
+  },
+  "steps": [
+    {
+      "title": "ステップ1：「ON」を押す",
+      "detail": "」 「ON」を押す 「",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "「ON」を押す",
+          "pos": [
+            0.096,
+            -0.812,
+            0
+          ]
+        },
+        {
+          "type": "arrow",
+          "color": "#60a5fa",
+          "label": "押す",
+          "pos": [
+            -0.139,
+            -0.78,
+            0
+          ],
+          "h": 0.143
+        }
+      ]
+    },
+    {
+      "title": "ステップ2：数字と計算式を押す",
+      "detail": "」 数字と計算式を押す 「",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "数字と計算式を押す",
+          "pos": [
+            0.302,
+            -0.876,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.329,
+            -0.537,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.015,
+          "label": "",
+          "labelBelow": true,
+          "sizeH": 0.558,
+          "sizeW": 0.739
+        }
+      ]
+    },
+    {
+      "title": "ステップ3： 計算結果を液晶画面で確認する",
+      "detail": "」 計算結果を液晶画面で確認する 「",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": " 計算結果を液晶画面で確認する",
+          "pos": [
+            0.341,
+            -0.092,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "color": "#ef4444",
+          "label": "",
+          "pos": [
+            0.318,
+            0.072,
+            0
+          ],
+          "sizeW": 0.485,
+          "sizeH": 0.138
+        }
+      ]
+    },
+    {
+      "title": "ステップ4：「OFF」ボタンを押す",
+      "detail": "」 「OFF」ボタンを押す",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "「OFF」ボタンを押す",
+          "pos": [
+            0.468,
+            -0.064,
+            0
+          ]
+        },
+        {
+          "type": "arrow",
+          "color": "#60a5fa",
+          "label": "押す",
+          "pos": [
+            0.585,
+            -0.272,
+            0
+          ],
+          "h": 0.217
+        }
+      ]
+    }
+  ]
+}
