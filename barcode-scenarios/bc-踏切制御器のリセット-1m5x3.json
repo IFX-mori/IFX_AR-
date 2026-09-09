@@ -9,7 +9,7 @@
     "video": "https://ifx-mori.github.io/IFX_AR-/docs/crossing.mp4"
   },
   "calib": {
-    "scale": 6.15,
+    "scale": 5.64,
     "ox": 0,
     "oy": 0,
     "rot": 0
@@ -19,7 +19,7 @@
   "markerPos": {
     "u": 0.1057,
     "v": 0.1236,
-    "w": 0.1626
+    "w": 0.1773
   },
   "steps": [
     {
@@ -52,8 +52,8 @@
         {
           "type": "ring",
           "pos": [
-            0.07,
-            -0.169,
+            0.79,
+            -0.126,
             0
           ],
           "color": "#60a5fa",
