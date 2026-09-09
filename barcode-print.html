@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>バーコードマーカー印刷（隅に番号）</title>
+<!-- ════════════════════════════════════════════════════════════
+  バーコードマーカー印刷ページ（黒枠の隅に小さく番号を焼き込む）
+  ・ステッカーはマーカーサイズ(40mm)のまま。番号は黒枠の隅に白抜きで小さく重ねる。
+  ・番号はデータ格納部(中央3x3セル)にも外周エッジにも掛けないため実用上は認識可能な範囲だが、
+    黒領域に重ねる以上は必ず実機で読み取りテストを推奨（読めなければ小さく/位置変更）。
+  ・隅の位置・数字サイズは調整可。GitHub barcode-scenarios から使用番号を自動取得＋手入力も可。
+════════════════════════════════════════════════════════════ -->
+<style>
+  body { font-family:-apple-system,'Helvetica Neue',sans-serif; margin:0; padding:20px; color:#1e293b; background:#f8fafc; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .note { font-size:13px; color:#475569; line-height:1.7; margin-bottom:14px; }
+  .note b { color:#0f172a; } .note .warn { color:#b45309; }
+  .toolbar { margin-bottom:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; }
+  .toolbar label { font-size:13px; color:#334155; font-weight:700; display:flex; align-items:center; gap:6px; }
+  .toolbar input[type=text]{ padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; width:150px; }
+  .toolbar select, .toolbar input[type=range]{ vertical-align:middle; }
+  .toolbar button { padding:9px 14px; border:none; border-radius:9px; color:#fff; font-weight:700; font-size:14px; cursor:pointer; }
+  #btn-print{background:#1d4ed8;} #btn-add{background:#0e7490;} #btn-reload{background:#475569;}
+  #status { font-size:12px; color:#64748b; }
+  .grid { display:flex; flex-wrap:wrap; gap:14px; }
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:5mm; text-align:center; break-inside:avoid; }
+  .mk { width:40mm; height:40mm; image-rendering:pixelated; display:block; }
+  .card .sz { font-size:10px; color:#94a3b8; margin-top:2px; }
+  @media print {
+    body { background:#fff; padding:0; }
+    .toolbar,.note,h1,#status { display:none; }
+    .card { border:1px dashed #cbd5e1; border-radius:0; }
+    .card .sz { display:none; }
+    .grid { gap:2mm; }
+  }
+</style>
+</head>
+<body>
+  <h1>バーコードマーカー印刷（黒枠の隅に番号）</h1>
+  <div class="note">
+    ステッカーは<b>40mm角のまま</b>。番号を<b>黒枠の隅</b>に白抜きで小さく重ねます（データ部・外周には掛けない）。<br>
+    <span class="warn">⚠ 黒領域に重ねるため、必ず実機で読み取りテストを。</span> 読みにくければ「数字サイズ」を小さく、または「位置」を変えてください。
+  </div>
+  <div class="toolbar">
+    <label>位置
+      <select id="corner">
+        <option value="tl">左上</option>
+        <option value="tr" selected>右上</option>
+        <option value="bl">左下</option>
+        <option value="br">右下</option>
+      </select>
+    </label>
+    <label>数字サイズ <input type="range" id="size" min="6" max="22" value="10"><span id="size-val">10</span>%</label>
+    <button id="btn-print" onclick="window.print()">🖨 印刷 / PDF保存</button>
+    <button id="btn-reload" onclick="loadAndRender()">↻ 登録を再読込</button>
+    <input type="text" id="extra" placeholder="追加番号 例:0,1,5" inputmode="numeric">
+    <button id="btn-add" onclick="addExtra()">＋追加</button>
+    <span id="status"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+
+<script>
+const GH_OWNER='ifx-mori', GH_REPO='IFX_AR-', BARCODE_DIR='barcode-scenarios';
+const MK_PRIMARY  = n => `https://cdn.jsdelivr.net/gh/nicolocarpignoli/artoolkit-barcode-markers-collection@master/3x3/${n}.png`;
+const MK_FALLBACK = n => `https://raw.githubusercontent.com/nicolocarpignoli/artoolkit-barcode-markers-collection/master/3x3/${n}.png`;
+const grid=document.getElementById('grid'), statusEl=document.getElementById('status');
+const cfg = { corner:'tr', sizePct:10 };
+let usedNums = new Set();       // GitHub登録の番号
+const extraNums = new Set();
+const cards = [];               // {canvas, redraw}
+
+function drawNumber(ctx,S,n){
+  const fs=S*cfg.sizePct/100;
+  const inset=Math.max(S*0.10, fs*0.62);       // 隅からの中心オフセット（枠内に収める）
+  let x,y;
+  if(cfg.corner==='tl'){x=inset;y=inset;}
+  else if(cfg.corner==='tr'){x=S-inset;y=inset;}
+  else if(cfg.corner==='bl'){x=inset;y=S-inset;}
+  else {x=S-inset;y=S-inset;}
+  ctx.font=`900 ${fs}px -apple-system,'Helvetica Neue',sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.lineJoin='round'; ctx.lineWidth=Math.max(2,fs*0.16); ctx.strokeStyle='#000'; ctx.strokeText(String(n),x,y);
+  ctx.fillStyle='#fff'; ctx.fillText(String(n),x,y);
+}
+function makeCard(n){
+  const S=452;
+  const card=document.createElement('div'); card.className='card';
+  const cv=document.createElement('canvas'); cv.width=cv.height=S; cv.className='mk';
+  const ctx=cv.getContext('2d');
+  const img=new Image();
+  const redraw=()=>{ if(!(img.complete&&img.naturalWidth)) return; ctx.clearRect(0,0,S,S); ctx.imageSmoothingEnabled=false; ctx.drawImage(img,0,0,S,S); drawNumber(ctx,S,n); };
+  img.onload=redraw;
+  img.onerror=()=>{ if(!img._fb){img._fb=1; img.src=MK_FALLBACK(n);} };
+  img.src=MK_PRIMARY(n);
+  card.appendChild(cv);
+  const sz=document.createElement('div'); sz.className='sz'; sz.textContent='No.'+n+' ／ 40mm'; card.appendChild(sz);
+  cards.push({redraw}); grid.appendChild(card);
+}
+function render(){
+  grid.innerHTML=''; cards.length=0;
+  const nums=[...new Set([...usedNums, ...extraNums])].filter(n=>Number.isInteger(n)).sort((a,b)=>a-b);
+  if(!nums.length){ grid.innerHTML='<div style="color:#64748b;font-size:13px">表示する番号がありません。「追加番号」に入力するか、シナリオを登録してください。</div>'; return; }
+  nums.forEach(makeCard);
+}
+function redrawAll(){ cards.forEach(c=>c.redraw()); }
+async function loadAndRender(){
+  statusEl.textContent='登録を読込中…'; usedNums=new Set();
+  try{
+    const bust='t='+Date.now();
+    const res=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${BARCODE_DIR}?ref=main&${bust}`,{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
+    if(res.ok){ const files=await res.json();
+      const jsons=(await Promise.all((Array.isArray(files)?files:[]).filter(f=>f.name.endsWith('.json')&&f.download_url)
+        .map(f=>fetch(f.download_url+(f.download_url.includes('?')?'&':'?')+bust,{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null))))
+        .filter(s=>s&&Number.isInteger(s.barcode));
+      jsons.forEach(s=>usedNums.add(s.barcode));
+      statusEl.textContent = usedNums.size?`登録番号：${[...usedNums].sort((a,b)=>a-b).join(', ')}`:'登録はありません（追加番号で印刷可）';
+    } else statusEl.textContent='登録取得に失敗（追加番号で印刷可）';
+  }catch(e){ statusEl.textContent='オフライン等：登録取得不可（追加番号で印刷可）'; }
+  render();
+}
+function addExtra(){ (document.getElementById('extra').value.match(/\d+/g)||[]).map(Number).filter(n=>n>=0&&n<=63).forEach(n=>extraNums.add(n)); document.getElementById('extra').value=''; render(); }
+document.getElementById('corner').onchange=e=>{ cfg.corner=e.target.value; redrawAll(); };
+document.getElementById('size').oninput=e=>{ cfg.sizePct=+e.target.value; document.getElementById('size-val').textContent=e.target.value; redrawAll(); };
+loadAndRender();
+</script>
+</body>
+</html>
