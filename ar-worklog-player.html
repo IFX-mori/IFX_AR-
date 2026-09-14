@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v1.6</div>
+    <div id="ver">Worklog v1.7</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -469,9 +469,12 @@ const dot=document.getElementById('dot'), stxt=document.getElementById('stxt'), 
 let lostTimer=null;
 // 現ステップが欲しい面のマーカーが見えているか→認識表示 or 「その面へ」誘導
 function updateWanted(){
-  if(!cur){ return; }
+  if(!cur){ content.setAttribute('visible', false); return; }
   const face=curFace(); const w=String(face.barcode);
-  if(_visible.has(w)){
+  const vis=_visible.has(w);
+  // 誤操作防止：欲しい面のマーカーを認識できていない間はAR図形を出さない
+  content.setAttribute('visible', vis);
+  if(vis){
     if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
     followMarker('m'+w);
     dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true);
