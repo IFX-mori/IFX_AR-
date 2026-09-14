@@ -51,8 +51,9 @@
   #zoomctl button { width:40px; height:36px; border-radius:9px; border:1px solid rgba(255,255,255,.25); background:rgba(15,23,42,.78); color:#fff; font-size:16px; font-weight:800; }
   #zoomlabel { font-size:11px; color:#cbd5e1; background:rgba(15,23,42,.6); padding:4px 7px; border-radius:7px; }
   #edit-img { display:block; max-width:100%; max-height:100%; }
-  #overlay { position:absolute; inset:0; pointer-events:none; }
-  .fig { position:absolute; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; transform:translate(-50%,-50%); }
+  #overlay { position:absolute; inset:0; pointer-events:none; perspective:760px; perspective-origin:center; }
+  .fig { position:absolute; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; transform:translate(-50%,-50%); transform-style:preserve-3d; }
+  .fig img { backface-visibility:visible; }
   .fig img { display:block; width:100%; height:100%; }
   .fig.sel::after { content:''; position:absolute; inset:-6px; border:2px dashed #fff; border-radius:8px; box-shadow:0 0 0 2px rgba(0,0,0,.4); }
   /* バーコード基準ボックス（実寸マーカーの写真上の大きさ＝原点＆cm基準） */
@@ -332,7 +333,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v2.8';
+const APP_VERSION = 'v2.9';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -463,6 +464,8 @@ function normToCm(v){ return v*ED.calib.scale*ED.markerSizeMM/10; }
 function posCmLabel(f){ return `x:${normToCm(f.pos[0]).toFixed(1)}cm y:${normToCm(f.pos[1]).toFixed(1)}cm`; }
 
 // ══════════ オーバーレイ描画 ══════════
+// エディタCSSプレビューの回転符号（A-Frame度数→CSS）。実機とズレる軸があればここを±で反転して合わせる。
+const ROT_SIGN = { x:-1, y:1, z:-1 };
 function renderOverlay(){
   const ov=document.getElementById('overlay'); const r=imgRect();
   ov.innerHTML='';
@@ -477,6 +480,10 @@ function renderOverlay(){
     //   幅% = wUnits*100（W基準） / 高さ% = hUnits/aspect*100（W*aspect基準でpxを合わせる）
     el.style.width=(fc.wUnits*100)+'%';
     el.style.height=(fc.hUnits/imgAspect()*100)+'%';
+    // 回転：保存値はA-Frame(プレイヤー)の度数。エディタはCSS 3Dで近似表示（符号はROT_SIGNで調整）
+    const rt=it.rot; if(rt&&(rt.x||rt.y||rt.z)){
+      el.style.transform=`translate(-50%,-50%) rotateZ(${ROT_SIGN.z*(rt.z||0)}deg) rotateX(${ROT_SIGN.x*(rt.x||0)}deg) rotateY(${ROT_SIGN.y*(rt.y||0)}deg)`;
+    }
     const im=document.createElement('img'); im.src=fc.url; el.appendChild(im);
     el.addEventListener('pointerdown', ev=>{ ev.stopPropagation(); startDrag(ev,i); });
     ov.appendChild(el);
@@ -624,6 +631,12 @@ function renderPropbar(){
   if(f.type==='box'){ h+=`<span class="grp">線<button class="sbtn" data-lt="-">－</button><button class="sbtn" data-lt="+">＋</button></span>`;
     h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
   if(f.type==='arrow'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-above" ${f.labelAbove?'checked':''}> ラベル上</label></span>`; }
+  // 回転（面内Z＝自由回転／傾きX・Y＝奥行き）
+  { const r=f.rot||{x:0,y:0,z:0}; const on=(f.rot&&(r.x||r.y||r.z));
+    h+=`<span class="grp">回転<button class="sbtn" data-rot="z-" title="左回り">↺</button><button class="sbtn" data-rot="z+" title="右回り">↻</button></span>`;
+    h+=`<span class="grp">奥行<button class="sbtn" data-rot="x-" title="上を奥へ">⤒</button><button class="sbtn" data-rot="x+" title="上を手前へ">⤓</button><button class="sbtn" data-rot="y-" title="左を奥へ">⇤</button><button class="sbtn" data-rot="y+" title="右を奥へ">⇥</button></span>`;
+    h+=`<span class="grp" style="color:${on?'var(--none,#0f172a)':'#94a3b8'}">${on?`X${r.x||0} Y${r.y||0} Z${r.z||0}`:'水平'}${on?` <button class="sbtn" data-rot="0" title="回転リセット">⟲</button>`:''}</span>`;
+  }
   h+=`<span class="grp" id="pp-pos">${posCmLabel(f)}</span>`;
   h+=`<button class="delfig" onclick="deleteFig()">図形削除</button>`;
   bar.innerHTML=h;
@@ -639,6 +652,17 @@ function renderPropbar(){
     renderOverlay(); });
   bar.querySelectorAll('[data-fs]').forEach(b=>b.onclick=()=>{ f.fontScale=+(Math.max(0.5,Math.min(3,(f.fontScale||1)+(b.getAttribute('data-fs')==='+'?0.1:-0.1)))).toFixed(1); renderOverlay(); });
   bar.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{ f.lineThick=+Math.max(0.003,Math.min(0.06,(f.lineThick||0.03)*(b.getAttribute('data-lt')==='+'?1.25:0.8))).toFixed(4); renderOverlay(); });
+  // 回転（面内Z＝自由回転／傾きX・Y＝奥行き）。15°刻み。
+  bar.querySelectorAll('[data-rot]').forEach(b=>b.onclick=()=>{
+    const k=b.getAttribute('data-rot');
+    if(k==='0'){ delete f.rot; renderOverlay(); return; }
+    f.rot=f.rot||{x:0,y:0,z:0};
+    const ax=k[0], dir=k[1]==='+'?1:-1;
+    let v=((f.rot[ax]||0)+dir*15); v=((v%360)+360)%360; if(v>180)v-=360;
+    f.rot[ax]=v;
+    if(!f.rot.x&&!f.rot.y&&!f.rot.z) delete f.rot;
+    renderOverlay();
+  });
   // 囲み枠の横・縦を独立調整（長方形化）。sizeを sizeW/sizeH に展開してから変更
   bar.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-w')==='+'?1.15:0.87;
     const w=(f.sizeW||f.size||0.12), hh=(f.sizeH||f.size||0.12); delete f.size;

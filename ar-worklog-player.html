@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v1.4</div>
+    <div id="ver">Worklog v1.5</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -258,7 +258,10 @@ function makeItem(it, cal){
   else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir);
   if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg);
     else { const ly=labelAbove?(CY-ih/2-gap-labelH/2):(CY+ih/2+gap+labelH/2); drawLabel(ctx,CX,ly,it.label,fp,bg,fg); } }
-  return planeFromCanvas(cv, it.pos[0]+cal.ox, it.pos[1]+cal.oy, it.pos[2]);
+  const el=planeFromCanvas(cv, it.pos[0]+cal.ox, it.pos[1]+cal.oy, it.pos[2]);
+  // 図形ごとの3D回転（面内Z＋奥行きX/Y）。図形はcontrolの子なのでローカル回転。
+  if(it.rot&&(it.rot.x||it.rot.y||it.rot.z)) el.setAttribute('rotation', `${it.rot.x||0} ${it.rot.y||0} ${it.rot.z||0}`);
+  return el;
 }
 
 // ══════ IndexedDB（作業ログ・端末保存） ══════
