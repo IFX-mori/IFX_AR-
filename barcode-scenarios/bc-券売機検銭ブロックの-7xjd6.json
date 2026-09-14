@@ -28,8 +28,8 @@
     },
     {
       "key": "fmu1axkkahc",
-      "label": "側面yon",
-      "barcode": 1,
+      "label": "側面",
+      "barcode": 4,
       "calib": {
         "scale": 6.67,
         "ox": 0,
