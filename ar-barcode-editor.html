@@ -89,6 +89,14 @@
 
   /* 下：ステップ帯＋プロパティ */
   #bottom { position:absolute; left:0; right:0; bottom:0; height:auto; max-height:56vh; background:#fff; box-shadow:0 -2px 12px rgba(0,0,0,0.14); display:flex; flex-direction:column; }
+  #facebar { display:flex; gap:6px; padding:8px 10px 2px; overflow-x:auto; align-items:center; border-bottom:1px dashed #e2e8f0; }
+  #facebar .ftab { flex:0 0 auto; padding:6px 11px; border-radius:9px; border:1px solid #cbd5e1; background:#f8fafc; font-size:12px; font-weight:700; color:#334155; white-space:nowrap; }
+  #facebar .ftab small { font-weight:600; color:#94a3b8; }
+  #facebar .ftab.on { background:#0e7490; color:#fff; border-color:#0e7490; }
+  #facebar .ftab.on small { color:#bae6fd; }
+  #facebar .fbtn { flex:0 0 auto; padding:6px 10px; border-radius:9px; border:1px solid #cbd5e1; background:#fff; font-size:12px; font-weight:700; color:#475569; white-space:nowrap; }
+  #facebar .fbtn.addf { border-style:dashed; color:#0e7490; }
+  #stepmeta #step-face { padding:7px 6px; border:1px solid #0e7490; color:#0e7490; border-radius:8px; font-weight:700; background:#ecfeff; }
   #steptabs { display:flex; gap:6px; padding:8px 10px 4px; overflow-x:auto; align-items:center; }
   #steptabs .stab { flex:0 0 auto; padding:6px 12px; border-radius:9px; border:1px solid #cbd5e1; background:#f8fafc; font-size:12px; font-weight:700; color:#475569; white-space:nowrap; }
   #steptabs .stab.on { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
@@ -272,11 +280,13 @@
   </div>
 
   <div id="bottom">
+    <div id="facebar"></div>
     <div id="steptabs"></div>
     <div id="stepmeta">
       <button class="mv" onclick="moveStep(-1)" title="前へ">↑</button>
       <button class="mv" onclick="moveStep(1)" title="後へ">↓</button>
       <input class="title" id="step-title" placeholder="ステップ名">
+      <select id="step-face" title="このステップの面（マーカー）"></select>
       <select id="step-warn">
         <option value="normal">通常</option>
         <option value="caution">注意⚠️</option>
@@ -333,7 +343,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v2.9';
+const APP_VERSION = 'v3.0';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -342,21 +352,59 @@ const WARN = { normal:{c:'#1d4ed8',label:'通常'}, caution:{c:'#d97706',label:'
 const PXREF = 1000;
 
 // ══════════ 編集データ ══════════
+// 多面(複数マーカー)対応：ED.faces=各面の状態、作業グローバル(ED.marker/calib/markerSizeMM/imageFile/barcode,_photoDataURL)は「現在の面」を指す
 let ED = {
   id: '', name: '', subtitle: '', device: '', barcode: null,
   docs: {},          // { pdf, video } 資料URL（任意）
   calib: { ...CALIB_DEFAULT },
-  imageFile: '',        // 参照写真のGitHubパス（再編集用。プレイヤーは未使用）
-  markerSizeMM: MARKER_MM_DEFAULT, // マーカー実寸（1辺mm）
-  marker: { u: 0.5, v: 0.5, w: 0.15 }, // 写真上のバーコード位置(u,v)＝原点／w=写真幅に対するマーカー幅の割合。再編集用
+  imageFile: '',
+  markerSizeMM: MARKER_MM_DEFAULT,
+  marker: { u: 0.5, v: 0.5, w: 0.15 },
+  faces: [],         // [{key,label,barcode,markerSizeMM,calib,marker,photoDataURL,imageFile,loadedImg}]
+  faceIdx: 0,
   steps: []
 };
 let stepIdx = 0, figIdx = -1, addType = null;
-let _photoDataURL = null;   // 参照写真（DataURL）
+let _photoDataURL = null;   // 現在の面の参照写真（DataURL）
+let _photoTarget = null;    // 写真取込先：null=セットアップ／数値=面index
 
 function curStep(){ return ED.steps[stepIdx]; }
 function curFig(){ const s=curStep(); return s && figIdx>=0 ? s.ar[figIdx] : null; }
-function mkStep(title){ return { title:title||('ステップ'+(ED.steps.length+1)), detail:'', warn:'normal', ar:[] }; }
+function mkStep(title){ return { title:title||('ステップ'+(ED.steps.length+1)), detail:'', warn:'normal', ar:[], face:(curFaceE()?curFaceE().key:(ED.faces[0]&&ED.faces[0].key)) }; }
+
+// ── 面(マーカー)ヘルパー ──
+function makeFace(label,barcode){ return { key:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,4),
+  label:label||'前面', barcode:(barcode==null||isNaN(barcode))?null:barcode, markerSizeMM:MARKER_MM_DEFAULT,
+  calib:{...CALIB_DEFAULT}, marker:{u:0.5,v:0.5,w:0.15}, photoDataURL:null, imageFile:'', loadedImg:'' }; }
+function curFaceE(){ return ED.faces[ED.faceIdx]; }
+function saveFaceState(){ const f=curFaceE(); if(!f) return; f.photoDataURL=_photoDataURL; f.imageFile=ED.imageFile; f.loadedImg=ED._loadedImg; f.markerSizeMM=ED.markerSizeMM; f.barcode=ED.barcode; /* marker,calibは参照共有 */ }
+function loadFaceState(i){ ED.faceIdx=i; const f=ED.faces[i]; if(!f) return;
+  ED.marker=f.marker; ED.calib=f.calib; ED.markerSizeMM=f.markerSizeMM; ED.imageFile=f.imageFile||''; ED._loadedImg=f.loadedImg||''; ED.barcode=f.barcode; _photoDataURL=f.photoDataURL||null;
+  syncScaleFromMarker();
+  const img=document.getElementById('edit-img'); if(img){ img.onload=()=>{ resetZoom&&resetZoom(); renderOverlay(); }; img.src=_photoDataURL||ED._loadedImg||''; }
+  if(typeof syncCalib==='function') syncCalib();
+  renderFaceBar(); renderOverlay(); renderPropbar();
+}
+function switchFace(i){ if(i===ED.faceIdx) return; if(typeof clearAddType==='function') clearAddType(); saveFaceState(); figIdx=-1; loadFaceState(i); }
+function renderFaceBar(){ const box=document.getElementById('facebar'); if(!box) return; box.innerHTML='';
+  ED.faces.forEach((f,i)=>{ const b=document.createElement('button'); b.className='ftab'+(i===ED.faceIdx?' on':'');
+    b.innerHTML=`${escHtml(f.label||('面'+(i+1)))} <small>#${f.barcode??'?'}</small>`; b.onclick=()=>switchFace(i); box.appendChild(b); });
+  const ph=document.createElement('button'); ph.className='fbtn'; ph.textContent='📷写真'; ph.title='この面の写真を差替'; ph.onclick=()=>{ _photoTarget=ED.faceIdx; document.getElementById('file-photo-lib').click(); }; box.appendChild(ph);
+  const ed=document.createElement('button'); ed.className='fbtn'; ed.textContent='⚙'; ed.title='この面の名前/番号'; ed.onclick=editFace; box.appendChild(ed);
+  const add=document.createElement('button'); add.className='fbtn addf'; add.textContent='＋面を追加'; add.onclick=addFace; box.appendChild(add);
+}
+function addFace(){ saveFaceState();
+  const label=prompt('面の名前（例：側面／右側面 など）', '側面'); if(label===null) return;
+  const bcs=prompt('この面のバーコード番号（空欄＝保存時に自動採番）', '');
+  const bc=(bcs!=null&&bcs.trim()!=='')?parseInt(bcs,10):null;
+  const nf=makeFace(label.trim()||('面'+(ED.faces.length+1)), (bc==null||isNaN(bc))?null:bc);
+  ED.faces.push(nf); const ni=ED.faces.length-1; loadFaceState(ni);
+  _photoTarget=ni; document.getElementById('file-photo-lib').click();   // 続けて写真選択
+}
+function editFace(){ const f=curFaceE(); if(!f) return;
+  const label=prompt('面の名前', f.label||''); if(label!==null) f.label=label.trim()||f.label;
+  const bcs=prompt('バーコード番号（空欄＝自動採番）', f.barcode??''); if(bcs!==null){ const bc=parseInt(bcs,10); f.barcode=isNaN(bc)?null:bc; ED.barcode=f.barcode; }
+  renderFaceBar(); }
 
 // ══════════ プレイヤーと同一の描画（canvas） ══════════
 function labelMetrics(ctx,text,fp){ ctx.font=`bold ${fp}px sans-serif`; const lines=String(text).split('\n');
@@ -594,11 +642,20 @@ function renderStepTabs(){
   add.onclick=()=>{ ED.steps.push(mkStep()); stepIdx=ED.steps.length-1; figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); };
   box.appendChild(add);
 }
+function renderStepFaceSelect(s){ const sel=document.getElementById('step-face'); if(!sel) return;
+  sel.innerHTML=ED.faces.map((f,i)=>`<option value="${f.key}">${escHtml(f.label||('面'+(i+1)))}</option>`).join('');
+  sel.value=(s&&s.face)||(ED.faces[0]&&ED.faces[0].key)||''; }
 function syncStepMeta(){ const s=curStep(); if(!s)return;
   document.getElementById('step-title').value=s.title||'';
-  document.getElementById('step-warn').value=s.warn||'normal'; }
+  document.getElementById('step-warn').value=s.warn||'normal';
+  renderStepFaceSelect(s);
+  // 選択したステップの面へエディタ背景を自動で切替
+  const fi=ED.faces.findIndex(x=>x.key===s.face);
+  if(fi>=0 && fi!==ED.faceIdx){ saveFaceState(); loadFaceState(fi); } }
 document.getElementById('step-title').oninput=e=>{ const s=curStep(); if(s){ s.title=e.target.value; renderStepTabs(); } };
 document.getElementById('step-warn').onchange=e=>{ const s=curStep(); if(s) s.warn=e.target.value; };
+document.getElementById('step-face').onchange=e=>{ const s=curStep(); if(!s) return; s.face=e.target.value;
+  const fi=ED.faces.findIndex(x=>x.key===s.face); if(fi>=0){ saveFaceState(); loadFaceState(fi); } renderStepTabs(); };
 // タイトル先頭が「ステップN」形式のものだけ並び順に番号を振り直す
 function renumberStepTitles(){ ED.steps.forEach((s,i)=>{ if(/^ステップ\s*[0-9０-９]+/.test(s.title||'')) s.title=(s.title||'').replace(/^ステップ\s*[0-9０-９]+/,'ステップ'+(i+1)); }); }
 function moveStep(dir){ const ni=stepIdx+dir; if(ni<0||ni>=ED.steps.length) return;
@@ -689,14 +746,27 @@ document.querySelectorAll('#calib .cbtn').forEach(b=>b.onclick=()=>{ const c=ED.
 
 // ══════════ 写真読込 ══════════
 function onPhotoPicked(e){
-  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
   const rd=new FileReader();
-  rd.onload=()=>{ _photoDataURL=rd.result;
-    const pv=document.getElementById('photo-preview'); pv.src=_photoDataURL; pv.style.display='block';
-    document.getElementById('btn-start').disabled=false;
-    setStatus('写真を読み込みました。「編集を開始」を押してください。'); };
+  rd.onload=()=>{
+    const inEditor=document.getElementById('editor').classList.contains('on');
+    if(inEditor && _photoTarget!=null){
+      // 編集画面：指定面の写真を差替（面追加/差替）
+      const fi=_photoTarget; _photoTarget=null;
+      const face=ED.faces[fi]; if(!face) return;
+      face.photoDataURL=rd.result; face.loadedImg='';
+      if(fi===ED.faceIdx){ _photoDataURL=rd.result; ED._loadedImg='';
+        const img=document.getElementById('edit-img'); img.onload=()=>{ resetZoom&&resetZoom(); renderOverlay(); }; img.src=rd.result; }
+      renderFaceBar();
+    } else {
+      // セットアップ画面：最初の面の写真
+      _photoDataURL=rd.result;
+      const pv=document.getElementById('photo-preview'); pv.src=_photoDataURL; pv.style.display='block';
+      document.getElementById('btn-start').disabled=false;
+      setStatus('写真を読み込みました。「編集を開始」を押してください。');
+    }
+  };
   rd.readAsDataURL(f);
-  e.target.value='';  // 同じファイルを連続で選べるようにリセット
 }
 document.getElementById('file-photo').addEventListener('change', onPhotoPicked);
 document.getElementById('file-photo-lib').addEventListener('change', onPhotoPicked);
@@ -710,19 +780,29 @@ function startEditor(){
   const pdf=normalizeGhUrl(document.getElementById('cfg-pdf').value), vid=normalizeGhUrl(document.getElementById('cfg-video').value);
   document.getElementById('cfg-pdf').value=pdf; document.getElementById('cfg-video').value=vid;
   ED.docs={}; if(pdf) ED.docs.pdf=pdf; if(vid) ED.docs.video=vid;
-  const bc=document.getElementById('cfg-barcode').value.trim();
-  ED.barcode = bc==='' ? null : parseInt(bc,10);
-  const mm=parseFloat(document.getElementById('cfg-markermm').value); ED.markerSizeMM = (mm>0?mm:MARKER_MM_DEFAULT);
-  syncScaleFromMarker();
   if(!ED.id) ED.id=document.getElementById('cfg-id').value.trim() || genId(ED.name);
   document.getElementById('cfg-id').value=ED.id;
+  const bc=document.getElementById('cfg-barcode').value.trim();
+  const barcode = bc==='' ? null : parseInt(bc,10);
+  const mm=parseFloat(document.getElementById('cfg-markermm').value)||MARKER_MM_DEFAULT;
+  // 面の初期化：未作成なら「前面」を1面作成（セットアップの写真・番号・実寸から）
+  if(!ED.faces || !ED.faces.length){
+    const f=makeFace('前面', (barcode==null||isNaN(barcode))?null:barcode);
+    f.markerSizeMM=mm; f.photoDataURL=_photoDataURL; f.loadedImg=ED._loadedImg||''; f.imageFile=ED.imageFile||'';
+    ED.faces=[f]; ED.faceIdx=0;
+  } else {
+    // 読込済み：セットアップの写真差替・番号・実寸を先頭面へ反映
+    const f=ED.faces[0]; if(_photoDataURL){ f.photoDataURL=_photoDataURL; f.loadedImg=''; }
+    if(bc!=='') f.barcode=(barcode==null||isNaN(barcode))?null:barcode; f.markerSizeMM=mm;
+  }
   if(!ED.steps.length) ED.steps=[mkStep('ステップ1')];
-  const img=document.getElementById('edit-img');
-  img.onload=()=>{ renderOverlay(); };
-  img.src=_photoDataURL || ED._loadedImg || '';
+  const fkeys=ED.faces.map(x=>x.key);
+  ED.steps.forEach(s=>{ if(!fkeys.includes(s.face)) s.face=fkeys[0]; });
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').classList.add('on');
-  stepIdx=0; figIdx=-1; addType=null; resetZoom();
+  stepIdx=0; figIdx=-1; addType=null;
+  loadFaceState(0);   // 背景・校正・面バー
+  resetZoom();
   syncStepMeta(); renderStepTabs(); renderPropbar(); syncCalib(); setSub('');
 }
 function backToSetup(){
@@ -737,18 +817,18 @@ function genId(name){
 
 // ══════════ エクスポート / GitHub ══════════
 function buildScenarioJSON(){
+  saveFaceState();
+  const faces=(ED.faces||[]).map(f=>({ key:f.key, label:f.label, barcode:f.barcode,
+    calib:f.calib, markerSizeMM:f.markerSizeMM, imageFile:f.imageFile||'', markerPos:f.marker }));
   return JSON.stringify({
     id: ED.id,
-    barcode: ED.barcode,          // null なら保存時に自動採番
+    barcode: faces[0] ? faces[0].barcode : ED.barcode,   // 後方互換（先頭面）
     name: ED.name,
     subtitle: ED.subtitle||'',
     device: ED.device||'',
     docs: ED.docs||{},
-    calib: ED.calib,
-    imageFile: ED.imageFile||'',  // 参照写真パス（再編集用・プレイヤーは未使用）
-    markerSizeMM: ED.markerSizeMM,// マーカー実寸（再編集用・プレイヤーは未使用）
-    markerPos: ED.marker,         // 写真上のバーコード位置/サイズ（再編集用・プレイヤーは未使用）
-    steps: ED.steps
+    faces,                        // ← 多面。各面のマーカー番号・校正・写真
+    steps: ED.steps               // 各stepに face キー
   }, null, 2);
 }
 function openExport(){
@@ -848,14 +928,18 @@ async function deleteScenario(s){
   }catch(e){ list.innerHTML='<div style="color:#dc2626;font-size:13px">削除失敗: '+e.message+'</div>'; }
 }
 // 既存 barcode-scenarios/*.json の barcode を走査し、空き番号（0..）を返す（自ID除外）
-async function assignBarcode(owner,repo){
+async function assignBarcode(owner,repo,extraUsed){
   const list=await ghGetJson(`https://api.github.com/repos/${owner}/${repo}/contents/${BARCODE_DIR}?ref=main`);
   const used=new Set();
   if(Array.isArray(list)){
     const jsons=await Promise.all(list.filter(f=>f.name.endsWith('.json')&&f.download_url)
       .map(f=>ghGetJson(f.download_url).catch(()=>null)));
-    jsons.forEach(j=>{ if(j&&j.id!==ED.id&&Number.isInteger(j.barcode)) used.add(j.barcode); });
+    jsons.forEach(j=>{ if(!j||j.id===ED.id) return;
+      if(Number.isInteger(j.barcode)) used.add(j.barcode);
+      (Array.isArray(j.faces)?j.faces:[]).forEach(f=>{ if(Number.isInteger(f.barcode)) used.add(f.barcode); });
+    });
   }
+  (extraUsed||[]).forEach(v=>used.add(v));
   let n=0; while(used.has(n)) n++; return n;
 }
 async function githubUpload(){
@@ -867,19 +951,22 @@ async function githubUpload(){
   localStorage.setItem('bc_gh_token',token); localStorage.setItem('bc_gh_repo',repoStr);
   const btn=document.getElementById('btn-upload'); btn.disabled=true;
   try{
-    if(ED.barcode===null||ED.barcode===undefined||isNaN(ED.barcode)){
-      setJsonStatus('バーコード番号を採番中…'); ED.barcode=await assignBarcode(owner,repo);
-      document.getElementById('cfg-barcode').value=ED.barcode;
-    }
-    if(_photoDataURL){
-      setJsonStatus('参照写真をアップロード中…');
-      ED.imageFile=`${TARGET_DIR}/${ED.id}.jpg`;
-      await ghPutFile(owner,repo,token,ED.imageFile,dataURLToBase64(_photoDataURL),`Add barcode target ${ED.id}`);
-    }
+    saveFaceState();
+    // 各面のバーコード番号を採番（未割当のみ・面同士も重複回避）
+    const localUsed=new Set(ED.faces.map(f=>f.barcode).filter(Number.isInteger));
+    for(const f of ED.faces){ if(f.barcode==null||isNaN(f.barcode)){ setJsonStatus('バーコード番号を採番中…'); f.barcode=await assignBarcode(owner,repo,[...localUsed]); localUsed.add(f.barcode); } }
+    ED.barcode=ED.faces[0].barcode;
+    // 各面の参照写真をアップロード
+    const upFiles=[];
+    for(const f of ED.faces){ if(f.photoDataURL){ setJsonStatus(`参照写真をアップロード中…（${f.label}）`);
+      f.imageFile=`${TARGET_DIR}/${ED.id}-${f.key}.jpg`;
+      await ghPutFile(owner,repo,token,f.imageFile,dataURLToBase64(f.photoDataURL),`Add barcode target ${ED.id} ${f.key}`); upFiles.push(f.imageFile); } }
     setJsonStatus('シナリオJSONをアップロード中…');
     document.getElementById('json-ta').value=buildScenarioJSON();
     await ghPutFile(owner,repo,token,`${BARCODE_DIR}/${ED.id}.json`,utf8ToBase64(buildScenarioJSON()),`Add barcode scenario ${ED.id}`);
-    setJsonStatus(`✅ 保存完了！\nバーコード番号：${ED.barcode}\n・${BARCODE_DIR}/${ED.id}.json`+(ED.imageFile?`\n・${ED.imageFile}`:'')+`\n\nプレイヤーで value=${ED.barcode} のマーカーを読むと表示されます。`);
+    const faceInfo=ED.faces.map(f=>`${f.label}=${f.barcode}`).join(' / ');
+    setJsonStatus(`✅ 保存完了！\n面とバーコード：${faceInfo}\n・${BARCODE_DIR}/${ED.id}.json`+upFiles.map(u=>`\n・${u}`).join('')+`\n\n作業記録ナビ(ar-worklog-player)で、いずれかの面のマーカーを読むと開始できます。`);
+    renderFaceBar();
   }catch(e){ setJsonStatus('❌ 失敗: '+e.message,true); }
   btn.disabled=false;
 }
@@ -945,29 +1032,39 @@ async function openRemotePicker(){
 }
 function loadScenario(data,owner,repo){
   ED.id=data.id; ED.name=data.name||'シナリオ'; ED.subtitle=data.subtitle||''; ED.device=data.device||''; ED.docs=data.docs||{};
-  ED.barcode=Number.isInteger(data.barcode)?data.barcode:null;
-  ED.calib=Object.assign({...CALIB_DEFAULT}, data.calib||{});
-  ED.imageFile=data.imageFile||''; ED.steps=(data.steps&&data.steps.length)?data.steps:[mkStep('ステップ1')];
-  ED.markerSizeMM=(data.markerSizeMM>0)?data.markerSizeMM:MARKER_MM_DEFAULT;
-  ED.marker=(data.markerPos&&typeof data.markerPos.u==='number')
-    ? {u:data.markerPos.u, v:data.markerPos.v, w:(data.markerPos.w>0?data.markerPos.w:0.15)}
-    : {u:0.5, v:0.5, w:0.15};
-  _photoDataURL=null; ED._loadedImg='';
-  // 参照写真をGitHubから復元（あれば）
-  if(ED.imageFile){ ED._loadedImg=`https://raw.githubusercontent.com/${owner}/${repo}/main/${ED.imageFile}?t=${Date.now()}`; }
+  const rawUrl=p=>p?`https://raw.githubusercontent.com/${owner}/${repo}/main/${p}?t=${Date.now()}`:'';
+  if(Array.isArray(data.faces)&&data.faces.length){
+    ED.faces=data.faces.map((f,i)=>({ key:f.key||('f'+(i+1)), label:f.label||('面'+(i+1)), barcode:Number.isInteger(f.barcode)?f.barcode:null,
+      markerSizeMM:(f.markerSizeMM>0)?f.markerSizeMM:MARKER_MM_DEFAULT, calib:Object.assign({...CALIB_DEFAULT}, f.calib||{}),
+      marker:(f.markerPos&&typeof f.markerPos.u==='number')?{u:f.markerPos.u,v:f.markerPos.v,w:(f.markerPos.w>0?f.markerPos.w:0.15)}:{u:0.5,v:0.5,w:0.15},
+      photoDataURL:null, imageFile:f.imageFile||'', loadedImg:rawUrl(f.imageFile) }));
+  } else {
+    const f=makeFace('前面', Number.isInteger(data.barcode)?data.barcode:null);
+    f.markerSizeMM=(data.markerSizeMM>0)?data.markerSizeMM:MARKER_MM_DEFAULT;
+    f.calib=Object.assign({...CALIB_DEFAULT}, data.calib||{});
+    f.marker=(data.markerPos&&typeof data.markerPos.u==='number')?{u:data.markerPos.u,v:data.markerPos.v,w:(data.markerPos.w>0?data.markerPos.w:0.15)}:{u:0.5,v:0.5,w:0.15};
+    f.imageFile=data.imageFile||''; f.loadedImg=rawUrl(data.imageFile);
+    ED.faces=[f];
+  }
+  ED.faceIdx=0;
+  ED.steps=(data.steps&&data.steps.length)?data.steps:[{title:'ステップ1',detail:'',warn:'normal',ar:[],face:ED.faces[0].key}];
+  const fkeys=ED.faces.map(f=>f.key); ED.steps.forEach(s=>{ if(!fkeys.includes(s.face)) s.face=fkeys[0]; });
+  // 作業グローバルを先頭面へ
+  const f0=ED.faces[0];
+  _photoDataURL=null; ED._loadedImg=f0.loadedImg||''; ED.marker=f0.marker; ED.calib=f0.calib; ED.markerSizeMM=f0.markerSizeMM; ED.imageFile=f0.imageFile; ED.barcode=f0.barcode;
   document.getElementById('cfg-name').value=ED.name;
   document.getElementById('cfg-sub').value=ED.subtitle;
   document.getElementById('cfg-device').value=ED.device;
-  document.getElementById('cfg-pdf').value=ED.docs.pdf||'';
-  document.getElementById('cfg-video').value=ED.docs.video||'';
+  document.getElementById('cfg-pdf').value=(ED.docs&&ED.docs.pdf)||'';
+  document.getElementById('cfg-video').value=(ED.docs&&ED.docs.video)||'';
   document.getElementById('cfg-id').value=ED.id;
-  document.getElementById('cfg-barcode').value=ED.barcode??'';
-  document.getElementById('cfg-markermm').value=ED.markerSizeMM;
+  document.getElementById('cfg-barcode').value=f0.barcode??'';
+  document.getElementById('cfg-markermm').value=f0.markerSizeMM;
   closeModal('remote-modal');
-  if(ED._loadedImg){ const pv=document.getElementById('photo-preview'); pv.src=ED._loadedImg; pv.style.display='block'; document.getElementById('btn-start').disabled=false;
-    setStatus(`「${ED.name}」を読込（バーコード${ED.barcode??'未割当'}／${ED.steps.length}ステップ）。「編集を開始」で続行。`); }
-  else { document.getElementById('btn-start').disabled=false;
-    setStatus(`「${ED.name}」を読込。参照写真が無いため、新しい写真を読み込んでから編集してください。`); }
+  const faceInfo=ED.faces.map(f=>`${f.label}#${f.barcode??'?'}`).join(' / ');
+  document.getElementById('btn-start').disabled=false;
+  if(f0.loadedImg){ const pv=document.getElementById('photo-preview'); pv.src=f0.loadedImg; pv.style.display='block'; }
+  setStatus(`「${ED.name}」を読込（面：${faceInfo}／${ED.steps.length}ステップ）。「編集を開始」で続行。`);
 }
 
 // ══════════ 動画 → 文字起こし → ステップ分割 → 図形自動生成 ══════════

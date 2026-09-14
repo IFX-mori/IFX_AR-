@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v1.5</div>
+    <div id="ver">Worklog v1.6</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -296,6 +296,14 @@ let curKey=null, idx=0, cur=null, curMid=null;
 let checkedSteps=new Set();
 const SCENARIOS={}; const _ghKeys=new Set();
 
+// ── 面(マーカー)ヘルパー：1シナリオが複数マーカー(前面/側面…)にまたがる ──
+function curFace(){ if(!cur) return null; const fs=cur.faces||[]; const st=cur.steps[idx]; const key=st&&st.face;
+  return fs.find(x=>x.key===key) || fs[0] || {key:'f1',label:'',barcode:cur.barcode,calib:cur.calib}; }
+function wantKey(){ const f=curFace(); return f?String(f.barcode):null; }
+function faceKeys(sc){ return new Set(((sc&&sc.faces)||[]).map(x=>String(x.barcode))); }
+function anyFaceVisible(sc){ if(!sc) return false; for(const k of faceKeys(sc)) if(typeof _visible!=='undefined'&&_visible.has(k)) return true; return false; }
+function isMultiFace(){ return cur && cur.faces && cur.faces.length>1; }
+
 // ══════ 位置確認枠 ══════
 let _framePlane=null, _frameURL={};
 function _makeFrameURL(color){
@@ -318,11 +326,11 @@ function setFrameRecognized(ok){ if(_framePlane) _framePlane.setAttribute('mater
   document.getElementById('markerframe').appendChild(pl); _framePlane=pl;
 })();
 
-function applyCal(){ const sc=cur; if(!sc) return; const c=sc.calib;
+function applyCal(){ if(!cur) return; const f=curFace(); const c=f.calib;
   wrapper.setAttribute('scale',`${c.scale} ${c.scale} ${c.scale}`);
   wrapper.setAttribute('rotation',`0 ${c.rot} 0`);
   const g=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
-  g('cal-target',sc.name); g('cal-s',c.scale.toFixed(2)); g('cal-x',c.ox.toFixed(2)); g('cal-y',c.oy.toFixed(2)); g('cal-r',c.rot);
+  g('cal-target', cur.name+(isMultiFace()?(' ／ '+(f.label||'')):'')); g('cal-s',c.scale.toFixed(2)); g('cal-x',c.ox.toFixed(2)); g('cal-y',c.oy.toFixed(2)); g('cal-r',c.rot);
 }
 function renderStep(){ const sc=cur; if(!sc) return; const step=sc.steps[idx]; const w=WARN[step.warn]||WARN.normal; const col=w.c;
   document.getElementById('stitle').textContent=(w.sym?w.sym+' ':'')+step.title;
@@ -341,8 +349,12 @@ function renderStep(){ const sc=cur; if(!sc) return; const step=sc.steps[idx]; c
   bc.classList.toggle('checked', checked);
   document.getElementById('btn-next').disabled=!checked;
   document.getElementById('btn-finish').disabled=!checked;
+  const face=curFace();
   while(content.firstChild) content.removeChild(content.firstChild);
-  step.ar.forEach(it=>content.appendChild(makeItem(it,sc.calib)));
+  step.ar.forEach(it=>content.appendChild(makeItem(it, face.calib)));
+  applyCal();
+  followMarker('m'+face.barcode);   // このステップの面のマーカーへ追従
+  updateWanted();                    // その面が見えているか→認識/誘導を更新
 }
 document.getElementById('btn-check').onclick=()=>{
   if(!cur) return;
@@ -352,12 +364,10 @@ document.getElementById('btn-check').onclick=()=>{
 function followMarker(markerId){ if(curMid===markerId) return; curMid=markerId;
   anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: 0.3; beta: 1.0`); }
 function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=key; cur=scenario; idx=0;
-  followMarker(markerId);
   checkedSteps=new Set(); sessionId=newSessionId();
   document.getElementById('scname').textContent=scenario.name;
   document.getElementById('scsub').textContent=scenario.subtitle||'';
-  const _st=document.getElementById('stxt'); if(_st) _st.textContent='認識中：'+scenario.name;
-  applyCal(); renderStep(); updateDocButtons();
+  renderStep(); updateDocButtons();   // renderStep が面の追従・校正・誘導まで行う
   const list=SCENARIOS[key]||[]; document.getElementById('btn-menu').style.display = list.length>1 ? 'inline-block':'none';
   logEvent('start',{totalSteps:scenario.steps.length});
 }
@@ -454,22 +464,34 @@ function finishScenario(){
 }
 document.getElementById('btn-finish').onclick=()=>{ if(!document.getElementById('btn-finish').disabled) finishScenario(); };
 
-// ══════ マーカー認識 ══════
+// ══════ マーカー認識（多面対応） ══════
 const dot=document.getElementById('dot'), stxt=document.getElementById('stxt'), hint=document.getElementById('hint');
 let lostTimer=null;
-function onFound(key,markerId){ if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
-  const list=SCENARIOS[key]||[]; dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true);
-  followMarker(markerId);
-  if(list.length===1){ setScenario(list[0],key,markerId); stxt.textContent='認識中：'+list[0].name; }
-  else { stxt.textContent='認識中：操作を選択（'+list.length+'件）';
-    if(curKey!==key || !cur){ curKey=key; showPicker(key,markerId); } }
+// 現ステップが欲しい面のマーカーが見えているか→認識表示 or 「その面へ」誘導
+function updateWanted(){
+  if(!cur){ return; }
+  const face=curFace(); const w=String(face.barcode);
+  if(_visible.has(w)){
+    if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
+    followMarker('m'+w);
+    dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true);
+    stxt.textContent='認識中：'+cur.name+(isMultiFace()?(' ／ '+(face.label||'')):'');
+  } else {
+    dot.classList.remove('on'); setFrameRecognized(false); hint.classList.remove('hidden');
+    hint.innerHTML = isMultiFace()
+      ? ('「'+(face.label||'次の面')+'」のマーカーにカメラを向けてください<small>次の操作はこの面です</small>')
+      : 'マーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small>';
+    stxt.textContent = isMultiFace() ? ((face.label||'次の面')+'マーカー待ち') : 'マーカー未認識';
+  }
 }
-function onLost(){ if(lostTimer)clearTimeout(lostTimer);
-  lostTimer=setTimeout(()=>{ lostTimer=null;
-    const other=[..._visible].find(k=>k!==curKey && SCENARIOS[k] && SCENARIOS[k].length);
-    if(other){ curKey=null; cur=null; hidePicker(); onFound(other,'m'+other); return; }
-    dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.classList.remove('hidden'); setFrameRecognized(false);
-  },1000); }
+// 新規にシナリオへ入る（マーカーからの初回認識）
+function onFound(key,markerId){ if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
+  const list=SCENARIOS[key]||[]; if(!list.length) return;
+  followMarker(markerId);
+  if(list.length===1){ setScenario(list[0],key,markerId); }
+  else { curKey=key; dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true);
+    stxt.textContent='認識中：操作を選択（'+list.length+'件）'; showPicker(key,markerId); }
+}
 
 // ══════ 誤読ガード（切替安定化） ══════
 const SWITCH_MS = parseInt(new URLSearchParams(location.search).get('switchms')||'700',10);
@@ -479,16 +501,30 @@ function clearPending(){ if(pendingTimer){clearTimeout(pendingTimer);pendingTime
 function handleFound(key, mid){
   if(!SCENARIOS[key]||!SCENARIOS[key].length){ if(!cur && !curKey){ dot.classList.remove('on'); stxt.textContent='未登録のバーコード（value='+key+'）'; } return; }
   _visible.add(key);
-  if(key===curKey){ clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;} dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true); return; }
+  // 実行中シナリオの「面」マーカー → 追従/誘導を更新（同一シナリオ内の前面↔側面移動）
+  if(cur && faceKeys(cur).has(key)){ clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;} updateWanted(); return; }
+  // 選択メニュー表示中の同一キー → 維持
+  if(!cur && key===curKey){ clearPending(); dot.classList.add('on'); setFrameRecognized(true); return; }
+  // 未選択 → エントリ
   if(!cur && !curKey){ onFound(key,mid); return; }
+  // それ以外（別シナリオのマーカー）→ 継続認識で切替（現シナリオの面がどれも見えていない時だけ）
   if(pendingKey!==key){ clearPending(); pendingKey=key; pendingMid=mid;
     pendingTimer=setTimeout(()=>{ pendingTimer=null;
-      if(_visible.has(key) && !_visible.has(curKey)){ clearPending(); curKey=null; cur=null; hidePicker(); onFound(key,mid); }
+      const locked = cur ? anyFaceVisible(cur) : _visible.has(curKey);
+      if(_visible.has(key) && !locked){ clearPending(); cur=null; curKey=null; hidePicker(); onFound(key,mid); }
       else clearPending();
     }, SWITCH_MS);
   }
 }
-function handleLost(key){ _visible.delete(key); if(key===pendingKey) clearPending(); if(key===curKey) onLost(); }
+function handleLost(key){ _visible.delete(key); if(key===pendingKey) clearPending();
+  if(cur && faceKeys(cur).has(key)){
+    if(key===wantKey()){ if(lostTimer)clearTimeout(lostTimer); lostTimer=setTimeout(()=>{ lostTimer=null; updateWanted(); },1000); }
+    return;
+  }
+  if(!cur && key===curKey){ if(lostTimer)clearTimeout(lostTimer);
+    lostTimer=setTimeout(()=>{ lostTimer=null; if(![..._visible].some(k=>SCENARIOS[k]&&SCENARIOS[k].length)){ dot.classList.remove('on'); stxt.textContent='マーカー未認識'; hint.classList.remove('hidden'); setFrameRecognized(false); } },1000);
+  }
+}
 for(let v=0; v<=9; v++){
   const el=document.getElementById('m'+v); if(!el) continue;
   const key=String(v), mid='m'+v;
@@ -511,15 +547,26 @@ function normalizeGhUrl(u){ u=String(u==null?'':u).trim(); if(!u) return '';
   if(m) return `https://${m[1].toLowerCase()}.github.io/${m[2]}/${m[3]}`;
   return u; }
 function normDocs(d){ if(!d) return null; const o={}; const p=normalizeGhUrl(d.pdf||''); const v=normalizeGhUrl(d.video||''); if(p)o.pdf=p; if(v)o.video=v; return (o.pdf||o.video)?o:null; }
-function normalizeScenario(s){ return { id:s.id, barcode:s.barcode, name:s.name||('barcode '+s.barcode), subtitle:s.subtitle||'', device:s.device||'',
-  docs:normDocs(s.docs), calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}), steps:s.steps }; }
+function normalizeScenario(s){
+  let faces;
+  if(Array.isArray(s.faces)&&s.faces.length){
+    faces=s.faces.map((f,i)=>({ key:f.key||('f'+(i+1)), label:f.label||('面'+(i+1)), barcode:f.barcode,
+      markerSizeMM:f.markerSizeMM||40, calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, f.calib||{}) }));
+  } else {
+    faces=[{ key:'f1', label:'', barcode:s.barcode, markerSizeMM:s.markerSizeMM||40, calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}) }];
+  }
+  const fkeys=faces.map(f=>f.key);
+  const steps=(s.steps||[]).map(st=>Object.assign({}, st, { face:(fkeys.includes(st.face)?st.face:fkeys[0]) }));
+  return { id:s.id, name:s.name||('barcode '+(faces[0].barcode)), subtitle:s.subtitle||'', device:s.device||'',
+    docs:normDocs(s.docs), faces, barcode:faces[0].barcode, calib:faces[0].calib, steps };
+}
+function registerScenario(sc, replaceBuiltin){ faceKeys(sc).forEach(k=> addScenarioToGroup(k, sc, replaceBuiltin)); }
 // 端末保存分を先に読み込む（オフラインでも表示可能に）
 async function loadLocalScenarios(){
   try{ const saved=await idbAll('saved'); if(!saved.length) return;
     const scen=await idbAll('scenarios');
-    saved.forEach(sv=>{ const key=String(sv.barcode);
-      scen.filter(x=>String(x.barcode)===key).forEach(x=>{ const d=Object.assign({}, x.data); d.docs=normDocs(d.docs); addScenarioToGroup(key, d, false); });
-    });
+    const seen=new Set();
+    scen.forEach(x=>{ if(!x.data||seen.has(x.id)) return; seen.add(x.id); registerScenario(normalizeScenario(x.data), false); });
     Object.keys(SCENARIOS).forEach(k=>SCENARIOS[k].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja')));
   }catch(_){}
 }
@@ -534,8 +581,8 @@ async function loadRemoteScenarios(){
       .filter(f=>f.name.endsWith('.json')&&f.download_url)
       .map(f=>fetch(f.download_url+(f.download_url.includes('?')?'&':'?')+bust,{cache:'no-store'})
         .then(r=>r.ok?r.json():null).catch(()=>null))))
-      .filter(s=>s&&Number.isInteger(s.barcode)&&Array.isArray(s.steps));
-    jsons.forEach(s=> addScenarioToGroup(String(s.barcode), normalizeScenario(s), true));
+      .filter(s=>s&&Array.isArray(s.steps)&&(Number.isInteger(s.barcode)||(Array.isArray(s.faces)&&s.faces.length)));
+    jsons.forEach(s=> registerScenario(normalizeScenario(s), true));
     Object.keys(SCENARIOS).forEach(k=>SCENARIOS[k].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja')));
     if(cur){ applyCal(); renderStep(); updateDocButtons(); }
   }catch(_){ /* オフライン等：端末保存分で動作 */ }
@@ -599,7 +646,7 @@ document.getElementById('lm-clear').onclick=async()=>{ if(!confirm('すべての
 
 // ══════ 校正パネル ══════
 document.getElementById('cal-toggle').onclick=()=>{ const p=document.getElementById('calib'); p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'; };
-document.querySelectorAll('#calib .cbtn').forEach(bn=>{ bn.onclick=()=>{ const sc=cur; if(!sc){return;} const c=sc.calib; const k=bn.getAttribute('data-cal');
+document.querySelectorAll('#calib .cbtn').forEach(bn=>{ bn.onclick=()=>{ if(!cur){return;} const c=curFace().calib; const k=bn.getAttribute('data-cal');
   if(k==='s+') c.scale=+Math.min(30,c.scale*1.1).toFixed(2);
   else if(k==='s-') c.scale=+Math.max(0.5,c.scale/1.1).toFixed(2);
   else if(k==='x+') c.ox=+(c.ox+0.02).toFixed(2);
@@ -608,9 +655,9 @@ document.querySelectorAll('#calib .cbtn').forEach(bn=>{ bn.onclick=()=>{ const s
   else if(k==='y-') c.oy=+(c.oy-0.02).toFixed(2);
   else if(k==='r') c.rot=(c.rot+90)%360;
   applyCal(); renderStep(); }; });
-document.getElementById('cal-copy').onclick=()=>{ const sc=cur; const msg=document.getElementById('cal-msg');
-  if(!sc){ msg.textContent='シナリオ未選択'; return; } const c=sc.calib;
-  const txt=`${sc.name}: scale=${c.scale} ox=${c.ox} oy=${c.oy} rot=${c.rot}`;
+document.getElementById('cal-copy').onclick=()=>{ const msg=document.getElementById('cal-msg');
+  if(!cur){ msg.textContent='シナリオ未選択'; return; } const f=curFace(); const c=f.calib;
+  const txt=`${cur.name}${isMultiFace()?('/'+f.label):''}: scale=${c.scale} ox=${c.ox} oy=${c.oy} rot=${c.rot}`;
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>{msg.textContent='コピー: '+txt;},()=>{msg.textContent=txt;});
   else msg.textContent=txt; };
 </script>
