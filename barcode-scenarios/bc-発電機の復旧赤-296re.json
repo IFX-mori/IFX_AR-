@@ -1,22 +1,30 @@
 {
   "id": "bc-発電機の復旧赤-296re",
-  "barcode": 4,
+  "barcode": 5,
   "name": "発電機の復旧（赤）",
   "subtitle": "",
   "device": "発電機",
-  "calib": {
-    "scale": 6.67,
-    "ox": 0,
-    "oy": 0,
-    "rot": 0
-  },
-  "imageFile": "barcode-targets/bc-発電機の復旧赤-296re.jpg",
-  "markerSizeMM": 40,
-  "markerPos": {
-    "u": 0.8288,
-    "v": 0.8785,
-    "w": 0.15
-  },
+  "docs": {},
+  "faces": [
+    {
+      "key": "fmu1bh87zrl",
+      "label": "前面",
+      "barcode": 5,
+      "calib": {
+        "scale": 6.67,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-発電機の復旧赤-296re.jpg",
+      "markerPos": {
+        "u": 0.8288,
+        "v": 0.8785,
+        "w": 0.15
+      }
+    }
+  ],
   "steps": [
     {
       "title": "ステップ1：赤色ランプの点灯を確認 ・",
@@ -45,7 +53,8 @@
           ],
           "lineThick": 0.0123
         }
-      ]
+      ],
+      "face": "fmu1bh87zrl"
     },
     {
       "title": "ステップ2：ダイヤルを左へ回す（20の位置）",
@@ -108,7 +117,8 @@
           "label": "（20の位置）",
           "fontScale": 1
         }
-      ]
+      ],
+      "face": "fmu1bh87zrl"
     },
     {
       "title": "ステップ3：白色ボタンを1回押す 青色ボタン",
@@ -147,7 +157,8 @@
           "label": "押す",
           "h": 0.164
         }
-      ]
+      ],
+      "face": "fmu1bh87zrl"
     },
     {
       "title": "ステップ4：トグルスイッチを上げる トグルス",
@@ -186,7 +197,8 @@
           ],
           "h": 0.164
         }
-      ]
+      ],
+      "face": "fmu1bh87zrl"
     },
     {
       "title": "ステップ5：青色ランプの点灯を確認",
@@ -215,7 +227,8 @@
           ],
           "lineThick": 0.0123
         }
-      ]
+      ],
+      "face": "fmu1bh87zrl"
     }
   ]
 }
