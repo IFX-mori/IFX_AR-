@@ -11,7 +11,7 @@
       "label": "前面",
       "barcode": 4,
       "calib": {
-        "scale": 7.07,
+        "scale": 3.97,
         "ox": 0,
         "oy": 0,
         "rot": 0
@@ -19,9 +19,9 @@
       "markerSizeMM": 40,
       "imageFile": "barcode-targets/bc-PCキボド操作-aevbx-fmu2aevbxvf.jpg",
       "markerPos": {
-        "u": 0.6175,
-        "v": 0.3912,
-        "w": 0.1415
+        "u": 0.2392,
+        "v": 0.8192,
+        "w": 0.2518
       }
     },
     {
@@ -29,7 +29,7 @@
       "label": "左",
       "barcode": 1,
       "calib": {
-        "scale": 6.41,
+        "scale": 4.22,
         "ox": 0,
         "oy": 0,
         "rot": 0
@@ -37,9 +37,9 @@
       "markerSizeMM": 40,
       "imageFile": "",
       "markerPos": {
-        "u": 0.6019,
-        "v": 0.4991,
-        "w": 0.1559
+        "u": 0.7383,
+        "v": 0.8372,
+        "w": 0.2368
       }
     }
   ],
@@ -52,21 +52,16 @@
         {
           "type": "box",
           "pos": [
-            -0.167,
-            -0.364,
+            0.482,
+            1.03,
             0
           ],
           "color": "#60a5fa",
           "lineThick": 0.0077,
           "label": "M",
           "labelBelow": true,
-          "sizeW": 0.104,
-          "sizeH": 0.09,
-          "rot": {
-            "x": 0,
-            "y": 15,
-            "z": -15
-          }
+          "sizeW": 0.12,
+          "sizeH": 0.118
         }
       ],
       "face": "fmu2aevbxvf"
@@ -79,18 +74,18 @@
         {
           "type": "box",
           "pos": [
-            -0.064,
-            -0.303,
+            -0.273,
+            0.55,
             0
           ],
           "color": "#60a5fa",
           "lineThick": 0.0096,
           "label": "L",
           "labelBelow": true,
-          "sizeH": 0.09,
-          "sizeW": 0.104,
+          "sizeH": 0.103,
+          "sizeW": 0.12,
           "rot": {
-            "x": 0,
+            "x": 15,
             "y": -15,
             "z": 0
           }
