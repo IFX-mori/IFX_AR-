@@ -87,7 +87,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Barcode v2.2</div>
+    <div id="ver">Barcode v2.3</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -164,7 +164,8 @@ const PXREF = 1000;
 function planeFromCanvas(cv,x,y,z){ const el=document.createElement('a-plane');
   el.setAttribute('width',(cv.width/PXREF).toFixed(4)); el.setAttribute('height',(cv.height/PXREF).toFixed(4));
   el.setAttribute('position',`${x} ${y} ${z||0}`);
-  el.setAttribute('material',{shader:'flat',transparent:true,side:'double',src:cv.toDataURL('image/png')}); return el; }
+  // alphaTest:透明な余白ピクセルを破棄／depthWrite:false:透明板が深度を書かない → 隣接・重なりでも余白が相手を隠さない
+  el.setAttribute('material',{shader:'flat',transparent:true,side:'double',alphaTest:0.05,depthWrite:false,src:cv.toDataURL('image/png')}); return el; }
 function labelMetrics(ctx,text,fp){ ctx.font=`bold ${fp}px sans-serif`; const lines=String(text).split('\n');
   let w=0; lines.forEach(l=>w=Math.max(w,ctx.measureText(l).width)); const lh=fp*1.25; return {lines,w,lh,h:lines.length*lh}; }
 function drawLabel(ctx,cx,cy,text,fp,bg,fg,align){ const m=labelMetrics(ctx,text,fp); const padX=26,padY=16;
@@ -251,7 +252,7 @@ function setFrameRecognized(ok){ if(_framePlane) _framePlane.setAttribute('mater
   _frameURL.green=_makeFrameURL(FRAME_GREEN); _frameURL.yellow=_makeFrameURL(FRAME_YELLOW);
   const pl=document.createElement('a-plane');
   pl.setAttribute('width','1'); pl.setAttribute('height','1');
-  pl.setAttribute('material',{shader:'flat',transparent:true,side:'double',opacity:0.95,src:_frameURL.yellow});
+  pl.setAttribute('material',{shader:'flat',transparent:true,side:'double',opacity:0.95,alphaTest:0.05,depthWrite:false,src:_frameURL.yellow});
   document.getElementById('markerframe').appendChild(pl);
   _framePlane=pl;
 })();
