@@ -52,13 +52,13 @@
         {
           "type": "box",
           "pos": [
-            0.482,
-            1.03,
+            0.615,
+            0.589,
             0
           ],
           "color": "#60a5fa",
           "lineThick": 0.0077,
-          "label": "M",
+          "label": "H",
           "labelBelow": true,
           "sizeW": 0.12,
           "sizeH": 0.118
