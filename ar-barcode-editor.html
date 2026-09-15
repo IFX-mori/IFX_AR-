@@ -292,6 +292,9 @@
         <option value="caution">注意⚠️</option>
         <option value="danger">危険⛔</option>
       </select>
+      <button id="step-photo-btn" onclick="document.getElementById('step-photo-input').click()" title="このステップの参考写真を登録" style="padding:7px 8px;border:1px solid #0e7490;color:#0e7490;border-radius:8px;font-weight:700;background:#ecfeff;cursor:pointer;white-space:nowrap">📷 写真</button>
+      <button id="step-photo-clr" onclick="clearStepPhoto()" title="参考写真を削除" style="display:none;padding:7px 8px;border:1px solid #dc2626;color:#dc2626;border-radius:8px;font-weight:700;background:#fef2f2;cursor:pointer">✕写真</button>
+      <input type="file" id="step-photo-input" accept="image/*" style="display:none">
       <button class="del" onclick="deleteStep()">削除</button>
     </div>
     <div id="propbar"><div class="inner"><span class="none">図形を選択、または左のツールから追加してください</span></div></div>
@@ -343,7 +346,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v3.2';
+const APP_VERSION = 'v3.3';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -370,7 +373,7 @@ let _photoTarget = null;    // 写真取込先：null=セットアップ／数�
 
 function curStep(){ return ED.steps[stepIdx]; }
 function curFig(){ const s=curStep(); return s && figIdx>=0 ? s.ar[figIdx] : null; }
-function mkStep(title){ return { title:title||('ステップ'+(ED.steps.length+1)), detail:'', warn:'normal', ar:[], face:(curFaceE()?curFaceE().key:(ED.faces[0]&&ED.faces[0].key)) }; }
+function mkStep(title){ return { title:title||('ステップ'+(ED.steps.length+1)), detail:'', warn:'normal', ar:[], photo:'', face:(curFaceE()?curFaceE().key:(ED.faces[0]&&ED.faces[0].key)) }; }
 
 // ── 面(マーカー)ヘルパー ──
 function makeFace(label,barcode){ return { key:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,4),
@@ -651,9 +654,25 @@ function syncStepMeta(){ const s=curStep(); if(!s)return;
   document.getElementById('step-title').value=s.title||'';
   document.getElementById('step-warn').value=s.warn||'normal';
   renderStepFaceSelect(s);
+  updateStepPhotoBtn(s);
   // 選択したステップの面へエディタ背景を自動で切替
   const fi=ED.faces.findIndex(x=>x.key===s.face);
   if(fi>=0 && fi!==ED.faceIdx){ saveFaceState(); loadFaceState(fi); } }
+function updateStepPhotoBtn(s){ const has=!!(s&&s.photo);
+  const b=document.getElementById('step-photo-btn'), c=document.getElementById('step-photo-clr');
+  if(b) b.textContent = has?'📷 変更':'📷 写真';
+  if(c) c.style.display = has?'':'none'; }
+function clearStepPhoto(){ const s=curStep(); if(!s||!s.photo) return; if(!confirm('このステップの参考写真を削除しますか？')) return; s.photo=''; updateStepPhotoBtn(s); }
+// 写真は長辺1280pxへ縮小しdataURL(JPEG)化してstep.photoへ保存（JSON肥大を抑制）
+document.getElementById('step-photo-input').onchange=e=>{
+  const file=e.target.files&&e.target.files[0]; e.target.value=''; if(!file) return;
+  const s=curStep(); if(!s) return; const rd=new FileReader();
+  rd.onload=()=>{ const img=new Image(); img.onload=()=>{
+    const MAX=1280; let w=img.width,h=img.height; if(w>h&&w>MAX){h=Math.round(h*MAX/w);w=MAX;} else if(h>=w&&h>MAX){w=Math.round(w*MAX/h);h=MAX;}
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(img,0,0,w,h);
+    s.photo=cv.toDataURL('image/jpeg',0.82); updateStepPhotoBtn(s); };
+    img.onerror=()=>{ s.photo=rd.result; updateStepPhotoBtn(s); }; img.src=rd.result; };
+  rd.readAsDataURL(file); };
 document.getElementById('step-title').oninput=e=>{ const s=curStep(); if(s){ s.title=e.target.value; renderStepTabs(); } };
 document.getElementById('step-warn').onchange=e=>{ const s=curStep(); if(s) s.warn=e.target.value; };
 document.getElementById('step-face').onchange=e=>{ const s=curStep(); if(!s) return; s.face=e.target.value;
