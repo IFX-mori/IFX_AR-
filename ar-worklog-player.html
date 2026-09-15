@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v1.8</div>
+    <div id="ver">Worklog v1.9</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -305,6 +305,10 @@ function wantKey(){ const f=curFace(); return f?String(f.barcode):null; }
 function faceKeys(sc){ return new Set(((sc&&sc.faces)||[]).map(x=>String(x.barcode))); }
 function anyFaceVisible(sc){ if(!sc) return false; for(const k of faceKeys(sc)) if(typeof _visible!=='undefined'&&_visible.has(k)) return true; return false; }
 function isMultiFace(){ return cur && cur.faces && cur.faces.length>1; }
+// 開始面＝ステップ1の面のマーカー。シナリオはこの面のマーカーからのみ開始できる（途中用の面では開始しない）
+function stepFaceBarcode(sc,i){ const fs=sc.faces||[]; const st=sc.steps&&sc.steps[i]; const key=st&&st.face; const f=fs.find(x=>x.key===key)||fs[0]; return f?String(f.barcode):String(sc.barcode); }
+function entryBarcode(sc){ return stepFaceBarcode(sc,0); }
+function entryScenarios(key){ return (SCENARIOS[key]||[]).filter(sc=>entryBarcode(sc)===String(key)); }
 
 // ══════ 位置確認枠 ══════
 let _framePlane=null, _frameURL={};
@@ -370,7 +374,7 @@ function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=k
   document.getElementById('scname').textContent=scenario.name;
   document.getElementById('scsub').textContent=scenario.subtitle||'';
   renderStep(); updateDocButtons();   // renderStep が面の追従・校正・誘導まで行う
-  const list=SCENARIOS[key]||[]; document.getElementById('btn-menu').style.display = list.length>1 ? 'inline-block':'none';
+  document.getElementById('btn-menu').style.display = (entryScenarios(entryBarcode(scenario)).length>1) ? 'inline-block':'none';
   logEvent('start',{totalSteps:scenario.steps.length});
 }
 document.getElementById('btn-next').onclick=()=>{ if(cur&&!document.getElementById('btn-next').disabled&&idx<cur.steps.length-1){idx++;renderStep();} };
@@ -444,7 +448,7 @@ function initDocViewerDragResize(){
 
 // ══════ シナリオ選択メニュー ══════
 function showPicker(key,markerId){
-  const list=SCENARIOS[key]||[]; if(!list.length) return;
+  const list=entryScenarios(key); if(!list.length) return;   // 開始面のシナリオのみ選べる
   followMarker(markerId);
   const box=document.getElementById('sp-list'); box.innerHTML='';
   document.getElementById('sp-dev').textContent = 'value='+key + ((list[0]&&list[0].device)?(' ／ '+list[0].device):'');
@@ -458,11 +462,13 @@ function hidePicker(){ document.getElementById('scenpick').style.display='none';
 document.getElementById('btn-menu').onclick=()=>{ if(curKey) showPicker(curKey, curMid); };
 function finishScenario(){
   logEvent('finish',{checked:checkedSteps.size, totalSteps:(cur&&cur.steps.length)||0});
-  closeDoc(); const key=curKey, mid=curMid, list=SCENARIOS[key]||[];
+  closeDoc(); const key=curKey, mid=curMid;
   cur=null; idx=0; checkedSteps=new Set();
+  content.setAttribute('visible', false);
   toast('✅ 作業を記録しました');
+  const list=entryScenarios(key);
   if(list.length>1){ curKey=key; showPicker(key,mid); }
-  else if(key){ onFound(key,mid); }
+  else if(key){ curKey=null; onFound(key,mid); }
 }
 document.getElementById('btn-finish').onclick=()=>{ if(!document.getElementById('btn-finish').disabled) finishScenario(); };
 
@@ -489,9 +495,15 @@ function updateWanted(){
     stxt.textContent = isMultiFace() ? ((face.label||'次の面')+'マーカー待ち') : 'マーカー未認識';
   }
 }
-// 新規にシナリオへ入る（マーカーからの初回認識）
+// 新規にシナリオへ入る（開始面のマーカーからのみ）
 function onFound(key,markerId){ if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
-  const list=SCENARIOS[key]||[]; if(!list.length) return;
+  const list=entryScenarios(key);   // このマーカーを「開始面」とするシナリオのみ
+  if(!list.length){ // 途中用の面（他シナリオの側面/背面など）→ 自動開始しない
+    followMarker(markerId); dot.classList.remove('on'); setFrameRecognized(false); hint.classList.remove('hidden');
+    hint.innerHTML='この面は作業の途中用です<small>作業の開始は最初の面のマーカーから</small>';
+    stxt.textContent='開始面ではありません（value='+key+'）';
+    return;
+  }
   followMarker(markerId);
   if(list.length===1){ setScenario(list[0],key,markerId); }
   else { curKey=key; dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true);
@@ -506,17 +518,19 @@ function clearPending(){ if(pendingTimer){clearTimeout(pendingTimer);pendingTime
 function handleFound(key, mid){
   if(!SCENARIOS[key]||!SCENARIOS[key].length){ if(!cur && !curKey){ dot.classList.remove('on'); stxt.textContent='未登録のバーコード（value='+key+'）'; } return; }
   _visible.add(key);
-  // 実行中シナリオの「面」マーカー → 追従/誘導を更新（同一シナリオ内の前面↔側面移動）
-  if(cur && faceKeys(cur).has(key)){ clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;} updateWanted(); return; }
+  // ── 再生中は割り込ませない：現在のシナリオの面のマーカーだけ反応、他は無視 ──
+  if(cur){
+    if(faceKeys(cur).has(key)){ clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;} updateWanted(); }
+    return; // 別シナリオのマーカーを捉えても何も起きない（切替は「終了」してから）
+  }
   // 選択メニュー表示中の同一キー → 維持
-  if(!cur && key===curKey){ clearPending(); dot.classList.add('on'); setFrameRecognized(true); return; }
-  // 未選択 → エントリ
-  if(!cur && !curKey){ onFound(key,mid); return; }
-  // それ以外（別シナリオのマーカー）→ 継続認識で切替（現シナリオの面がどれも見えていない時だけ）
+  if(key===curKey){ clearPending(); dot.classList.add('on'); setFrameRecognized(true); return; }
+  // 未選択 → エントリ（開始面のみ）
+  if(!curKey){ onFound(key,mid); return; }
+  // 選択メニュー表示中に別マーカーを継続認識 → そちらへ（まだ再生前なので許可）
   if(pendingKey!==key){ clearPending(); pendingKey=key; pendingMid=mid;
     pendingTimer=setTimeout(()=>{ pendingTimer=null;
-      const locked = cur ? anyFaceVisible(cur) : _visible.has(curKey);
-      if(_visible.has(key) && !locked){ clearPending(); cur=null; curKey=null; hidePicker(); onFound(key,mid); }
+      if(_visible.has(key) && !_visible.has(curKey)){ clearPending(); curKey=null; hidePicker(); onFound(key,mid); }
       else clearPending();
     }, SWITCH_MS);
   }
