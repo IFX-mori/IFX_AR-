@@ -1,0 +1,97 @@
+{
+  "id": "bc-PCキボド操作-aevbx",
+  "barcode": 4,
+  "name": "PCキーボード操作",
+  "subtitle": "",
+  "device": "PC",
+  "docs": {},
+  "faces": [
+    {
+      "key": "fmu2aevbxvf",
+      "label": "前面",
+      "barcode": 4,
+      "calib": {
+        "scale": 6.67,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-PCキボド操作-aevbx-fmu2aevbxvf.jpg",
+      "markerPos": {
+        "u": 0.6175,
+        "v": 0.3912,
+        "w": 0.15
+      }
+    },
+    {
+      "key": "fmu2ah5jyx3",
+      "label": "左",
+      "barcode": 1,
+      "calib": {
+        "scale": 5.56,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "",
+      "markerPos": {
+        "u": 0.7542,
+        "v": 0.2716,
+        "w": 0.1798
+      }
+    }
+  ],
+  "steps": [
+    {
+      "title": "ステップ1",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            -0.415,
+            -0.664,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.0077,
+          "label": "M",
+          "labelBelow": true,
+          "sizeW": 0.104,
+          "sizeH": 0.104
+        }
+      ],
+      "face": "fmu2aevbxvf"
+    },
+    {
+      "title": "ステップ2",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            -0.348,
+            -0.263,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.0096,
+          "label": "L",
+          "labelBelow": true,
+          "sizeH": 0.104,
+          "sizeW": 0.12,
+          "rot": {
+            "x": 30,
+            "y": 15,
+            "z": -15
+          }
+        }
+      ],
+      "face": "fmu2aevbxvf"
+    }
+  ]
+}
