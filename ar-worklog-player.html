@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v1.7</div>
+    <div id="ver">Worklog v1.8</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -215,11 +215,13 @@ function planeFromCanvas(cv,x,y,z){ const el=document.createElement('a-plane');
   el.setAttribute('material',{shader:'flat',transparent:true,side:'double',src:cv.toDataURL('image/png')}); return el; }
 function labelMetrics(ctx,text,fp){ ctx.font=`bold ${fp}px sans-serif`; const lines=String(text).split('\n');
   let w=0; lines.forEach(l=>w=Math.max(w,ctx.measureText(l).width)); const lh=fp*1.25; return {lines,w,lh,h:lines.length*lh}; }
-function drawLabel(ctx,cx,cy,text,fp,bg,fg){ const m=labelMetrics(ctx,text,fp); const padX=26,padY=16;
+function drawLabel(ctx,cx,cy,text,fp,bg,fg,align){ const m=labelMetrics(ctx,text,fp); const padX=26,padY=16;
   const w=m.w+padX*2,h=m.h+padY*2,x=cx-w/2,y=cy-h/2,r=Math.min(28,h/2);
   ctx.fillStyle=bg; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill();
-  ctx.fillStyle=fg; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font=`bold ${fp}px sans-serif`;
-  m.lines.forEach((l,i)=>ctx.fillText(l,cx,cy-m.h/2+m.lh*(i+0.5))); return {w,h}; }
+  const al=align||'center'; let tx,ta;
+  if(al==='left'){ tx=x+padX; ta='left'; } else if(al==='right'){ tx=x+w-padX; ta='right'; } else { tx=cx; ta='center'; }
+  ctx.fillStyle=fg; ctx.textAlign=ta; ctx.textBaseline='middle'; ctx.font=`bold ${fp}px sans-serif`;
+  m.lines.forEach((l,i)=>ctx.fillText(l,tx,cy-m.h/2+m.lh*(i+0.5))); return {w,h}; }
 function iconArrow(ctx,cx,cy,w,h,color,dir){ ctx.save(); ctx.translate(cx,cy); if(dir==='up')ctx.scale(1,-1);
   ctx.fillStyle=color; ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=6; ctx.lineJoin='round'; const sw=w*0.34;
   ctx.beginPath(); ctx.moveTo(-sw/2,-h/2); ctx.lineTo(sw/2,-h/2); ctx.lineTo(sw/2,h*0.05); ctx.lineTo(w/2,h*0.05); ctx.lineTo(0,h/2); ctx.lineTo(-w/2,h*0.05); ctx.lineTo(-sw/2,h*0.05); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); }
@@ -252,11 +254,11 @@ function makeItem(it, cal){
   const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
   const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
   if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
-  else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
+  else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=(it.lineThick!=null)?(it.lineThick*PXREF):Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
   else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
   else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
   else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir);
-  if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg);
+  if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg,it.align);
     else { const ly=labelAbove?(CY-ih/2-gap-labelH/2):(CY+ih/2+gap+labelH/2); drawLabel(ctx,CX,ly,it.label,fp,bg,fg); } }
   const el=planeFromCanvas(cv, it.pos[0]+cal.ox, it.pos[1]+cal.oy, it.pos[2]);
   // 図形ごとの3D回転（面内Z＋奥行きX/Y）。図形はcontrolの子なのでローカル回転。

@@ -343,7 +343,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v3.1';
+const APP_VERSION = 'v3.2';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -409,11 +409,13 @@ function editFace(){ const f=curFaceE(); if(!f) return;
 // ══════════ プレイヤーと同一の描画（canvas） ══════════
 function labelMetrics(ctx,text,fp){ ctx.font=`bold ${fp}px sans-serif`; const lines=String(text).split('\n');
   let w=0; lines.forEach(l=>w=Math.max(w,ctx.measureText(l).width)); const lh=fp*1.25; return {lines,w,lh,h:lines.length*lh}; }
-function drawLabel(ctx,cx,cy,text,fp,bg,fg){ const m=labelMetrics(ctx,text,fp); const padX=26,padY=16;
+function drawLabel(ctx,cx,cy,text,fp,bg,fg,align){ const m=labelMetrics(ctx,text,fp); const padX=26,padY=16;
   const w=m.w+padX*2,h=m.h+padY*2,x=cx-w/2,y=cy-h/2,r=Math.min(28,h/2);
   ctx.fillStyle=bg; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill();
-  ctx.fillStyle=fg; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font=`bold ${fp}px sans-serif`;
-  m.lines.forEach((l,i)=>ctx.fillText(l,cx,cy-m.h/2+m.lh*(i+0.5))); return {w,h}; }
+  const al=align||'center'; let tx,ta;
+  if(al==='left'){ tx=x+padX; ta='left'; } else if(al==='right'){ tx=x+w-padX; ta='right'; } else { tx=cx; ta='center'; }
+  ctx.fillStyle=fg; ctx.textAlign=ta; ctx.textBaseline='middle'; ctx.font=`bold ${fp}px sans-serif`;
+  m.lines.forEach((l,i)=>ctx.fillText(l,tx,cy-m.h/2+m.lh*(i+0.5))); return {w,h}; }
 function iconArrow(ctx,cx,cy,w,h,color,dir){ ctx.save(); ctx.translate(cx,cy); if(dir==='up')ctx.scale(1,-1);
   ctx.fillStyle=color; ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=6; ctx.lineJoin='round'; const sw=w*0.34;
   ctx.beginPath(); ctx.moveTo(-sw/2,-h/2); ctx.lineTo(sw/2,-h/2); ctx.lineTo(sw/2,h*0.05); ctx.lineTo(w/2,h*0.05); ctx.lineTo(0,h/2); ctx.lineTo(-w/2,h*0.05); ctx.lineTo(-sw/2,h*0.05); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); }
@@ -453,11 +455,11 @@ function figCanvas(it){
   const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
   const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
   if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
-  else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
+  else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=(it.lineThick!=null)?(it.lineThick*PXREF):Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
   else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
   else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
   else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir);
-  if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg);
+  if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg,it.align);
     else { const ly=labelAbove?(CY-ih/2-gap-labelH/2):(CY+ih/2+gap+labelH/2); drawLabel(ctx,CX,ly,it.label,fp,bg,fg); } }
   return { url:cv.toDataURL('image/png'), wUnits:cv.width/PXREF, hUnits:cv.height/PXREF };
 }
@@ -682,11 +684,13 @@ function renderPropbar(){
   // サイズ
   if(f.type==='curvedArrow'){ h+=`<span class="grp">向き<select id="pp-dir"><option value="right"${f.dir==='right'?' selected':''}>右</option><option value="left"${f.dir==='left'?' selected':''}>左</option></select></span>`; }
   // 大きさ：text=文字サイズ／box=横・縦を独立（長方形化）／その他=一律
-  if(isText){ h+=`<span class="grp">字<button class="sbtn" data-fs="-">－</button><button class="sbtn" data-fs="+">＋</button></span>`; }
+  if(isText){ h+=`<span class="grp">字<button class="sbtn" data-fs="-">－</button><button class="sbtn" data-fs="+">＋</button></span>`;
+    const al=f.align||'center';
+    h+=`<span class="grp">整列<select id="pp-align"><option value="left"${al==='left'?' selected':''}>左</option><option value="center"${al==='center'?' selected':''}>中央</option><option value="right"${al==='right'?' selected':''}>右</option></select></span>`; }
   else if(f.type==='box'){ h+=`<span class="grp">横<button class="sbtn" data-w="-">－</button><button class="sbtn" data-w="+">＋</button></span><span class="grp">縦<button class="sbtn" data-h="-">－</button><button class="sbtn" data-h="+">＋</button></span>`; }
   else { h+=`<span class="grp">大<button class="sbtn" data-sz="-">－</button><button class="sbtn" data-sz="+">＋</button></span>`; }
-  if(f.type==='box'){ h+=`<span class="grp">線<button class="sbtn" data-lt="-">－</button><button class="sbtn" data-lt="+">＋</button></span>`;
-    h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
+  if(f.type==='box'||f.type==='ring'){ h+=`<span class="grp">線<button class="sbtn" data-lt="-">－</button><button class="sbtn" data-lt="+">＋</button></span>`; }
+  if(f.type==='box'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
   if(f.type==='arrow'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-above" ${f.labelAbove?'checked':''}> ラベル上</label></span>`; }
   // 回転（面内Z＝自由回転／傾きX・Y＝奥行き）
   { const r=f.rot||{x:0,y:0,z:0}; const on=(f.rot&&(r.x||r.y||r.z));
@@ -700,6 +704,7 @@ function renderPropbar(){
   const col=document.getElementById('pp-color'); if(col) col.oninput=e=>{ f.color=e.target.value; renderOverlay(); };
   const lab=document.getElementById('pp-label'); if(lab) lab.oninput=e=>{ f.label=e.target.value; renderOverlay(); };
   const dir=document.getElementById('pp-dir'); if(dir) dir.onchange=e=>{ f.dir=e.target.value; renderOverlay(); };
+  const al=document.getElementById('pp-align'); if(al) al.onchange=e=>{ if(e.target.value==='center') delete f.align; else f.align=e.target.value; renderOverlay(); };
   const below=document.getElementById('pp-below'); if(below) below.onchange=e=>{ f.labelBelow=e.target.checked; renderOverlay(); };
   const above=document.getElementById('pp-above'); if(above) above.onchange=e=>{ f.labelAbove=e.target.checked; renderOverlay(); };
   bar.querySelectorAll('[data-sz]').forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-sz')==='+'?1.15:0.87;
@@ -708,7 +713,11 @@ function renderPropbar(){
     else { const cur=f.size||f.sizeW||0.12; f.size=+Math.max(0.02,cur*k).toFixed(3); delete f.sizeW; delete f.sizeH; }
     renderOverlay(); });
   bar.querySelectorAll('[data-fs]').forEach(b=>b.onclick=()=>{ f.fontScale=+(Math.max(0.5,Math.min(3,(f.fontScale||1)+(b.getAttribute('data-fs')==='+'?0.1:-0.1)))).toFixed(1); renderOverlay(); });
-  bar.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{ f.lineThick=+Math.max(0.003,Math.min(0.06,(f.lineThick||0.03)*(b.getAttribute('data-lt')==='+'?1.25:0.8))).toFixed(4); renderOverlay(); });
+  bar.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{
+    // 未設定時の初期値：box=0.015、ring=現在の見た目(半径×0.28)相当
+    let base=f.lineThick;
+    if(base==null){ if(f.type==='ring'){ const iw=(f.size||0.6); base=Math.max(0.01,(iw/2)*0.28); } else base=0.015; }
+    f.lineThick=+Math.max(0.003,Math.min(0.08,base*(b.getAttribute('data-lt')==='+'?1.25:0.8))).toFixed(4); renderOverlay(); });
   // 回転（面内Z＝自由回転／傾きX・Y＝奥行き）。15°刻み。
   bar.querySelectorAll('[data-rot]').forEach(b=>b.onclick=()=>{
     const k=b.getAttribute('data-rot');
@@ -1150,7 +1159,7 @@ function autoFiguresFromText(step){
   const cleanDetail=(step.detail||'').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/,'').trim();
   // 説明文の全文をテキスト図形化（切り詰めなし。長文は自動改行で全文を残す）
   const sentences=cleanDetail.split(/[。\n]/).map(s=>s.trim()).filter(s=>s.length>=1);
-  sentences.forEach(sen=>figs.push({type:'text',color:CA,label:wrapLabel(sen,16)}));
+  sentences.forEach(sen=>figs.push({type:'text',color:CA,label:sen}));  // 原文どおり（勝手に折り返さない）
   if(/回/.test(src)){ const rotRe=/(左|右)\s*(?:へ|に|回りに)?\s*([0-9０-９]+)/g; let r;
     while((r=rotRe.exec(src))!==null) figs.push({type:'curvedArrow',dir:r[1]==='左'?'left':'right',scale:2.4,color:CA,label:(r[1]+'へ回す')+'\n'+toHalfDigits(r[2])}); }
   if(/(上げ|上に|上へ|引き上げ)/.test(src)) figs.push({type:'arrow',color:CA,label:'上に'});
@@ -1160,7 +1169,7 @@ function autoFiguresFromText(step){
   const valRe=/([0-9０-９]+(?:[.．][0-9０-９]+)?)\s*(N[・·]?m|Nm|度|°|mm|cm|kg|MPa|kPa|V|A|W|℃|%|秒|分)/g; let v;
   while((v=valRe.exec(src))!==null) figs.push({type:'text',color:CA,label:toHalfDigits(v[1])+v[2].replace('・','·')});
   if(/(注意|危険|警告|気をつけ|注意し)/.test(src)){ figs.push({type:'text',color:TX,label:'⚠ 注意'}); step.warn=/危険/.test(src)?'danger':'caution'; }
-  if(!figs.length){ const t=(step.title||'操作').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/,'')||'操作'; figs.push({type:'text',color:CA,label:wrapLabel(t,16)}); }
+  if(!figs.length){ const t=(step.title||'操作').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/,'')||'操作'; figs.push({type:'text',color:CA,label:t}); }
   const n=figs.length;
   return figs.map((f,i)=>({ ...f, pos:[0, +(((n-1)/2 - i)*0.14).toFixed(3), 0] }));
 }
