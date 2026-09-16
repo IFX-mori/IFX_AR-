@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v2.3</div>
+    <div id="ver">Worklog v2.4</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -220,17 +220,34 @@ function onDeviceOrientation(e){ if(e.alpha==null&&e.beta==null&&e.gamma==null) 
   const od=_screenOrientDeg();
   const a=THREE.MathUtils.degToRad(e.alpha||0), b=THREE.MathUtils.degToRad(e.beta||0), g=THREE.MathUtils.degToRad(e.gamma||0), o=THREE.MathUtils.degToRad(od);
   _euler.set(b,a,-g,'YXZ'); const q=new THREE.Quaternion().setFromEuler(_euler); q.multiply(_q1); q.multiply(_qScreen.setFromAxisAngle(_zee,-o));
+  if(!_devReady){ try{ toast('📱 センサー有効：見切れ中の回転補正が働きます'); }catch(_){} if(_motionBtn) _motionBtn.style.display='none'; }
   _devQ=q; _devReady=true;
   if(HOLD_DEBUG){ _lastRaw={a:Math.round(e.alpha||0),b:Math.round(e.beta||0),g:Math.round(e.gamma||0),o:od}; _updateHud(); } }
 let _hudEl=null;
 function _updateHud(extra){ if(!HOLD_DEBUG) return; if(!_hudEl){ _hudEl=document.createElement('div');
     _hudEl.style.cssText='position:fixed;left:8px;bottom:8px;z-index:400;background:rgba(0,0,0,.72);color:#0f0;font:11px/1.5 monospace;padding:6px 8px;border-radius:8px;pointer-events:none;white-space:pre'; document.body.appendChild(_hudEl); }
   _hudEl.textContent='HOLD debug\nscrAngle='+_lastRaw.o+' (rawScr='+((screen.orientation&&screen.orientation.angle))+' win='+(window.orientation)+')\nα='+_lastRaw.a+' β='+_lastRaw.b+' γ='+_lastRaw.g+(extra?('\n'+extra):''); }
-function enableMotion(){ if(_motionAsked||!HOLD_ENABLED) return; _motionAsked=true; const DOE=window.DeviceOrientationEvent;
-  if(DOE&&typeof DOE.requestPermission==='function'){ DOE.requestPermission().then(s=>{ if(s==='granted') window.addEventListener('deviceorientation',onDeviceOrientation,true); }).catch(()=>{ _motionAsked=false; }); }
-  else if(DOE){ window.addEventListener('deviceorientation',onDeviceOrientation,true); } }
+function enableMotion(){ if(!HOLD_ENABLED||_devReady) return; const DOE=window.DeviceOrientationEvent;
+  if(DOE&&typeof DOE.requestPermission==='function'){ if(_motionAsked) return; _motionAsked=true;
+    DOE.requestPermission().then(s=>{ if(s==='granted'){ window.addEventListener('deviceorientation',onDeviceOrientation,true); }
+      else { _motionAsked=false; try{ toast('モーションセンサーが不許可です。iPadの 設定→Safari→「モーションと画面の向きのアクセス」をON にして再読込してください'); }catch(_){} } })
+    .catch(()=>{ _motionAsked=false; }); }
+  else if(DOE){ _motionAsked=true; window.addEventListener('deviceorientation',onDeviceOrientation,true); }
+  else { try{ toast('この端末はモーションセンサー非対応のため、回転補正は使えません'); }catch(_){} } }
 // iOS13+はユーザー操作起点でのみ許可要求できる → 最初のタップ/クリックで要求（HTTPS必須, GitHub Pagesは可）
 window.addEventListener('touchend',enableMotion,true); window.addEventListener('click',enableMotion,true);
+// 明示的な許可ボタン（自動要求を取りこぼした場合の保険）。ジャイロ未有効の間だけ表示。
+let _motionBtn=null;
+function _ensureMotionBtn(){ if(!HOLD_ENABLED) return;
+  if(_devReady){ if(_motionBtn) _motionBtn.style.display='none'; return; }
+  const DOE=window.DeviceOrientationEvent; if(!DOE) return;   // 非対応端末には出さない
+  if(!_motionBtn){ _motionBtn=document.createElement('button'); _motionBtn.textContent='📱 センサー許可';
+    _motionBtn.title='見切れ中の回転補正（推定ホールド）にモーションセンサーを使用します';
+    _motionBtn.style.cssText='position:fixed;right:12px;bottom:calc(14px + 156px);z-index:120;background:#0f766e;color:#fff;border:none;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.4);pointer-events:auto';
+    _motionBtn.onclick=(e)=>{ e.stopPropagation(); _motionAsked=false; enableMotion(); };
+    document.body.appendChild(_motionBtn); }
+  _motionBtn.style.display=''; }
+setInterval(_ensureMotionBtn, 1500); setTimeout(_ensureMotionBtn, 800);
 
 AFRAME.registerComponent('smooth-follow', {
   schema: { target:{type:'selector'}, mc:{default:0.3}, beta:{default:1.0} },
@@ -254,8 +271,9 @@ AFRAME.registerComponent('smooth-follow', {
     }
     else if(HOLD_ENABLED && this._hasPose){
       // マーカー見切れ中：最後の姿勢を保持。ジャイロがあれば端末の回転ぶんを相殺して実空間の位置へ表示継続。
-      if(!this._holding){ this._holding=true; this._started=false; this._p0.copy(me.position); this._q0.copy(me.quaternion);
-        if(_devReady&&_devQ){ this._gq0.copy(_devQ); this._gq0ok=true; } else this._gq0ok=false; }
+      if(!this._holding){ this._holding=true; this._started=false; this._p0.copy(me.position); this._q0.copy(me.quaternion); this._gq0ok=false; }
+      // ジャイロが遅れて有効化された場合も、その時点の姿勢を基準に補正を開始（許可ダイアログの遅れ対策）
+      if(!this._gq0ok && _devReady && _devQ){ this._gq0.copy(_devQ); this._gq0ok=true; this._p0.copy(me.position); this._q0.copy(me.quaternion); }
       if(this._gq0ok && _devReady && _devQ){
         // delta = 現在^-1 * 凍結時（端末回転の逆を物体に適用＝実空間に留める）。holdflipで向き反転。
         const delta = HOLD_FLIP ? this._dQ.copy(this._gq0).invert().multiply(_devQ)
