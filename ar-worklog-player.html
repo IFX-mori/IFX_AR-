@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v2.5</div>
+    <div id="ver">Worklog v2.6</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -212,6 +212,9 @@ const HOLD_ROT_OVR = _HP.has('holdrot') ? (parseFloat(_HP.get('holdrot'))||0) : 
 const HOLD_DEBUG = (_HP.get('holddebug')==='1');   // ?holddebug=1 でセンサー値HUD表示
 // 画面向きの取得方法：'grav'=重力から算出(既定・screen.orientationが壊れた端末でも可)／'screen'=OS値
 const HOLD_ORIENT_MODE = (_HP.get('holdorient')||'grav');
+// 追随の機敏さ（OneEuroフィルタ）。mc↑=静止時の応答UP(揺れも増)／beta↑=動作時の追随UP(動作中の揺れも増)。?mc= ?beta= で調整。
+const FOLLOW_MC   = Math.min(3, Math.max(0.05, parseFloat(_HP.get('mc'))||0.3));
+const FOLLOW_BETA = Math.min(8, Math.max(0,    parseFloat(_HP.get('beta'))||1.0));
 let _devQ=null, _devReady=false, _motionAsked=false;   // 端末姿勢(THREE.Quaternion, device→world)。相対差分のみ使うので絶対方位ズレは無視できる。
 let _lastRaw={a:0,b:0,g:0,o:0}, _lastOd=0;
 const _q1=new THREE.Quaternion(-Math.SQRT1_2,0,0,Math.SQRT1_2);   // -90°(X) 端末面→カメラ視軸
@@ -465,7 +468,7 @@ document.getElementById('btn-check').onclick=()=>{
   renderStep();
 };
 function followMarker(markerId){ if(curMid===markerId) return; curMid=markerId;
-  anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: 0.3; beta: 1.0`); }
+  anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: ${FOLLOW_MC}; beta: ${FOLLOW_BETA}`); }
 function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=key; cur=scenario; idx=0;
   checkedSteps=new Set(); sessionId=newSessionId();
   document.getElementById('scname').textContent=scenario.name;
