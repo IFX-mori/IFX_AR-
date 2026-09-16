@@ -52,8 +52,8 @@
         {
           "type": "box",
           "pos": [
-            0.265,
-            -0.096,
+            0.308,
+            -0.094,
             0
           ],
           "color": "#60a5fa",
@@ -87,21 +87,16 @@
         {
           "type": "box",
           "pos": [
-            -0.453,
-            -0.126,
+            -0.458,
+            -0.128,
             0
           ],
           "color": "#60a5fa",
           "lineThick": 0.0096,
-          "label": "L \"",
+          "label": "L ",
           "labelBelow": true,
           "sizeH": 0.068,
-          "sizeW": 0.068,
-          "rot": {
-            "x": 15,
-            "y": 0,
-            "z": 0
-          }
+          "sizeW": 0.068
         }
       ],
       "face": "fmu2ah5jyx3"
