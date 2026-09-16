@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v2.1</div>
+    <div id="ver">Worklog v2.2</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -202,20 +202,60 @@ _LP.prototype.f=function(x,a){ this.s=(this.s===null)?x:(a*x+(1-a)*this.s); retu
 function _euA(cut,dt){ const tau=1/(2*Math.PI*cut); return 1/(1+tau/dt); }
 function OneEuro(mc,beta,dc){ this.mc=mc; this.beta=beta; this.dc=dc||1.0; this.x=new _LP(); this.dx=new _LP(); this.lx=null; }
 OneEuro.prototype.f=function(x,dt){ const dv=(this.lx===null)?0:(x-this.lx)/dt; this.lx=x; const ed=this.dx.f(dv,_euA(this.dc,dt)); const cut=this.mc+this.beta*Math.abs(ed); return this.x.f(x,_euA(cut,dt)); };
+
+// ══════ 推定ホールド（バーコード見切れ中も端末の“回転”をジャイロで補正して表示継続。再検出で正確位置へスナップ補正） ══════
+// ?hold=off で無効化。既定は無制限ホールド（消さない）。並進(歩行)は推定不可＝ずれる前提で、再検出時に補正する運用。
+const HOLD_ENABLED = ((new URLSearchParams(location.search).get('hold')||'on')!=='off');
+const HOLD_FLIP = (new URLSearchParams(location.search).get('holdflip')==='1');   // 実機で補正の向きが逆なら ?holdflip=1
+let _devQ=null, _devReady=false, _motionAsked=false;   // 端末姿勢(THREE.Quaternion, device→world)。相対差分のみ使うので絶対方位ズレは無視できる。
+const _q1=new THREE.Quaternion(-Math.SQRT1_2,0,0,Math.SQRT1_2);   // -90°(X) 端末面→カメラ視軸
+const _zee=new THREE.Vector3(0,0,1), _euler=new THREE.Euler(), _qScreen=new THREE.Quaternion();
+function _screenOrientDeg(){ return (screen.orientation&&screen.orientation.angle)||window.orientation||0; }
+function onDeviceOrientation(e){ if(e.alpha==null&&e.beta==null&&e.gamma==null) return;
+  const a=THREE.MathUtils.degToRad(e.alpha||0), b=THREE.MathUtils.degToRad(e.beta||0), g=THREE.MathUtils.degToRad(e.gamma||0), o=THREE.MathUtils.degToRad(_screenOrientDeg());
+  _euler.set(b,a,-g,'YXZ'); const q=new THREE.Quaternion().setFromEuler(_euler); q.multiply(_q1); q.multiply(_qScreen.setFromAxisAngle(_zee,-o));
+  _devQ=q; _devReady=true; }
+function enableMotion(){ if(_motionAsked||!HOLD_ENABLED) return; _motionAsked=true; const DOE=window.DeviceOrientationEvent;
+  if(DOE&&typeof DOE.requestPermission==='function'){ DOE.requestPermission().then(s=>{ if(s==='granted') window.addEventListener('deviceorientation',onDeviceOrientation,true); }).catch(()=>{ _motionAsked=false; }); }
+  else if(DOE){ window.addEventListener('deviceorientation',onDeviceOrientation,true); } }
+// iOS13+はユーザー操作起点でのみ許可要求できる → 最初のタップ/クリックで要求（HTTPS必須, GitHub Pagesは可）
+window.addEventListener('touchend',enableMotion,true); window.addEventListener('click',enableMotion,true);
+
 AFRAME.registerComponent('smooth-follow', {
   schema: { target:{type:'selector'}, mc:{default:0.3}, beta:{default:1.0} },
   init: function(){ this._p=new THREE.Vector3(); this._q=new THREE.Quaternion(); this._s=new THREE.Vector3();
     const mk=()=>new OneEuro(this.data.mc,this.data.beta);
-    this._fp=[mk(),mk(),mk()]; this._fq=[mk(),mk(),mk(),mk()]; this._started=false; this._lastT=null; this.el.object3D.visible=false; },
+    this._fp=[mk(),mk(),mk()]; this._fq=[mk(),mk(),mk(),mk()]; this._started=false; this._lastT=null;
+    // 推定ホールド用
+    this._hasPose=false; this._holding=false; this._p0=new THREE.Vector3(); this._q0=new THREE.Quaternion(); this._gq0=new THREE.Quaternion(); this._gq0ok=false; this._dQ=new THREE.Quaternion();
+    this.el.object3D.visible=false; },
   update: function(){ this._started=false; const mk=()=>new OneEuro(this.data.mc,this.data.beta);
-    this._fp=[mk(),mk(),mk()]; this._fq=[mk(),mk(),mk(),mk()]; },
+    this._fp=[mk(),mk(),mk()]; this._fq=[mk(),mk(),mk(),mk()];
+    // 追従対象(面)が変わったら過去姿勢でのホールドは無効化＝別面を古い位置で出さない
+    this._hasPose=false; this._holding=false; this.el.object3D.visible=false; },
   tick: function(time){ const t=this.data.target; if(!t) return; const o=t.object3D, me=this.el.object3D;
     if(o.visible){ o.updateMatrixWorld(); o.matrixWorld.decompose(this._p,this._q,this._s);
       const now=(time||performance.now())/1000; let dt=(this._lastT!=null&&now>this._lastT)?(now-this._lastT):1/60; if(dt>0.1)dt=0.1; this._lastT=now;
-      if(!this._started){ me.position.copy(this._p); me.quaternion.copy(this._q); this._started=true; }
+      if(!this._started){ me.position.copy(this._p); me.quaternion.copy(this._q); this._started=true; }   // 再検出＝正確位置へ即スナップ補正
       else { me.position.set(this._fp[0].f(this._p.x,dt),this._fp[1].f(this._p.y,dt),this._fp[2].f(this._p.z,dt));
              me.quaternion.set(this._fq[0].f(this._q.x,dt),this._fq[1].f(this._q.y,dt),this._fq[2].f(this._q.z,dt),this._fq[3].f(this._q.w,dt)).normalize(); }
-      me.visible=true; } }
+      me.visible=true; this._hasPose=true; this._holding=false;
+    }
+    else if(HOLD_ENABLED && this._hasPose){
+      // マーカー見切れ中：最後の姿勢を保持。ジャイロがあれば端末の回転ぶんを相殺して実空間の位置へ表示継続。
+      if(!this._holding){ this._holding=true; this._started=false; this._p0.copy(me.position); this._q0.copy(me.quaternion);
+        if(_devReady&&_devQ){ this._gq0.copy(_devQ); this._gq0ok=true; } else this._gq0ok=false; }
+      if(this._gq0ok && _devReady && _devQ){
+        // delta = 現在^-1 * 凍結時（端末回転の逆を物体に適用＝実空間に留める）。holdflipで向き反転。
+        const delta = HOLD_FLIP ? this._dQ.copy(this._gq0).invert().multiply(_devQ)
+                                : this._dQ.copy(_devQ).invert().multiply(this._gq0);
+        me.position.copy(this._p0).applyQuaternion(delta);
+        me.quaternion.copy(delta).multiply(this._q0);
+      } // ジャイロ無し＝凍結姿勢(_p0/_q0)のまま据え置き
+      me.visible=true;
+    }
+    else { me.visible=false; }
+  }
 });
 
 // ══════ 図形描画 ══════
@@ -523,15 +563,21 @@ function updateWanted(){
   if(!cur){ content.setAttribute('visible', false); return; }
   const face=curFace(); const w=String(face.barcode);
   const vis=_visible.has(w);
-  // 誤操作防止：欲しい面のマーカーを認識できていない間はAR図形を出さない
-  content.setAttribute('visible', vis);
+  followMarker('m'+w);   // 追従対象を現ステップの面へ（見切れ中の推定ホールドもこの面の最後の姿勢を使う）
+  const sf=anchor.components&&anchor.components['smooth-follow'];
+  // 一度でも認識できた面なら、見切れ中も推定ホールドで表示継続（?hold=off で無効）
+  const holding = !vis && HOLD_ENABLED && !!(sf&&sf._hasPose);
+  content.setAttribute('visible', vis || holding);
   if(vis){
     if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
-    followMarker('m'+w);
-    dot.classList.add('on'); hint.classList.add('hidden'); setFrameRecognized(true);
+    dot.classList.add('on'); dot.style.background=''; hint.classList.add('hidden'); setFrameRecognized(true);
     stxt.textContent='認識中：'+cur.name+(isMultiFace()?(' ／ '+(face.label||'')):'');
+  } else if(holding){
+    // 推定表示中：バーコード見切れ。回転はジャイロ補正、位置は再検出で補正。
+    dot.classList.remove('on'); dot.style.background='#f59e0b'; hint.classList.add('hidden'); setFrameRecognized(false);
+    stxt.textContent='推定表示中：'+cur.name+(isMultiFace()?(' ／ '+(face.label||'')):'')+'（バーコードを写すと補正）';
   } else {
-    dot.classList.remove('on'); setFrameRecognized(false); hint.classList.remove('hidden');
+    dot.classList.remove('on'); dot.style.background=''; setFrameRecognized(false); hint.classList.remove('hidden');
     hint.innerHTML = isMultiFace()
       ? ('「'+(face.label||'次の面')+'」のマーカーにカメラを向けてください<small>次の操作はこの面です</small>')
       : 'マーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small>';
