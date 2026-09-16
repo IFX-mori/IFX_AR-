@@ -37,8 +37,8 @@
       "markerSizeMM": 40,
       "imageFile": "barcode-targets/bc-PCキボド操作-aevbx-fmu2ah5jyx3.jpg",
       "markerPos": {
-        "u": 0.5767,
-        "v": 0.5513,
+        "u": 0.6523,
+        "v": 0.5225,
         "w": 0.1295
       }
     }
@@ -52,8 +52,8 @@
         {
           "type": "box",
           "pos": [
-            0.343,
-            -0.046,
+            0.265,
+            -0.096,
             0
           ],
           "color": "#60a5fa",
@@ -66,8 +66,8 @@
         {
           "type": "box",
           "pos": [
-            0.618,
-            -0.648,
+            0.456,
+            0.227,
             -0.05668
           ],
           "color": "#60a5fa",
@@ -87,16 +87,16 @@
         {
           "type": "box",
           "pos": [
-            -0.452,
-            -0.131,
+            -0.453,
+            -0.126,
             0
           ],
           "color": "#60a5fa",
           "lineThick": 0.0096,
-          "label": "L",
+          "label": "L \"",
           "labelBelow": true,
-          "sizeH": 0.078,
-          "sizeW": 0.09,
+          "sizeH": 0.068,
+          "sizeW": 0.068,
           "rot": {
             "x": 15,
             "y": 0,
