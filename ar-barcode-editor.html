@@ -346,7 +346,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v3.5';
+const APP_VERSION = 'v3.6';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -380,7 +380,9 @@ function makeFace(label,barcode){ return { key:'f'+Date.now().toString(36)+Math.
   label:label||'前面', barcode:(barcode==null||isNaN(barcode))?null:barcode, markerSizeMM:MARKER_MM_DEFAULT,
   calib:{...CALIB_DEFAULT}, marker:{u:0.5,v:0.5,w:0.15}, photoDataURL:null, imageFile:'', loadedImg:'' }; }
 function curFaceE(){ return ED.faces[ED.faceIdx]; }
-function saveFaceState(){ const f=curFaceE(); if(!f) return; f.photoDataURL=_photoDataURL; f.imageFile=ED.imageFile; f.loadedImg=ED._loadedImg; f.markerSizeMM=ED.markerSizeMM; /* barcodeは面自身が保持（editFace/addFace/startEditorで設定）。marker,calibは参照共有 */ }
+function saveFaceState(){ const f=curFaceE(); if(!f) return; f.photoDataURL=_photoDataURL; f.markerSizeMM=ED.markerSizeMM;
+  /* imageFile/loadedImg/barcodeは面自身が保持（capture/upload/loadScenario/startEditorで直接設定）。ここでED値を書き戻すと、
+     アップロードで設定した新しい写真パスを直後のbuildScenarioJSON内saveFaceStateが古いED.imageFileへ巻き戻してしまう不具合（現在面の背景写真が読込時に消える）を起こすため書き戻さない。marker,calibは参照共有。 */ }
 function loadFaceState(i){ ED.faceIdx=i; const f=ED.faces[i]; if(!f) return;
   ED.marker=f.marker; ED.calib=f.calib; ED.markerSizeMM=f.markerSizeMM; ED.imageFile=f.imageFile||''; ED._loadedImg=f.loadedImg||''; ED.barcode=f.barcode; _photoDataURL=f.photoDataURL||null;
   syncScaleFromMarker();
