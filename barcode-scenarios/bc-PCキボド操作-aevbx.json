@@ -52,8 +52,8 @@
         {
           "type": "box",
           "pos": [
-            0.615,
-            0.589,
+            0.622,
+            0.593,
             0
           ],
           "color": "#60a5fa",
@@ -62,6 +62,19 @@
           "labelBelow": true,
           "sizeW": 0.12,
           "sizeH": 0.118
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.504,
+            -0.301,
+            -0.05668
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true
         }
       ],
       "face": "fmu2aevbxvf"
