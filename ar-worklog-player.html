@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v2.4</div>
+    <div id="ver">Worklog v2.5</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -210,16 +210,30 @@ const HOLD_FLIP = (new URLSearchParams(location.search).get('holdflip')==='1'); 
 const _HP=new URLSearchParams(location.search);
 const HOLD_ROT_OVR = _HP.has('holdrot') ? (parseFloat(_HP.get('holdrot'))||0) : null;   // 画面向き補正角(度)を明示指定。縦持ちズレの実機調整用。
 const HOLD_DEBUG = (_HP.get('holddebug')==='1');   // ?holddebug=1 でセンサー値HUD表示
+// 画面向きの取得方法：'grav'=重力から算出(既定・screen.orientationが壊れた端末でも可)／'screen'=OS値
+const HOLD_ORIENT_MODE = (_HP.get('holdorient')||'grav');
 let _devQ=null, _devReady=false, _motionAsked=false;   // 端末姿勢(THREE.Quaternion, device→world)。相対差分のみ使うので絶対方位ズレは無視できる。
-let _lastRaw={a:0,b:0,g:0,o:0};
+let _lastRaw={a:0,b:0,g:0,o:0}, _lastOd=0;
 const _q1=new THREE.Quaternion(-Math.SQRT1_2,0,0,Math.SQRT1_2);   // -90°(X) 端末面→カメラ視軸
 const _zee=new THREE.Vector3(0,0,1), _euler=new THREE.Euler(), _qScreen=new THREE.Quaternion();
-// 画面向き角。?holdrot 指定時はそれを使用（実機の縦横で正しい値を突き止めるため）。
-function _screenOrientDeg(){ if(HOLD_ROT_OVR!=null) return HOLD_ROT_OVR; return (screen.orientation&&screen.orientation.angle)||window.orientation||0; }
+const _gravV=new THREE.Vector3(), _qInv=new THREE.Quaternion();
+function _screenOrientRaw(){ return (screen.orientation&&screen.orientation.angle)||window.orientation||0; }
+// 画面向き角(度)。?holdrot明示指定＞重力算出(既定)＞OS値。重力算出は画面回転ロックやscreen.orientationのバグに強い。
+function _screenOrientDeg(qE){
+  if(HOLD_ROT_OVR!=null) return HOLD_ROT_OVR;
+  if(HOLD_ORIENT_MODE==='screen') return _screenOrientRaw();
+  // 端末→世界(qE, Y-up)から重力の画面内向きを求め、0/90/180/270へスナップ
+  const gd=_gravV.set(0,-1,0).applyQuaternion(_qInv.copy(qE).invert());
+  const mag=Math.hypot(gd.x,gd.y);
+  if(mag<0.25) return _lastOd;   // ほぼ真下/真上を向き画面ロールが不定な時は前回値を維持（ちらつき防止）
+  let o=-Math.atan2(gd.x,-gd.y)*180/Math.PI; o=Math.round(o/90)*90; o=((o%360)+360)%360;
+  _lastOd=o; return o;
+}
 function onDeviceOrientation(e){ if(e.alpha==null&&e.beta==null&&e.gamma==null) return;
-  const od=_screenOrientDeg();
-  const a=THREE.MathUtils.degToRad(e.alpha||0), b=THREE.MathUtils.degToRad(e.beta||0), g=THREE.MathUtils.degToRad(e.gamma||0), o=THREE.MathUtils.degToRad(od);
-  _euler.set(b,a,-g,'YXZ'); const q=new THREE.Quaternion().setFromEuler(_euler); q.multiply(_q1); q.multiply(_qScreen.setFromAxisAngle(_zee,-o));
+  const a=THREE.MathUtils.degToRad(e.alpha||0), b=THREE.MathUtils.degToRad(e.beta||0), g=THREE.MathUtils.degToRad(e.gamma||0);
+  _euler.set(b,a,-g,'YXZ'); const qE=new THREE.Quaternion().setFromEuler(_euler);   // 端末→世界(q1前, 重力算出に使用)
+  const od=_screenOrientDeg(qE); const o=THREE.MathUtils.degToRad(od);
+  const q=qE.clone().multiply(_q1).multiply(_qScreen.setFromAxisAngle(_zee,-o));
   if(!_devReady){ try{ toast('📱 センサー有効：見切れ中の回転補正が働きます'); }catch(_){} if(_motionBtn) _motionBtn.style.display='none'; }
   _devQ=q; _devReady=true;
   if(HOLD_DEBUG){ _lastRaw={a:Math.round(e.alpha||0),b:Math.round(e.beta||0),g:Math.round(e.gamma||0),o:od}; _updateHud(); } }
