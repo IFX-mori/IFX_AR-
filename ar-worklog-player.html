@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v2.6</div>
+    <div id="ver">Worklog v2.7</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -215,6 +215,23 @@ const HOLD_ORIENT_MODE = (_HP.get('holdorient')||'grav');
 // 追随の機敏さ（OneEuroフィルタ）。mc↑=静止時の応答UP(揺れも増)／beta↑=動作時の追随UP(動作中の揺れも増)。?mc= ?beta= で調整。
 const FOLLOW_MC   = Math.min(3, Math.max(0.05, parseFloat(_HP.get('mc'))||0.3));
 const FOLLOW_BETA = Math.min(8, Math.max(0,    parseFloat(_HP.get('beta'))||1.0));
+// 向きソフトロック：シナリオ再生中に開始時と違う向きになったら案内を出す（iOSはOSの回転自体は止められないため）。?orientlock=off で無効。
+const ORIENT_LOCK = (_HP.get('orientlock')!=='off');
+let _lockOrient=null, _orientOverlay=null;
+function _curOrient(){ return (window.innerWidth>=window.innerHeight)?'land':'port'; }
+function _ensureOrientOverlay(){ if(_orientOverlay) return _orientOverlay;
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;inset:0;z-index:350;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(15,23,42,0.94);color:#fff;text-align:center;padding:24px;pointer-events:auto';
+  d.innerHTML='<div style="font-size:44px">📱↻</div><div style="font-size:16px;font-weight:700;line-height:1.7">作業中は端末の向きを固定してください<br><span style="font-size:13px;font-weight:500;color:#cbd5e1">最初の向きに戻すと自動で作業に戻ります</span></div>';
+  const btn=document.createElement('button'); btn.textContent='この向きで続ける';
+  btn.style.cssText='background:#0f766e;color:#fff;border:none;border-radius:10px;padding:12px 20px;font-size:14px;font-weight:700;pointer-events:auto';
+  btn.onclick=()=>{ _lockOrient=_curOrient(); _updateOrientLock(); };
+  d.appendChild(btn); document.body.appendChild(d); _orientOverlay=d; return d; }
+function _updateOrientLock(){ if(!ORIENT_LOCK) return; const ov=_ensureOrientOverlay();
+  const active = !!cur && !!_lockOrient && _curOrient()!==_lockOrient;   // 再生中かつ開始時と向きが違うときだけ案内表示
+  ov.style.display = active ? 'flex' : 'none'; }
+window.addEventListener('resize', _updateOrientLock);
+window.addEventListener('orientationchange', ()=>setTimeout(_updateOrientLock,300));
 let _devQ=null, _devReady=false, _motionAsked=false;   // 端末姿勢(THREE.Quaternion, device→world)。相対差分のみ使うので絶対方位ズレは無視できる。
 let _lastRaw={a:0,b:0,g:0,o:0}, _lastOd=0;
 const _q1=new THREE.Quaternion(-Math.SQRT1_2,0,0,Math.SQRT1_2);   // -90°(X) 端末面→カメラ視軸
@@ -475,6 +492,7 @@ function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=k
   document.getElementById('scsub').textContent=scenario.subtitle||'';
   renderStep(); updateDocButtons();   // renderStep が面の追従・校正・誘導まで行う
   document.getElementById('btn-menu').style.display = (entryScenarios(entryBarcode(scenario)).length>1) ? 'inline-block':'none';
+  _lockOrient=_curOrient(); _updateOrientLock();   // 再生開始時の向きを基準にソフトロック
   logEvent('start',{totalSteps:scenario.steps.length});
 }
 document.getElementById('btn-next').onclick=()=>{ if(cur&&!document.getElementById('btn-next').disabled&&idx<cur.steps.length-1){idx++;renderStep();} };
@@ -595,6 +613,7 @@ function finishScenario(){
   closeDoc(); const key=curKey, mid=curMid;
   cur=null; idx=0; checkedSteps=new Set();
   content.setAttribute('visible', false);
+  _lockOrient=null; _updateOrientLock();   // 作業終了で向きロック解除
   toast('✅ 作業を記録しました');
   const list=entryScenarios(key);
   if(list.length>1){ curKey=key; showPicker(key,mid); }
