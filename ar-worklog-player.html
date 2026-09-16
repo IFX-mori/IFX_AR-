@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v2.2</div>
+    <div id="ver">Worklog v2.3</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -207,14 +207,25 @@ OneEuro.prototype.f=function(x,dt){ const dv=(this.lx===null)?0:(x-this.lx)/dt; 
 // ?hold=off で無効化。既定は無制限ホールド（消さない）。並進(歩行)は推定不可＝ずれる前提で、再検出時に補正する運用。
 const HOLD_ENABLED = ((new URLSearchParams(location.search).get('hold')||'on')!=='off');
 const HOLD_FLIP = (new URLSearchParams(location.search).get('holdflip')==='1');   // 実機で補正の向きが逆なら ?holdflip=1
+const _HP=new URLSearchParams(location.search);
+const HOLD_ROT_OVR = _HP.has('holdrot') ? (parseFloat(_HP.get('holdrot'))||0) : null;   // 画面向き補正角(度)を明示指定。縦持ちズレの実機調整用。
+const HOLD_DEBUG = (_HP.get('holddebug')==='1');   // ?holddebug=1 でセンサー値HUD表示
 let _devQ=null, _devReady=false, _motionAsked=false;   // 端末姿勢(THREE.Quaternion, device→world)。相対差分のみ使うので絶対方位ズレは無視できる。
+let _lastRaw={a:0,b:0,g:0,o:0};
 const _q1=new THREE.Quaternion(-Math.SQRT1_2,0,0,Math.SQRT1_2);   // -90°(X) 端末面→カメラ視軸
 const _zee=new THREE.Vector3(0,0,1), _euler=new THREE.Euler(), _qScreen=new THREE.Quaternion();
-function _screenOrientDeg(){ return (screen.orientation&&screen.orientation.angle)||window.orientation||0; }
+// 画面向き角。?holdrot 指定時はそれを使用（実機の縦横で正しい値を突き止めるため）。
+function _screenOrientDeg(){ if(HOLD_ROT_OVR!=null) return HOLD_ROT_OVR; return (screen.orientation&&screen.orientation.angle)||window.orientation||0; }
 function onDeviceOrientation(e){ if(e.alpha==null&&e.beta==null&&e.gamma==null) return;
-  const a=THREE.MathUtils.degToRad(e.alpha||0), b=THREE.MathUtils.degToRad(e.beta||0), g=THREE.MathUtils.degToRad(e.gamma||0), o=THREE.MathUtils.degToRad(_screenOrientDeg());
+  const od=_screenOrientDeg();
+  const a=THREE.MathUtils.degToRad(e.alpha||0), b=THREE.MathUtils.degToRad(e.beta||0), g=THREE.MathUtils.degToRad(e.gamma||0), o=THREE.MathUtils.degToRad(od);
   _euler.set(b,a,-g,'YXZ'); const q=new THREE.Quaternion().setFromEuler(_euler); q.multiply(_q1); q.multiply(_qScreen.setFromAxisAngle(_zee,-o));
-  _devQ=q; _devReady=true; }
+  _devQ=q; _devReady=true;
+  if(HOLD_DEBUG){ _lastRaw={a:Math.round(e.alpha||0),b:Math.round(e.beta||0),g:Math.round(e.gamma||0),o:od}; _updateHud(); } }
+let _hudEl=null;
+function _updateHud(extra){ if(!HOLD_DEBUG) return; if(!_hudEl){ _hudEl=document.createElement('div');
+    _hudEl.style.cssText='position:fixed;left:8px;bottom:8px;z-index:400;background:rgba(0,0,0,.72);color:#0f0;font:11px/1.5 monospace;padding:6px 8px;border-radius:8px;pointer-events:none;white-space:pre'; document.body.appendChild(_hudEl); }
+  _hudEl.textContent='HOLD debug\nscrAngle='+_lastRaw.o+' (rawScr='+((screen.orientation&&screen.orientation.angle))+' win='+(window.orientation)+')\nα='+_lastRaw.a+' β='+_lastRaw.b+' γ='+_lastRaw.g+(extra?('\n'+extra):''); }
 function enableMotion(){ if(_motionAsked||!HOLD_ENABLED) return; _motionAsked=true; const DOE=window.DeviceOrientationEvent;
   if(DOE&&typeof DOE.requestPermission==='function'){ DOE.requestPermission().then(s=>{ if(s==='granted') window.addEventListener('deviceorientation',onDeviceOrientation,true); }).catch(()=>{ _motionAsked=false; }); }
   else if(DOE){ window.addEventListener('deviceorientation',onDeviceOrientation,true); } }
@@ -251,6 +262,7 @@ AFRAME.registerComponent('smooth-follow', {
                                 : this._dQ.copy(_devQ).invert().multiply(this._gq0);
         me.position.copy(this._p0).applyQuaternion(delta);
         me.quaternion.copy(delta).multiply(this._q0);
+        if(HOLD_DEBUG) _updateHud('Δpos dx='+(me.position.x-this._p0.x).toFixed(2)+' dy='+(me.position.y-this._p0.y).toFixed(2)+' dz='+(me.position.z-this._p0.z).toFixed(2));
       } // ジャイロ無し＝凍結姿勢(_p0/_q0)のまま据え置き
       me.visible=true;
     }
