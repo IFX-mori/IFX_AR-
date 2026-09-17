@@ -85,7 +85,7 @@
 <body>
 <a-scene embedded vr-mode-ui="enabled: false"
   renderer="logarithmicDepthBuffer: true; precision: medium;"
-  arjs="sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; debugUIEnabled: false;">
+  arjs="sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; maxDetectionRate: 60; debugUIEnabled: false;">
   <a-marker id="m0" type="barcode" value="0" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
   <a-marker id="m1" type="barcode" value="1" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
   <a-marker id="m2" type="barcode" value="2" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v2.8</div>
+    <div id="ver">Worklog v3.0</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -215,8 +215,17 @@ const HOLD_ORIENT_MODE = (_HP.get('holdorient')||'grav');
 // 追随の機敏さ（OneEuroフィルタ）。mc↑=静止時の応答UP(揺れも増)／beta↑=動作時の追随UP(動作中の揺れも増)。?mc= ?beta= で調整。
 const FOLLOW_MC   = Math.min(3, Math.max(0.05, parseFloat(_HP.get('mc'))||0.3));
 const FOLLOW_BETA = Math.min(8, Math.max(0,    parseFloat(_HP.get('beta'))||1.0));
+// 見切れ固定の遡り時間(秒)。見切れる瞬間の“乱れた最後の1コマ”を避け、この秒数だけ前の安定姿勢で固定する。?freezeback=MS(既定200)。0で無効(最後のコマで固定)。
+const FREEZE_BACK = Math.max(0, Math.min(0.6, (parseFloat(_HP.get('freezeback'))||200)/1000));
 // AR.jsマーカー平滑化（smoothCount=直近Nフレーム平均）。大きいほど遅延＆見切れ後の追随ズレが増える。独自OneEuroで安定化するため軽めが良い。
 // ?smooth=off で無効(最速・最も即固定)／?smoothcount=N で調整（既定5）。
+// スキャン(検出)頻度：AR.jsのmaxDetectionRate（1秒あたり最大検出回数）。?detectrate=N で上書き。scene初期化前に属性を書き換える。
+// ※実効はカメラのfps上限（多くの端末で30〜60）で頭打ち。上げても効かない場合はカメラfpsが上限。
+(function(){ const dr=parseInt(_HP.get('detectrate')||'',10); if(!dr||dr<1) return;
+  const s=document.querySelector('a-scene'); if(!s) return; let a=s.getAttribute('arjs')||'';
+  a = /maxDetectionRate\s*:/.test(a) ? a.replace(/maxDetectionRate\s*:\s*[0-9.]+/, 'maxDetectionRate: '+dr)
+                                     : (a.replace(/;?\s*$/,'; ')+'maxDetectionRate: '+dr+';');
+  s.setAttribute('arjs', a); })();
 const SMOOTH_ON = (_HP.get('smooth')!=='off');
 const SMOOTH_COUNT = Math.max(1, Math.min(30, parseInt(_HP.get('smoothcount')||'5',10)));
 function applyMarkerSmoothing(){ document.querySelectorAll('a-marker').forEach(m=>{
@@ -299,24 +308,40 @@ AFRAME.registerComponent('smooth-follow', {
     this._fp=[mk(),mk(),mk()]; this._fq=[mk(),mk(),mk(),mk()]; this._started=false; this._lastT=null;
     // 推定ホールド用
     this._hasPose=false; this._holding=false; this._p0=new THREE.Vector3(); this._q0=new THREE.Quaternion(); this._gq0=new THREE.Quaternion(); this._gq0ok=false; this._dQ=new THREE.Quaternion();
+    this._hist=[];   // 直近の姿勢＋ジャイロ履歴（見切れ直前の安定姿勢へ遡って固定するため）
     this.el.object3D.visible=false; },
   update: function(){ this._started=false; const mk=()=>new OneEuro(this.data.mc,this.data.beta);
     this._fp=[mk(),mk(),mk()]; this._fq=[mk(),mk(),mk(),mk()];
     // 追従対象(面)が変わったら過去姿勢でのホールドは無効化＝別面を古い位置で出さない
-    this._hasPose=false; this._holding=false; this.el.object3D.visible=false; },
+    this._hasPose=false; this._holding=false; this._hist=[]; this.el.object3D.visible=false; },
   tick: function(time){ const t=this.data.target; if(!t) return; const o=t.object3D, me=this.el.object3D;
+    const now=(time||performance.now())/1000;
     if(o.visible){ o.updateMatrixWorld(); o.matrixWorld.decompose(this._p,this._q,this._s);
-      const now=(time||performance.now())/1000; let dt=(this._lastT!=null&&now>this._lastT)?(now-this._lastT):1/60; if(dt>0.1)dt=0.1; this._lastT=now;
+      let dt=(this._lastT!=null&&now>this._lastT)?(now-this._lastT):1/60; if(dt>0.1)dt=0.1; this._lastT=now;
       if(!this._started){ me.position.copy(this._p); me.quaternion.copy(this._q); this._started=true; }   // 再検出＝正確位置へ即スナップ補正
       else { me.position.set(this._fp[0].f(this._p.x,dt),this._fp[1].f(this._p.y,dt),this._fp[2].f(this._p.z,dt));
              me.quaternion.set(this._fq[0].f(this._q.x,dt),this._fq[1].f(this._q.y,dt),this._fq[2].f(this._q.z,dt),this._fq[3].f(this._q.w,dt)).normalize(); }
       me.visible=true; this._hasPose=true; this._holding=false;
+      // 姿勢＋ジャイロを履歴に記録（見切れ直前の安定姿勢へ遡るため。0.6秒ぶん保持）
+      const gok=!!(_devReady&&_devQ);
+      this._hist.push({t:now, px:me.position.x,py:me.position.y,pz:me.position.z, qx:me.quaternion.x,qy:me.quaternion.y,qz:me.quaternion.z,qw:me.quaternion.w,
+        gok, gx:gok?_devQ.x:0,gy:gok?_devQ.y:0,gz:gok?_devQ.z:0,gw:gok?_devQ.w:1});
+      const h=this._hist; while(h.length && now-h[0].t>0.6) h.shift();
     }
     else if(HOLD_ENABLED && this._hasPose){
-      // マーカー見切れ中：最後の姿勢を保持。ジャイロがあれば端末の回転ぶんを相殺して実空間の位置へ表示継続。
-      if(!this._holding){ this._holding=true; this._started=false; this._p0.copy(me.position); this._q0.copy(me.quaternion); this._gq0ok=false; }
-      // ジャイロが遅れて有効化された場合も、その時点の姿勢を基準に補正を開始（許可ダイアログの遅れ対策）
-      if(!this._gq0ok && _devReady && _devQ){ this._gq0.copy(_devQ); this._gq0ok=true; this._p0.copy(me.position); this._q0.copy(me.quaternion); }
+      // マーカー見切れ中：見切れ“直前の安定姿勢”を保持。ジャイロがあれば端末の回転ぶんを相殺して実空間の位置へ表示継続。
+      if(!this._holding){ this._holding=true; this._started=false; this._gq0ok=false;
+        // 見切れ検知の“最後の乱れた1コマ”を避け、FREEZE_BACK秒前の安定サンプルへ遡って固定（姿勢・ジャイロを時刻一致で取得）
+        const h=this._hist; let s=null; const tt=now-FREEZE_BACK;
+        for(let i=h.length-1;i>=0;i--){ if(h[i].t<=tt){ s=h[i]; break; } }
+        if(!s && h.length) s=h[0];
+        if(s){ this._p0.set(s.px,s.py,s.pz); this._q0.set(s.qx,s.qy,s.qz,s.qw);
+          if(s.gok){ this._gq0.set(s.gx,s.gy,s.gz,s.gw); this._gq0ok=true; } }
+        else { this._p0.copy(me.position); this._q0.copy(me.quaternion); }
+        me.position.copy(this._p0); me.quaternion.copy(this._q0);   // 表示も即その安定姿勢へ（乱れた最後のコマへは飛ばない）
+      }
+      // ジャイロが遅れて有効化された場合も、その時点を基準に補正開始（許可ダイアログの遅れ対策。_p0/_q0は遡り固定のまま保持）
+      if(!this._gq0ok && _devReady && _devQ){ this._gq0.copy(_devQ); this._gq0ok=true; }
       if(this._gq0ok && _devReady && _devQ){
         // delta = 現在^-1 * 凍結時（端末回転の逆を物体に適用＝実空間に留める）。holdflipで向き反転。
         const delta = HOLD_FLIP ? this._dQ.copy(this._gq0).invert().multiply(_devQ)
