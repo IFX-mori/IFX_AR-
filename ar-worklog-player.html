@@ -86,16 +86,16 @@
 <a-scene embedded vr-mode-ui="enabled: false"
   renderer="logarithmicDepthBuffer: true; precision: medium;"
   arjs="sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; maxDetectionRate: 120; debugUIEnabled: false;">
-  <a-marker id="m0" type="barcode" value="0" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
-  <a-marker id="m1" type="barcode" value="1" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
-  <a-marker id="m2" type="barcode" value="2" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
-  <a-marker id="m3" type="barcode" value="3" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
-  <a-marker id="m4" type="barcode" value="4" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
-  <a-marker id="m5" type="barcode" value="5" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
-  <a-marker id="m6" type="barcode" value="6" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
-  <a-marker id="m7" type="barcode" value="7" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
-  <a-marker id="m8" type="barcode" value="8" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
-  <a-marker id="m9" type="barcode" value="9" smooth="true" smoothCount="5" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m0" type="barcode" value="0" smooth="true" smoothCount="4" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m1" type="barcode" value="1" smooth="true" smoothCount="4" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m2" type="barcode" value="2" smooth="true" smoothCount="4" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m3" type="barcode" value="3" smooth="true" smoothCount="4" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m4" type="barcode" value="4" smooth="true" smoothCount="4" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m5" type="barcode" value="5" smooth="true" smoothCount="4" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m6" type="barcode" value="6" smooth="true" smoothCount="4" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m7" type="barcode" value="7" smooth="true" smoothCount="4" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m8" type="barcode" value="8" smooth="true" smoothCount="4" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
+  <a-marker id="m9" type="barcode" value="9" smooth="true" smoothCount="4" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
   <a-entity id="anchor" smooth-follow="target: #m0; mc: 0.3; beta: 1.0">
     <a-entity id="markerframe" rotation="-90 0 0"></a-entity>
     <a-entity id="wrapper"><a-entity id="content" rotation="-90 0 0"></a-entity></a-entity>
@@ -108,7 +108,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v3.1</div>
+    <div id="ver">Worklog v3.2</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -213,12 +213,12 @@ const HOLD_DEBUG = (_HP.get('holddebug')==='1');   // ?holddebug=1 でセンサ�
 // 画面向きの取得方法：'grav'=重力から算出(既定・screen.orientationが壊れた端末でも可)／'screen'=OS値
 const HOLD_ORIENT_MODE = (_HP.get('holdorient')||'grav');
 // 追随の機敏さ（OneEuroフィルタ）。mc↑=静止時の応答UP(揺れも増)／beta↑=動作時の追随UP(動作中の揺れも増)。?mc= ?beta= で調整。
-const FOLLOW_MC   = Math.min(3, Math.max(0.05, parseFloat(_HP.get('mc'))||1.0));   // 既定=採用値1.0（?mc=で上書き）
+const FOLLOW_MC   = Math.min(3, Math.max(0.05, parseFloat(_HP.get('mc'))||0.5));   // 既定=採用値0.5（?mc=で上書き）
 const FOLLOW_BETA = Math.min(8, Math.max(0,    parseFloat(_HP.get('beta'))||2.0));   // 既定=採用値2.0（?beta=で上書き）
 // 見切れ固定の遡り時間(秒)。見切れる瞬間の“乱れた最後の1コマ”を避け、この秒数だけ前の安定姿勢で固定する。?freezeback=MS(既定200)。0で無効(最後のコマで固定)。
 const FREEZE_BACK = Math.max(0, Math.min(0.6, (parseFloat(_HP.get('freezeback'))||200)/1000));
 // AR.jsマーカー平滑化（smoothCount=直近Nフレーム平均）。大きいほど遅延＆見切れ後の追随ズレが増える。独自OneEuroで安定化するため軽めが良い。
-// 既定=採用値off（最速・最も即固定）。?smooth=on で有効化、?smoothcount=N で調整。
+// 既定=採用値on(smoothCount=4)。横持ちの姿勢反転ゆらぎ(planar pose flipping)を抑制。見切れ時ズレはfreezeback(v3.0)が別途保護。?smooth=off で無効化、?smoothcount=N で調整。
 // スキャン(検出)頻度：AR.jsのmaxDetectionRate（1秒あたり最大検出回数）。?detectrate=N で上書き。scene初期化前に属性を書き換える。
 // ※実効はカメラのfps上限（多くの端末で30〜60）で頭打ち。上げても効かない場合はカメラfpsが上限。
 (function(){ const dr=parseInt(_HP.get('detectrate')||'',10); if(!dr||dr<1) return;
@@ -226,8 +226,8 @@ const FREEZE_BACK = Math.max(0, Math.min(0.6, (parseFloat(_HP.get('freezeback'))
   a = /maxDetectionRate\s*:/.test(a) ? a.replace(/maxDetectionRate\s*:\s*[0-9.]+/, 'maxDetectionRate: '+dr)
                                      : (a.replace(/;?\s*$/,'; ')+'maxDetectionRate: '+dr+';');
   s.setAttribute('arjs', a); })();
-const SMOOTH_ON = (_HP.get('smooth')==='on');
-const SMOOTH_COUNT = Math.max(1, Math.min(30, parseInt(_HP.get('smoothcount')||'5',10)));
+const SMOOTH_ON = (_HP.get('smooth')!=='off');
+const SMOOTH_COUNT = Math.max(1, Math.min(30, parseInt(_HP.get('smoothcount')||'4',10)));
 function applyMarkerSmoothing(){ document.querySelectorAll('a-marker').forEach(m=>{
   if(!SMOOTH_ON){ m.setAttribute('smooth','false'); }
   else { m.setAttribute('smooth','true'); m.setAttribute('smoothCount', String(SMOOTH_COUNT)); } }); }
