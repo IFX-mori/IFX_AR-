@@ -212,6 +212,8 @@
     <textarea id="vid-trans" placeholder="ここに手順文を直接入力できます。例：&#10;ステップ1 盤面右上のランプの色を確認する。&#10;ステップ2 左のつまみを左へ30回す。&#10;ステップ3 赤いリセットボタンを2回押す。注意 停止しない場合は通信指令へ連絡。" style="width:100%;height:150px;border:1px solid #cbd5e1;border-radius:9px;padding:10px;font-size:13px;line-height:1.6"></textarea>
     <div id="vid-edit-hint" class="hint" style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.6">「ステップN」の区切りや操作語（回す/押す/確認/注意/数値 等）を入れると、分割と図形自動生成の精度が上がります。</div>
     <button class="btn full p" id="vid-build" style="margin-top:8px" onclick="buildStepsFromTranscript()">✂️ ステップ分割＋図形を自動生成</button>
+    <button class="btn full" id="vid-build-lines" style="margin-top:6px;border:1px solid #0e7490;color:#0e7490;background:#ecfeff" onclick="buildStepsByLines()">📝 行ごとにテキスト作成（「ステップ」行＝タイトル）</button>
+    <div class="hint" style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.6">「📝行ごと」＝先頭が「ステップ」の行をステップのタイトルにし、他の行は<b>1行ずつ別々のテキスト図形</b>にします（操作語の図形化はしません）。空行は区切りとして無視。</div>
 
     <details style="margin-top:12px">
       <summary style="font-size:12px;font-weight:700;color:#475569;cursor:pointer">🎥 動画から文字起こしする（任意）</summary>
@@ -346,7 +348,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v3.6';
+const APP_VERSION = 'v3.7';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -1208,6 +1210,39 @@ function autoFiguresFromText(step){
   if(!figs.length){ const t=(step.title||'操作').replace(/^ステップ\s*[0-9０-９]+[：:\s]*/,'')||'操作'; figs.push({type:'text',color:CA,label:t}); }
   const n=figs.length;
   return figs.map((f,i)=>({ ...f, pos:[0, +(((n-1)/2 - i)*0.14).toFixed(3), 0] }));
+}
+// 行ベース生成：先頭が「ステップ(手順/STEP)」の行＝そのステップのタイトル、それ以外の非空行＝各行1つずつのテキスト図形。
+function splitTranscriptByLines(text){
+  const fk=(curFaceE()&&curFaceE().key)||(ED.faces[0]&&ED.faces[0].key);
+  const isStepLine=(l)=>/^\s*(?:ステップ|手順|STEP|Step)\s*[0-9０-９]*/.test(l);
+  const steps=[]; let cur=null;
+  text.split(/\r?\n/).forEach(raw=>{
+    const line=raw.trim(); if(!line) return;          // 空行は区切りとして無視
+    if(isStepLine(line)){
+      cur={ title:line.slice(0,40), detail:'', warn:'normal', ar:[], photo:'', face:fk };
+      steps.push(cur);
+    } else {
+      if(!cur){ cur={ title:'ステップ1', detail:'', warn:'normal', ar:[], photo:'', face:fk }; steps.push(cur); }  // ステップ行より前の行の受け皿
+      cur.ar.push({ type:'text', color:'#60a5fa', label:line });
+    }
+  });
+  // 各ステップのテキスト図形を上下中央スプレッドに配置
+  steps.forEach(s=>{ const n=s.ar.length; s.ar=s.ar.map((f,i)=>({ ...f, pos:[0, +(((n-1)/2 - i)*0.14).toFixed(3), 0] })); });
+  return steps;
+}
+function buildStepsByLines(){
+  const text=(document.getElementById('vid-trans').value||'').trim();
+  if(!text){ alert('先に手順文を入力してください'); return; }
+  const steps=splitTranscriptByLines(text);
+  if(!steps.length){ alert('行が見つかりませんでした'); return; }
+  const replace = ED.steps.length && !(ED.steps.length===1 && !ED.steps[0].ar.length)
+    ? confirm(`${steps.length}個のステップを作成します。\n\n「OK」＝現在のステップを置き換える\n「キャンセル」＝末尾に追加`)
+    : true;
+  ED.steps = replace ? steps : ED.steps.concat(steps);
+  stepIdx=0; figIdx=-1;
+  const items=steps.reduce((a,s)=>a+s.ar.length,0);
+  document.getElementById('vid-status').textContent=`✅ ${steps.length}ステップ／テキスト${items}個を作成（ステップ行＝タイトル、他の行＝各テキスト）。「編集を開始」で位置を調整してください。`;
+  if(document.getElementById('editor').classList.contains('on')){ syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 }
 function buildStepsFromTranscript(){
   const text=(document.getElementById('vid-trans').value||'').trim();
