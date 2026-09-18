@@ -122,7 +122,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v3.5</div>
+    <div id="ver">Worklog v3.6</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -425,6 +425,15 @@ function defaultLabelOffset(it){
   return {x:0, y:-lyPx/PXREF};   // canvas下方向(+)→pos上方向(+)へ符号反転
 }
 function makeItem(it, cal){
+  if(it.type==='image'){   // 画像オーバーレイ（透過PNG等）：実寸(size=幅)×aspect(高/幅)で配置
+    const el=document.createElement('a-plane');
+    const w=Math.max(0.02, it.size||0.3), h=w*(it.aspect||1);
+    el.setAttribute('width', w.toFixed(4)); el.setAttribute('height', h.toFixed(4));
+    el.setAttribute('position', `${it.pos[0]+cal.ox} ${it.pos[1]+cal.oy} ${it.pos[2]||0}`);
+    el.setAttribute('material', {shader:'flat', transparent:true, side:'double', alphaTest:0.02, depthWrite:false, opacity:(it.opacity!=null?it.opacity:1), src:(it._src||it.src||'')});
+    if(it.rot&&(it.rot.x||it.rot.y||it.rot.z)) el.setAttribute('rotation', `${it.rot.x||0} ${it.rot.y||0} ${it.rot.z||0}`);
+    return el;
+  }
   const tmp=document.createElement('canvas').getContext('2d');
   const color=it.color||'#60a5fa'; const fp=Math.round(46*(it.fontScale||1));
   const bg=it.textBg||'rgba(0,0,0,0.82)';
@@ -570,7 +579,16 @@ function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=k
   renderStep(); updateDocButtons();   // renderStep が面の追従・校正・誘導まで行う
   document.getElementById('btn-menu').style.display = (entryScenarios(entryBarcode(scenario)).length>1) ? 'inline-block':'none';
   _lockOrient=_curOrient(); _updateOrientLock();   // 再生開始時の向きを基準にソフトロック
+  resolveImageAssets();   // 画像オーバーレイの端末保存blobを解決（オフライン表示用）
   logEvent('start',{totalSteps:scenario.steps.length});
+}
+// 画像オーバーレイのsrcを端末保存blob(あれば)へ解決してから再描画（オフライン対応。無ければURLのまま）
+function resolveImageAssets(){ if(!cur) return;
+  const urls=new Set(); cur.steps.forEach(s=>(s.ar||[]).forEach(f=>{ if(f.type==='image'&&f.src&&!f._src) urls.add(f.src); }));
+  if(!urls.size) return;
+  Promise.all([...urls].map(async u=>{ try{ const a=await idbGet('assets',u); if(a&&a.blob){ const o=URL.createObjectURL(a.blob);
+        cur.steps.forEach(s=>(s.ar||[]).forEach(f=>{ if(f.type==='image'&&f.src===u) f._src=o; })); } }catch(_){} }))
+    .then(()=>{ if(cur) renderStep(); });
 }
 document.getElementById('btn-next').onclick=()=>{ if(cur&&!document.getElementById('btn-next').disabled&&idx<cur.steps.length-1){idx++;renderStep();} };
 document.getElementById('btn-prev').onclick=()=>{ if(cur&&idx>0){idx--;renderStep();} };
@@ -816,7 +834,10 @@ function normalizeScenario(s){
     faces=[{ key:'f1', label:'', barcode:s.barcode, markerSizeMM:s.markerSizeMM||40, calib:Object.assign({scale:6,ox:0,oy:0,rot:0}, s.calib||{}) }];
   }
   const fkeys=faces.map(f=>f.key);
-  const steps=(s.steps||[]).map(st=>Object.assign({}, st, { face:(fkeys.includes(st.face)?st.face:fkeys[0]) }));
+  const steps=(s.steps||[]).map(st=>Object.assign({}, st, {
+    face:(fkeys.includes(st.face)?st.face:fkeys[0]),
+    ar:(st.ar||[]).map(f=> f.type==='image' ? Object.assign({}, f, { src:normalizeGhUrl(f.src||'') }) : f)   // 画像srcはPages URLへ正規化
+  }));
   return { id:s.id, name:s.name||('barcode '+(faces[0].barcode)), subtitle:s.subtitle||'', device:s.device||'',
     docs:normDocs(s.docs), faces, barcode:faces[0].barcode, calib:faces[0].calib, steps };
 }
@@ -858,8 +879,11 @@ async function saveDevice(){
     let assetOk=0, assetNg=0; const fails=[];
     for(const s of list){
       await idbPut('scenarios', { id:s.id, barcode:key, data:s });
-      for(const kind of ['pdf','video']){ const url=s.docs&&s.docs[kind]; if(!url) continue;
-        const fname=url.split('/').pop();
+      // 資料(PDF/動画)＋画像オーバーレイのURLを収集して端末保存
+      const urls=[];
+      for(const kind of ['pdf','video']){ const u=s.docs&&s.docs[kind]; if(u) urls.push(u); }
+      (s.steps||[]).forEach(st=>(st.ar||[]).forEach(f=>{ if(f.type==='image'&&f.src) urls.push(f.src); }));
+      for(const url of urls){ const fname=url.split('/').pop();
         try{ const r=await fetch(url,{cache:'no-store'}); if(r.ok){ const blob=await r.blob(); await idbPut('assets',{url,blob,type:r.headers.get('content-type')||''}); assetOk++; }
              else { assetNg++; fails.push(fname+' HTTP'+r.status); } }
         catch(e){ assetNg++; fails.push(fname+' '+((e&&e.name)||'fetch失敗')); console.warn('資料取得失敗',url,e); }

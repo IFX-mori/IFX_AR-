@@ -251,6 +251,8 @@
       <button data-add="curvedArrow">↺<br>回転</button>
       <button data-add="ring">◯<br>丸</button>
       <button data-add="text">📝<br>文字</button>
+      <button id="tool-image" title="配線図など透過PNGを重ねる">🖼<br>画像</button>
+      <input type="file" id="img-file" accept="image/png,image/*" style="display:none">
     </div>
     <div id="topright">
       <button id="btn-back" onclick="backToSetup()">‹ 戻る</button>
@@ -348,9 +350,10 @@
 </div>
 
 <script>
-const APP_VERSION = 'v3.8';
+const APP_VERSION = 'v3.9';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
+const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
 const MARKER_MM_DEFAULT = 40;   // マーカー標準実寸（4cm角）
 const WARN = { normal:{c:'#1d4ed8',label:'通常'}, caution:{c:'#d97706',label:'注意'}, danger:{c:'#dc2626',label:'危険'} };
@@ -545,10 +548,13 @@ function renderOverlay(){
   ov.innerHTML='';
   const step=curStep(); if(!step) return;
   step.ar.forEach((it,i)=>{
-    const fc=figCanvas(it);
+    const fc = (it.type==='image')
+      ? { url:(it._dataURL||it.src||''), wUnits:(it.size||0.3), hUnits:(it.size||0.3)*(it.aspect||1) }   // 画像は幅×aspectで表示
+      : figCanvas(it);
     const p=normToPct(it.pos[0], it.pos[1]);
     const el=document.createElement('div');
     el.className='fig'+(i===figIdx?' sel':'');
+    if(it.type==='image' && it.opacity!=null) el.style.opacity=it.opacity;
     el.style.left=p.left+'%'; el.style.top=p.top+'%';
     // 図形の物理サイズ：1正規化単位=画像幅(等方)。オーバーレイ幅=画像幅W, 高さ=W*aspect。
     //   幅% = wUnits*100（W基準） / 高さ% = hUnits/aspect*100（W*aspect基準でpxを合わせる）
@@ -656,6 +662,22 @@ document.querySelectorAll('#tools button').forEach(b=>{
     setSub(t==='marker' ? '写真上のバーコード位置をタップ' : 'タップで図形を配置'); };
 });
 function clearAddType(){ addType=null; document.querySelectorAll('#tools button').forEach(x=>x.classList.remove('on')); setSub(''); }
+// ── 画像オーバーレイ（配線図PNG等）の取り込み ──
+let _imgReplaceIdx=null;   // nullなら新規追加、数値ならそのindexの画像を差し替え
+document.getElementById('tool-image').onclick=()=>{ _imgReplaceIdx=null; document.getElementById('img-file').click(); };
+document.getElementById('img-file').addEventListener('change', e=>{
+  const file=e.target.files&&e.target.files[0]; e.target.value=''; if(!file) return;
+  if(!curStep()){ alert('先にステップを作成してください'); return; }
+  const rd=new FileReader();
+  rd.onload=()=>{ const img=new Image(); img.onload=()=>{
+    const aspect=(img.naturalHeight&&img.naturalWidth)?(img.naturalHeight/img.naturalWidth):1;
+    if(_imgReplaceIdx!=null){ const f=curStep().ar[_imgReplaceIdx]; if(f&&f.type==='image'){ f._dataURL=rd.result; f.src=''; f.aspect=+aspect.toFixed(4); } _imgReplaceIdx=null; }
+    else { const it={ type:'image', pos:[0,0,0], size:0.3, aspect:+aspect.toFixed(4), opacity:1, src:'', _dataURL:rd.result };
+      curStep().ar.push(it); figIdx=curStep().ar.length-1; }
+    renderOverlay(); renderPropbar();
+  }; img.src=rd.result; };
+  rd.readAsDataURL(file);
+});
 function setSub(t){ document.getElementById('sub').textContent = t || (ED.name||'.mind不要／写真に図形を配置してJSON化'); }
 
 // ══════════ ステップUI ══════════
@@ -717,18 +739,27 @@ function renderPropbar(){
   const bar=document.querySelector('#propbar .inner'); const f=curFig();
   if(!f){ bar.innerHTML='<span class="none">図形を選択、または左のツールから追加してください</span>'; syncBottomHeight(); return; }
   const isText=f.type==='text';
+  const isImage=f.type==='image';
   let h='';
-  h+=`<span class="grp">${f.type}</span>`;
-  h+=`<span class="grp">色<input type="color" id="pp-color" value="${toHex(f.color)}"></span>`;
-  h+=`<textarea id="pp-label" placeholder="ラベル（改行可）" rows="1">${escHtml(f.label||'')}</textarea>`;
+  h+=`<span class="grp">${isImage?'画像':f.type}</span>`;
+  if(isImage){
+    const wcm=normToCm(f.size||0.3); const op=(f.opacity!=null?f.opacity:1);
+    h+=`<span class="grp">幅<button class="sbtn" data-iw="-" title="0.5cm縮小">－</button><b id="pp-iw" style="min-width:58px;text-align:center;color:#0e7490">${wcm.toFixed(1)}cm</b><button class="sbtn" data-iw="+" title="0.5cm拡大">＋</button></span>`;
+    h+=`<span class="grp">微<button class="sbtn" data-iwf="-">－</button><button class="sbtn" data-iwf="+">＋</button></span>`;
+    h+=`<span class="grp">濃さ<button class="sbtn" data-iop="-">－</button><b style="min-width:40px;text-align:center;color:#0e7490">${Math.round(op*100)}%</b><button class="sbtn" data-iop="+">＋</button></span>`;
+    h+=`<button class="sbtn" data-imgrepl="1" title="画像を差し替え" style="width:auto;padding:0 8px">画像差替</button>`;
+  } else {
+    h+=`<span class="grp">色<input type="color" id="pp-color" value="${toHex(f.color)}"></span>`;
+    h+=`<textarea id="pp-label" placeholder="ラベル（改行可）" rows="1">${escHtml(f.label||'')}</textarea>`;
+  }
   // サイズ
   if(f.type==='curvedArrow'){ h+=`<span class="grp">向き<select id="pp-dir"><option value="right"${f.dir==='right'?' selected':''}>右</option><option value="left"${f.dir==='left'?' selected':''}>左</option></select></span>`; }
-  // 大きさ：text=文字サイズ／box=横・縦を独立（長方形化）／その他=一律
+  // 大きさ：text=文字サイズ／box=横・縦を独立（長方形化）／その他=一律（画像は上部の幅cmで調整）
   if(isText){ h+=`<span class="grp">字<button class="sbtn" data-fs="-">－</button><button class="sbtn" data-fs="+">＋</button></span>`;
     const al=f.align||'center';
     h+=`<span class="grp">整列<select id="pp-align"><option value="left"${al==='left'?' selected':''}>左</option><option value="center"${al==='center'?' selected':''}>中央</option><option value="right"${al==='right'?' selected':''}>右</option></select></span>`; }
   else if(f.type==='box'){ h+=`<span class="grp">横<button class="sbtn" data-w="-">－</button><button class="sbtn" data-w="+">＋</button></span><span class="grp">縦<button class="sbtn" data-h="-">－</button><button class="sbtn" data-h="+">＋</button></span>`; }
-  else { h+=`<span class="grp">大<button class="sbtn" data-sz="-">－</button><button class="sbtn" data-sz="+">＋</button></span>`; }
+  else if(!isImage){ h+=`<span class="grp">大<button class="sbtn" data-sz="-">－</button><button class="sbtn" data-sz="+">＋</button></span>`; }
   if(f.type==='box'||f.type==='ring'){ h+=`<span class="grp">線<button class="sbtn" data-lt="-">－</button><button class="sbtn" data-lt="+">＋</button></span>`; }
   if(f.type==='box'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
   if(f.type==='arrow'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-above" ${f.labelAbove?'checked':''}> ラベル上</label></span>`; }
@@ -777,6 +808,11 @@ function renderPropbar(){
     if(!f.rot.x&&!f.rot.y&&!f.rot.z) delete f.rot;
     renderOverlay();
   });
+  // 画像：幅(cm)・不透明度・差し替え
+  bar.querySelectorAll('[data-iw]').forEach(b=>b.onclick=()=>{ const cm=Math.max(0.2, normToCm(f.size||0.3)+(b.getAttribute('data-iw')==='+'?0.5:-0.5)); f.size=+cmToNorm(cm).toFixed(4); renderOverlay(); renderPropbar(); });
+  bar.querySelectorAll('[data-iwf]').forEach(b=>b.onclick=()=>{ const cm=Math.max(0.2, normToCm(f.size||0.3)+(b.getAttribute('data-iwf')==='+'?0.1:-0.1)); f.size=+cmToNorm(cm).toFixed(4); renderOverlay(); renderPropbar(); });
+  bar.querySelectorAll('[data-iop]').forEach(b=>b.onclick=()=>{ let op=(f.opacity!=null?f.opacity:1)+(b.getAttribute('data-iop')==='+'?0.1:-0.1); f.opacity=+Math.max(0.1,Math.min(1,op)).toFixed(2); renderOverlay(); renderPropbar(); });
+  const irepl=bar.querySelector('[data-imgrepl]'); if(irepl) irepl.onclick=()=>{ _imgReplaceIdx=figIdx; document.getElementById('img-file').click(); };
   // ラベル位置（図形中心からの任意オフセット labelPos）。0.03刻み。初回は既定位置から開始。
   bar.querySelectorAll('[data-lp]').forEach(b=>b.onclick=()=>{
     const k=b.getAttribute('data-lp');
@@ -906,7 +942,8 @@ function buildScenarioJSON(){
     device: ED.device||'',
     docs: ED.docs||{},
     faces,                        // ← 多面。各面のマーカー番号・校正・写真
-    steps: ED.steps               // 各stepに face キー
+    steps: ED.steps.map(s=>({ ...s, ar:(s.ar||[]).map(f=>{ const {_dataURL, ...rest}=f; return rest; }) }))   // _dataURL(作業用)は出力しない
+
   }, null, 2);
 }
 function openExport(){
@@ -1039,6 +1076,17 @@ async function githubUpload(){
     for(const f of ED.faces){ if(f.photoDataURL){ setJsonStatus(`参照写真をアップロード中…（${f.label}）`);
       f.imageFile=`${TARGET_DIR}/${ED.id}-${f.key}.jpg`;
       await ghPutFile(owner,repo,token,f.imageFile,dataURLToBase64(f.photoDataURL),`Add barcode target ${ED.id} ${f.key}`); upFiles.push(f.imageFile); } }
+    // 画像オーバーレイ(配線図PNG等)をアップロード（新規＝_dataURLがdata:のものだけ。既存URLは再アップしない）
+    for(let si=0; si<ED.steps.length; si++){ const ar=ED.steps[si].ar||[];
+      for(let fi=0; fi<ar.length; fi++){ const g=ar[fi];
+        if(g.type==='image' && g._dataURL && /^data:/.test(g._dataURL)){
+          setJsonStatus(`画像をアップロード中…（STEP${si+1}）`);
+          const path=`${ASSET_DIR}/${ED.id}-s${si+1}i${fi+1}.png`;
+          await ghPutFile(owner,repo,token,path,dataURLToBase64(g._dataURL),`Add overlay image ${path}`);
+          g.src=path; upFiles.push(path);
+        }
+      }
+    }
     setJsonStatus('シナリオJSONをアップロード中…');
     document.getElementById('json-ta').value=buildScenarioJSON();
     await ghPutFile(owner,repo,token,`${BARCODE_DIR}/${ED.id}.json`,utf8ToBase64(buildScenarioJSON()),`Add barcode scenario ${ED.id}`);
@@ -1126,6 +1174,8 @@ function loadScenario(data,owner,repo){
   }
   ED.faceIdx=0;
   ED.steps=(data.steps&&data.steps.length)?data.steps:[{title:'ステップ1',detail:'',warn:'normal',ar:[],face:ED.faces[0].key}];
+  // 画像オーバーレイのプレビュー用に、保存URLからロード用URLを_dataURLへ設定（再アップは_dataURLがdata:のもののみ）
+  ED.steps.forEach(s=>(s.ar||[]).forEach(f=>{ if(f.type==='image'&&f.src&&!f._dataURL) f._dataURL=rawUrl(f.src); }));
   const fkeys=ED.faces.map(f=>f.key); ED.steps.forEach(s=>{ if(!fkeys.includes(s.face)) s.face=fkeys[0]; });
   // 作業グローバルを先頭面へ
   const f0=ED.faces[0];
