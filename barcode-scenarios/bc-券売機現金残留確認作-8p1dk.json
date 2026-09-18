@@ -1,0 +1,38 @@
+{
+  "id": "bc-券売機現金残留確認作-8p1dk",
+  "barcode": 2,
+  "name": "券売機　現金残留確認作業",
+  "subtitle": "",
+  "device": "券売機",
+  "docs": {},
+  "faces": [
+    {
+      "key": "fmu68p1dl6f",
+      "label": "前面",
+      "barcode": 2,
+      "calib": {
+        "scale": 33.56,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-券売機現金残留確認作-8p1dk-fmu68p1dl6f.jpg",
+      "markerPos": {
+        "u": 0.4925,
+        "v": 0.4362,
+        "w": 0.0298
+      }
+    }
+  ],
+  "steps": [
+    {
+      "title": "ステップ1",
+      "detail": "",
+      "warn": "normal",
+      "ar": [],
+      "photo": "",
+      "face": "fmu68p1dl6f"
+    }
+  ]
+}
