@@ -57,7 +57,20 @@
   /* 右側フローティング操作 */
   #tool-fab { position:absolute; right:12px; top:96px; display:flex; flex-direction:column; gap:8px; pointer-events:auto; }
   #tool-fab button { border:none; border-radius:10px; padding:8px 11px; font-size:12px; font-weight:700; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.35); cursor:pointer; white-space:nowrap; }
-  #btn-save { background:#0e7490; } #btn-log { background:#475569; }
+  #btn-save { background:#0e7490; } #btn-log { background:#475569; } #btn-prog { background:#15803d; }
+  /* 進捗一覧 */
+  #progmodal { position:fixed; inset:0; z-index:61; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); padding:16px; }
+  #progmodal .lm-box { background:#fff; border-radius:16px; padding:16px; width:100%; max-width:520px; max-height:84vh; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+  #pg-sum { font-size:12.5px; color:#475569; font-weight:700; margin-bottom:10px; }
+  #pg-bar { height:8px; border-radius:999px; background:#e2e8f0; overflow:hidden; margin-bottom:12px; }
+  #pg-bar > i { display:block; height:100%; background:#15803d; width:0%; transition:width .2s; }
+  #pg-list { overflow:auto; flex:1; }
+  .pg-row { display:flex; align-items:center; gap:10px; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:8px; cursor:pointer; }
+  .pg-row.cur { border-color:#0e7490; background:#ecfeff; }
+  .pg-num { width:26px; height:26px; border-radius:50%; background:#e2e8f0; color:#334155; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .pg-title { flex:1; font-size:13px; color:#1e293b; font-weight:600; line-height:1.4; }
+  .pg-badge { font-size:12px; font-weight:800; padding:3px 10px; border-radius:999px; flex-shrink:0; }
+  .pg-badge.done { background:#dcfce7; color:#15803d; } .pg-badge.todo { background:#fef3c7; color:#b45309; }
   /* 選択メニュー */
   #scenpick { position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.5); padding:20px; }
   #scenpick .sp-box { background:#fff; border-radius:16px; padding:16px; width:100%; max-width:360px; max-height:80vh; overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,.35); }
@@ -108,12 +121,13 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v3.2</div>
+    <div id="ver">Worklog v3.3</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
 
   <div id="tool-fab">
+    <button id="btn-prog">✅ 進捗</button>
     <button id="btn-save">💾 保存</button>
     <button id="btn-log">📋 記録</button>
   </div>
@@ -166,6 +180,16 @@
   <div class="sp-box">
     <div class="sp-head">操作を選択　<span id="sp-dev" style="font-weight:500;color:#94a3b8;font-size:11px"></span></div>
     <div id="sp-list"></div>
+  </div>
+</div>
+
+<!-- ステップ進捗（未・済）一覧モーダル -->
+<div id="progmodal">
+  <div class="lm-box">
+    <div class="lm-head">ステップ進捗（未・済）<button id="pg-close">✕</button></div>
+    <div id="pg-sum">–</div>
+    <div id="pg-bar"><i></i></div>
+    <div id="pg-list"></div>
   </div>
 </div>
 
@@ -848,6 +872,25 @@ async function openLog(){
 }
 document.getElementById('btn-log').onclick=openLog;
 document.getElementById('lm-close').onclick=()=>{ document.getElementById('logmodal').style.display='none'; };
+
+// ══════ ステップ進捗（未・済）一覧 ══════
+function openProg(){
+  const list=document.getElementById('pg-list'), sum=document.getElementById('pg-sum'), bar=document.querySelector('#pg-bar > i');
+  if(!cur){ sum.textContent='シナリオを開始すると、ここに各ステップの未・済が表示されます'; bar.style.width='0%'; list.innerHTML=''; }
+  else {
+    const total=cur.steps.length, done=[...checkedSteps].filter(i=>i<total).length;
+    sum.textContent=`${cur.name}　済 ${done} / ${total} ステップ`;
+    bar.style.width=(total? Math.round(done/total*100):0)+'%';
+    list.innerHTML=cur.steps.map((s,i)=>{ const ok=checkedSteps.has(i); const t=(s.title||('ステップ'+(i+1)));
+      return `<div class="pg-row${i===idx?' cur':''}" data-i="${i}"><span class="pg-num">${i+1}</span><span class="pg-title">${escHtml(t)}</span><span class="pg-badge ${ok?'done':'todo'}">${ok?'済':'未'}</span></div>`;
+    }).join('');
+    list.querySelectorAll('.pg-row').forEach(r=>r.onclick=()=>{ const i=+r.getAttribute('data-i'); if(cur&&i>=0&&i<cur.steps.length){ idx=i; renderStep(); document.getElementById('progmodal').style.display='none'; } });
+  }
+  document.getElementById('progmodal').style.display='flex';
+}
+function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+document.getElementById('btn-prog').onclick=openProg;
+document.getElementById('pg-close').onclick=()=>{ document.getElementById('progmodal').style.display='none'; };
 document.getElementById('lm-csv').onclick=async()=>{ const logs=await idbAll('logs'); if(!logs.length){toast('記録がありません');return;} download('worklog_'+Date.now()+'.csv', logsToCsv(logs), 'text/csv;charset=utf-8'); toast('CSVを書き出しました'); };
 document.getElementById('lm-json').onclick=async()=>{ const logs=await idbAll('logs'); if(!logs.length){toast('記録がありません');return;} download('worklog_'+Date.now()+'.json', JSON.stringify(logs,null,2), 'application/json'); toast('JSONを書き出しました'); };
 document.getElementById('lm-clear').onclick=async()=>{ if(!confirm('すべての作業記録を消去します。よろしいですか？')) return; await idbClear('logs'); openLog(); toast('記録を消去しました'); };
