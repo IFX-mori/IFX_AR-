@@ -7,7 +7,7 @@
 //  ※ iOS制約によりPWA standalone化はしない（Safariで開く）。SWはキャッシュのみ担当。
 //  更新時は CACHE の版数を上げるとキャッシュが刷新される。
 // ══════════════════════════════════════════════════════════════
-const CACHE = 'worklog-cache-v1';
+const CACHE = 'worklog-cache-v2';
 const PRECACHE = [
   './ar-worklog-player.html',
   'https://aframe.io/releases/1.5.0/aframe.min.js',
@@ -39,17 +39,22 @@ self.addEventListener('activate', e=>{
   })());
 });
 
+// CDNライブラリだけは cache-first で保存（オフライン起動用）。それ以外のクロスオリジンはSWを通さない。
+const CDN_HOSTS = ['aframe.io','cdn.jsdelivr.net','cdnjs.cloudflare.com','code.jquery.com','fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('fetch', e=>{
   const req = e.request;
   if(req.method !== 'GET') return;
   let url; try{ url = new URL(req.url); }catch(_){ return; }
   const sameOrigin = url.origin === self.location.origin;
-  const isDoc = req.mode==='navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('.json');
-  if((sameOrigin && isDoc) || url.hostname==='api.github.com'){
-    e.respondWith(networkFirst(req));
-  } else {
-    e.respondWith(cacheFirst(req));
+  if(!sameOrigin){
+    // 動的なクロスオリジン（GitHub API / raw / 認証付き等）はSWを通さず素通し。
+    // ※SW経由の再取得はiOSで「Load Failed」になることがあるため、キャッシュ対象のCDNライブラリのみ横取りする。
+    if(CDN_HOSTS.includes(url.hostname)) e.respondWith(cacheFirst(req));
+    return;   // それ以外（api.github.com, raw.githubusercontent.com など）はブラウザが直接取得
   }
+  // 同一オリジン：HTML/JSONは network-first（最新優先・オフラインはキャッシュ）、その他は cache-first
+  const isDoc = req.mode==='navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('.json');
+  e.respondWith(isDoc ? networkFirst(req) : cacheFirst(req));
 });
 
 async function cacheFirst(req){
