@@ -350,7 +350,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v3.9';
+const APP_VERSION = 'v4.0';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1003,7 +1003,15 @@ async function uploadDoc(kind, file){
   zone.addEventListener('drop', e=>{ e.preventDefault(); e.stopPropagation(); zone.classList.remove('over');
     const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; uploadDoc(kind,f); });
 });
-async function ghGetJson(url){ const r=await fetch(url+(url.includes('?')?'&':'?')+'t='+Date.now(),{headers:{Accept:'application/vnd.github+json'},cache:'no-store'}); return r.ok?r.json():null; }
+let _lastGhStatus=0;
+// 読み取りにもトークンを使用（未認証は1時間60回で制限＝取得失敗の主因／非公開リポジトリも読めない）。トークンありで5000回/時。
+async function ghGetJson(url){
+  const el=document.getElementById('gh-token');
+  const token=(el&&el.value.trim())||localStorage.getItem('bc_gh_token')||'';
+  const headers={Accept:'application/vnd.github+json'}; if(token) headers.Authorization='Bearer '+token;
+  const r=await fetch(url+(url.includes('?')?'&':'?')+'t='+Date.now(),{headers,cache:'no-store'});
+  _lastGhStatus=r.status; return r.ok?r.json():null;
+}
 async function ghPutFile(owner,repo,token,path,contentB64,message){
   const api=`https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
   const headers={Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json'};
@@ -1140,6 +1148,12 @@ async function openRemotePicker(){
   const list=document.getElementById('remote-list'); list.innerHTML='<div style="color:#64748b;font-size:13px">読み込み中…</div>';
   try{
     const files=await ghGetJson(`https://api.github.com/repos/${owner}/${repo}/contents/${BARCODE_DIR}?ref=main`);
+    if(files==null){ const s=_lastGhStatus;
+      list.innerHTML='<div style="color:#dc2626;font-size:13px;line-height:1.7">取得に失敗しました（HTTP '+s+'）。<br>'
+        +(s===403?'APIレート制限の可能性。トークンを入力すると解消します（未入力/無効だと1時間60回まで）。':
+          (s===401?'トークンが無効です。GitHubトークンを再確認してください。':
+          (s===404?'リポジトリ/フォルダが見つかりません。owner/repo とフォルダ名をご確認ください。':'通信状況・トークン・リポジトリ設定をご確認ください。')))+'</div>';
+      return; }
     const jsons=(await Promise.all((Array.isArray(files)?files:[]).filter(f=>f.name.endsWith('.json')&&f.download_url)
       .map(f=>ghGetJson(f.download_url).catch(()=>null)))).filter(s=>s&&s.id&&Array.isArray(s.steps));
     if(!jsons.length){ list.innerHTML='<div style="color:#64748b;font-size:13px">保存済みシナリオがありません</div>'; return; }
