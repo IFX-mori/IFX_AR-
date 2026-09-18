@@ -122,7 +122,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v3.6</div>
+    <div id="ver">Worklog v3.7</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -775,7 +775,12 @@ const _visible=new Set();
 let pendingKey=null, pendingMid=null, pendingTimer=null;
 function clearPending(){ if(pendingTimer){clearTimeout(pendingTimer);pendingTimer=null;} pendingKey=null; pendingMid=null; }
 function handleFound(key, mid){
-  if(!SCENARIOS[key]||!SCENARIOS[key].length){ if(!cur && !curKey){ dot.classList.remove('on'); stxt.textContent='未登録のバーコード（value='+key+'）'; } return; }
+  if(!SCENARIOS[key]||!SCENARIOS[key].length){ if(!cur && !curKey){ dot.classList.remove('on');
+    const total=Object.keys(SCENARIOS).length;
+    stxt.textContent = total ? ('未登録のバーコード（value='+key+'／読込'+total+'件）')
+      : ('シナリオ未読込（value='+key+'）'+(navigator.onLine?'：取得失敗の可能性':'：オフライン'));
+    if(!total){ hint.classList.remove('hidden'); hint.innerHTML='シナリオを取得できていません<small>'+(navigator.onLine?('通信/GitHub制限の可能性。再読込するか、オンラインの端末で「この機器を保存」を実施'):'オフライン：オンライン時に開くか、事前に端末保存が必要')+'</small>'; }
+  } return; }
   _visible.add(key);
   // ── 再生中は割り込ませない：現在のシナリオの面のマーカーだけ反応、他は無視 ──
   if(cur){
@@ -851,21 +856,40 @@ async function loadLocalScenarios(){
     Object.keys(SCENARIOS).forEach(k=>SCENARIOS[k].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja')));
   }catch(_){}
 }
+let _loadInfo={count:0, src:'', status:0};
+function _registerBatch(jsons){
+  jsons=jsons.filter(s=>s&&Array.isArray(s.steps)&&(Number.isInteger(s.barcode)||(Array.isArray(s.faces)&&s.faces.length)));
+  jsons.forEach(s=> registerScenario(normalizeScenario(s), true));
+  Object.keys(SCENARIOS).forEach(k=>SCENARIOS[k].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja')));
+  if(cur){ applyCal(); renderStep(); updateDocButtons(); }
+  return jsons.length;
+}
 async function loadRemoteScenarios(){
+  const bust='t='+Date.now();
+  const pages=`https://${GH_OWNER.toLowerCase()}.github.io/${GH_REPO}/${BARCODE_DIR}`;
+  // ① GitHub Pages の index.json を優先（APIレート制限なし・非公開でなければ確実）
   try{
-    const bust='t='+Date.now();
+    const ir=await fetch(`${pages}/index.json?${bust}`,{cache:'no-store'});
+    if(ir.ok){ const idx=await ir.json(); const files=Array.isArray(idx)?idx:((idx&&Array.isArray(idx.files))?idx.files:[]);
+      if(files.length){
+        const jsons=await Promise.all(files.map(fn=>{ const name=(typeof fn==='string')?fn:(fn&&(fn.file||fn.name)); if(!name) return null;
+          return fetch(`${pages}/${name}?${bust}`,{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null); }));
+        const n=_registerBatch(jsons); _loadInfo={count:n, src:'pages', status:ir.status};
+        if(n>0) return;
+      }
+    }
+  }catch(_){}
+  // ② フォールバック：GitHub API（未認証は60回/時制限）
+  try{
     const res=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${BARCODE_DIR}?ref=main&${bust}`,
       {headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
-    if(!res.ok) return;
+    _loadInfo.status=res.status;
+    if(!res.ok){ if(res.status===403){ try{ toast('⚠ シナリオ取得がGitHubの制限(403)に到達。時間をおくか、機器保存済みでご利用ください'); }catch(_){} } return; }
     const files=await res.json();
-    const jsons=(await Promise.all((Array.isArray(files)?files:[])
+    const jsons=await Promise.all((Array.isArray(files)?files:[])
       .filter(f=>f.name.endsWith('.json')&&f.download_url)
-      .map(f=>fetch(f.download_url+(f.download_url.includes('?')?'&':'?')+bust,{cache:'no-store'})
-        .then(r=>r.ok?r.json():null).catch(()=>null))))
-      .filter(s=>s&&Array.isArray(s.steps)&&(Number.isInteger(s.barcode)||(Array.isArray(s.faces)&&s.faces.length)));
-    jsons.forEach(s=> registerScenario(normalizeScenario(s), true));
-    Object.keys(SCENARIOS).forEach(k=>SCENARIOS[k].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja')));
-    if(cur){ applyCal(); renderStep(); updateDocButtons(); }
+      .map(f=>fetch(f.download_url+(f.download_url.includes('?')?'&':'?')+bust,{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null)));
+    const n=_registerBatch(jsons); _loadInfo={count:n, src:'api', status:res.status};
   }catch(_){ /* オフライン等：端末保存分で動作 */ }
 }
 (async()=>{ await loadLocalScenarios(); await loadRemoteScenarios(); })();

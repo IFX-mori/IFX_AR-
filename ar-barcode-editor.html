@@ -350,7 +350,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.0';
+const APP_VERSION = 'v4.1';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1098,6 +1098,13 @@ async function githubUpload(){
     setJsonStatus('シナリオJSONをアップロード中…');
     document.getElementById('json-ta').value=buildScenarioJSON();
     await ghPutFile(owner,repo,token,`${BARCODE_DIR}/${ED.id}.json`,utf8ToBase64(buildScenarioJSON()),`Add barcode scenario ${ED.id}`);
+    // index.json を更新（プレイヤーはこれをGitHub Pagesから読む＝APIレート制限を回避）
+    try{ setJsonStatus('index.jsonを更新中…');
+      const listing=await ghGetJson(`https://api.github.com/repos/${owner}/${repo}/contents/${BARCODE_DIR}?ref=main`);
+      const files=(Array.isArray(listing)?listing:[]).map(f=>f.name).filter(n=>n&&n.endsWith('.json')&&n!=='index.json');
+      if(!files.includes(`${ED.id}.json`)) files.push(`${ED.id}.json`);
+      await ghPutFile(owner,repo,token,`${BARCODE_DIR}/index.json`,utf8ToBase64(JSON.stringify({updated:Date.now(),files:files.sort()},null,2)),`Update scenario index`);
+    }catch(ie){ console.warn('index.json更新失敗',ie); }
     const faceInfo=ED.faces.map(f=>`${f.label}=${f.barcode}`).join(' / ');
     setJsonStatus(`✅ 保存完了！\n面とバーコード：${faceInfo}\n・${BARCODE_DIR}/${ED.id}.json`+upFiles.map(u=>`\n・${u}`).join('')+`\n\n作業記録ナビ(ar-worklog-player)で、いずれかの面のマーカーを読むと開始できます。`);
     renderFaceBar();
