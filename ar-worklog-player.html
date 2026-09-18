@@ -122,7 +122,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v3.4</div>
+    <div id="ver">Worklog v3.5</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -411,6 +411,19 @@ function iconCurved(ctx,cx,cy,r,color,dir){ ctx.save(); ctx.translate(cx,cy); if
   const tip=[P[0]+t[0]*hs, P[1]+t[1]*hs]; const b1=[P[0]+n[0]*hw, P[1]+n[1]*hw]; const b2=[P[0]-n[0]*hw, P[1]-n[1]*hw];
   ctx.beginPath(); ctx.moveTo(tip[0],tip[1]); ctx.lineTo(b1[0],b1[1]); ctx.lineTo(b2[0],b2[1]); ctx.closePath(); ctx.fill();
   ctx.restore(); }
+// ラベルの既定オフセット（正規化：図形中心からの相対, x右+ y上+）。labelPos未設定時に使用。
+function defaultLabelOffset(it){
+  if(it.type==='text' || !it.label) return {x:0,y:0};
+  const tmp=document.createElement('canvas').getContext('2d'); const fp=Math.round(46*(it.fontScale||1));
+  const lm=labelMetrics(tmp,it.label,fp); const labelH=lm.h+32; const gap=22;
+  let ih=0;
+  if(it.type==='box') ih=(it.sizeH||it.size||0.5)*PXREF;
+  else if(it.type==='ring') ih=(it.size||0.6)*PXREF;
+  else if(it.type==='arrow'||it.type==='arrowDown') ih=(it.h||0.5)*PXREF;
+  else if(it.type==='curvedArrow') ih=(it.size||(it.scale?it.scale*0.09:0.2))*PXREF;
+  const lyPx=(it.labelAbove?-1:1)*(ih/2+gap+labelH/2);
+  return {x:0, y:-lyPx/PXREF};   // canvas下方向(+)→pos上方向(+)へ符号反転
+}
 function makeItem(it, cal){
   const tmp=document.createElement('canvas').getContext('2d');
   const color=it.color||'#60a5fa'; const fp=Math.round(46*(it.fontScale||1));
@@ -423,9 +436,12 @@ function makeItem(it, cal){
   else if(it.type==='ring'){ iw=ih=(it.size||0.6)*PXREF; }
   else if(it.type==='arrow'||it.type==='arrowDown'){ ih=(it.h||0.5)*PXREF; iw=ih*0.7; }
   else if(it.type==='curvedArrow'){ iw=ih=(it.size||(it.scale?it.scale*0.09:0.2))*PXREF; }
-  const gap=22, labelAbove=!!it.labelAbove;
-  const cw=Math.max(iw,labelW)+30;
-  const ch=(it.type==='text')?(labelH+20):(ih+2*(gap+labelH)+20);
+  // ラベル位置：labelPos(正規化オフセット)があれば任意配置、無ければ既定(上/下)。図形は常にキャンバス中央=it.pos。
+  const lp=(it.label&&it.type!=='text')?(it.labelPos||defaultLabelOffset(it)):{x:0,y:0};
+  const lxPx=(lp.x||0)*PXREF, lyPx=-(lp.y||0)*PXREF;
+  const halfW=Math.max(iw/2, (it.label?Math.abs(lxPx)+labelW/2:0))+15;
+  const halfH=Math.max(ih/2, (it.label?Math.abs(lyPx)+labelH/2:0))+10;
+  const cw=2*halfW, ch=2*halfH;
   const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
   const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
   if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
@@ -434,7 +450,7 @@ function makeItem(it, cal){
   else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
   else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir);
   if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg,it.align);
-    else { const ly=labelAbove?(CY-ih/2-gap-labelH/2):(CY+ih/2+gap+labelH/2); drawLabel(ctx,CX,ly,it.label,fp,bg,fg); } }
+    else drawLabel(ctx, CX+lxPx, CY+lyPx, it.label, fp,bg,fg); }
   const el=planeFromCanvas(cv, it.pos[0]+cal.ox, it.pos[1]+cal.oy, it.pos[2]);
   // 図形ごとの3D回転（面内Z＋奥行きX/Y）。図形はcontrolの子なのでローカル回転。
   if(it.rot&&(it.rot.x||it.rot.y||it.rot.z)) el.setAttribute('rotation', `${it.rot.x||0} ${it.rot.y||0} ${it.rot.z||0}`);

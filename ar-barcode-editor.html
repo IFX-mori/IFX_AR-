@@ -348,7 +348,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v3.7';
+const APP_VERSION = 'v3.8';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const CALIB_DEFAULT = { scale: 6, ox: 0, oy: 0, rot: 0 };
@@ -443,6 +443,19 @@ function iconCurved(ctx,cx,cy,r,color,dir){ ctx.save(); ctx.translate(cx,cy); if
   ctx.beginPath(); ctx.moveTo(tip[0],tip[1]); ctx.lineTo(b1[0],b1[1]); ctx.lineTo(b2[0],b2[1]); ctx.closePath(); ctx.fill();
   ctx.restore(); }
 // 図形1個 → {canvas, wUnits, hUnits}（プレイヤーの makeItem と同じ寸法計算）
+// ラベルの既定オフセット（正規化：図形中心からの相対, x右+ y上+）。labelPos未設定時に使用。プレイヤーと同一。
+function defaultLabelOffset(it){
+  if(it.type==='text' || !it.label) return {x:0,y:0};
+  const tmp=document.createElement('canvas').getContext('2d'); const fp=Math.round(46*(it.fontScale||1));
+  const lm=labelMetrics(tmp,it.label,fp); const labelH=lm.h+32; const gap=22;
+  let ih=0;
+  if(it.type==='box') ih=(it.sizeH||it.size||0.5)*PXREF;
+  else if(it.type==='ring') ih=(it.size||0.6)*PXREF;
+  else if(it.type==='arrow'||it.type==='arrowDown') ih=(it.h||0.5)*PXREF;
+  else if(it.type==='curvedArrow') ih=(it.size||(it.scale?it.scale*0.09:0.2))*PXREF;
+  const lyPx=(it.labelAbove?-1:1)*(ih/2+gap+labelH/2);
+  return {x:0, y:-lyPx/PXREF};
+}
 function figCanvas(it){
   const tmp=document.createElement('canvas').getContext('2d');
   const color=it.color||'#60a5fa'; const fp=Math.round(46*(it.fontScale||1));
@@ -456,9 +469,12 @@ function figCanvas(it){
   else if(it.type==='ring'){ iw=ih=(it.size||0.6)*PXREF; }
   else if(it.type==='arrow'||it.type==='arrowDown'){ ih=(it.h||0.5)*PXREF; iw=ih*0.7; }
   else if(it.type==='curvedArrow'){ iw=ih=(it.size||(it.scale?it.scale*0.09:0.2))*PXREF; }
-  const gap=22, labelAbove=!!it.labelAbove;
-  const cw=Math.max(iw,labelW)+30;
-  const ch=(it.type==='text')?(labelH+20):(ih+2*(gap+labelH)+20);
+  // ラベル位置：labelPos(正規化オフセット)があれば任意配置、無ければ既定(上/下)。図形は常にキャンバス中央=it.pos。
+  const lp=(it.label&&it.type!=='text')?(it.labelPos||defaultLabelOffset(it)):{x:0,y:0};
+  const lxPx=(lp.x||0)*PXREF, lyPx=-(lp.y||0)*PXREF;
+  const halfW=Math.max(iw/2, (it.label?Math.abs(lxPx)+labelW/2:0))+15;
+  const halfH=Math.max(ih/2, (it.label?Math.abs(lyPx)+labelH/2:0))+10;
+  const cw=2*halfW, ch=2*halfH;
   const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
   const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
   if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
@@ -467,7 +483,7 @@ function figCanvas(it){
   else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
   else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir);
   if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg,it.align);
-    else { const ly=labelAbove?(CY-ih/2-gap-labelH/2):(CY+ih/2+gap+labelH/2); drawLabel(ctx,CX,ly,it.label,fp,bg,fg); } }
+    else drawLabel(ctx, CX+lxPx, CY+lyPx, it.label, fp,bg,fg); }
   return { url:cv.toDataURL('image/png'), wUnits:cv.width/PXREF, hUnits:cv.height/PXREF };
 }
 
@@ -716,6 +732,9 @@ function renderPropbar(){
   if(f.type==='box'||f.type==='ring'){ h+=`<span class="grp">線<button class="sbtn" data-lt="-">－</button><button class="sbtn" data-lt="+">＋</button></span>`; }
   if(f.type==='box'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-below" ${f.labelBelow?'checked':''}> ラベル下</label></span>`; }
   if(f.type==='arrow'){ h+=`<span class="grp"><label style="font-weight:700"><input type="checkbox" id="pp-above" ${f.labelAbove?'checked':''}> ラベル上</label></span>`; }
+  // ラベル位置（図形中心からの任意オフセット。↑↓←→で微調整、⟲で既定に戻す）text以外＆ラベルあり
+  if(!isText && f.label){ const moved=!!f.labelPos;
+    h+=`<span class="grp">ラベル位置<button class="sbtn" data-lp="l" title="左へ">←</button><button class="sbtn" data-lp="r" title="右へ">→</button><button class="sbtn" data-lp="u" title="上へ">↑</button><button class="sbtn" data-lp="d" title="下へ">↓</button>${moved?'<button class="sbtn" data-lp="0" title="ラベル位置を既定へ">⟲</button>':''}</span>`; }
   // 回転（面内Z＝自由回転／傾きX・Y＝奥行き）
   { const r=f.rot||{x:0,y:0,z:0}; const on=(f.rot&&(r.x||r.y||r.z));
     h+=`<span class="grp">回転<button class="sbtn" data-rot="z-" title="左回り">↺</button><button class="sbtn" data-rot="z+" title="右回り">↻</button></span>`;
@@ -757,6 +776,18 @@ function renderPropbar(){
     f.rot[ax]=v;
     if(!f.rot.x&&!f.rot.y&&!f.rot.z) delete f.rot;
     renderOverlay();
+  });
+  // ラベル位置（図形中心からの任意オフセット labelPos）。0.03刻み。初回は既定位置から開始。
+  bar.querySelectorAll('[data-lp]').forEach(b=>b.onclick=()=>{
+    const k=b.getAttribute('data-lp');
+    if(k==='0'){ delete f.labelPos; renderOverlay(); renderPropbar(); return; }
+    if(!f.labelPos) f.labelPos=defaultLabelOffset(f);
+    const STEP=0.03;
+    if(k==='l') f.labelPos.x=+(f.labelPos.x-STEP).toFixed(3);
+    else if(k==='r') f.labelPos.x=+(f.labelPos.x+STEP).toFixed(3);
+    else if(k==='u') f.labelPos.y=+(f.labelPos.y+STEP).toFixed(3);
+    else if(k==='d') f.labelPos.y=+(f.labelPos.y-STEP).toFixed(3);
+    renderOverlay(); renderPropbar();
   });
   // 高さ（法線方向オフセット pos[2]）。1cm刻み。overlayは2Dなので見た目は変わらず、値のみ更新。
   bar.querySelectorAll('[data-hz]').forEach(b=>b.onclick=()=>{
