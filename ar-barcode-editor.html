@@ -350,7 +350,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.1';
+const APP_VERSION = 'v4.3';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1008,7 +1008,10 @@ let _lastGhStatus=0;
 async function ghGetJson(url){
   const el=document.getElementById('gh-token');
   const token=(el&&el.value.trim())||localStorage.getItem('bc_gh_token')||'';
-  const headers={Accept:'application/vnd.github+json'}; if(token) headers.Authorization='Bearer '+token;
+  // 認証ヘッダーは api.github.com のときだけ付ける。raw.githubusercontent.com に付けると
+  // CORSプリフライトでブロックされ本体ダウンロードが失敗する（＝0件「保存済みシナリオがありません」の原因）。
+  const isApi=/^https?:\/\/api\.github\.com\//i.test(url);
+  const headers={Accept:'application/vnd.github+json'}; if(token && isApi) headers.Authorization='Bearer '+token;
   const r=await fetch(url+(url.includes('?')?'&':'?')+'t='+Date.now(),{headers,cache:'no-store'});
   _lastGhStatus=r.status; return r.ok?r.json():null;
 }
@@ -1161,10 +1164,20 @@ async function openRemotePicker(){
           (s===401?'トークンが無効です。GitHubトークンを再確認してください。':
           (s===404?'リポジトリ/フォルダが見つかりません。owner/repo とフォルダ名をご確認ください。':'通信状況・トークン・リポジトリ設定をご確認ください。')))+'</div>';
       return; }
-    const jsons=(await Promise.all((Array.isArray(files)?files:[]).filter(f=>f.name.endsWith('.json')&&f.download_url)
-      .map(f=>ghGetJson(f.download_url).catch(()=>null)))).filter(s=>s&&s.id&&Array.isArray(s.steps));
-    if(!jsons.length){ list.innerHTML='<div style="color:#64748b;font-size:13px">保存済みシナリオがありません</div>'; return; }
-    list.innerHTML='';
+    const jsonFiles=(Array.isArray(files)?files:[]).filter(f=>f.name.endsWith('.json')&&f.name!=='index.json'&&f.download_url);
+    const fetched=await Promise.all(jsonFiles.map(f=>ghGetJson(f.download_url).catch(()=>null)));
+    const jsons=fetched.filter(s=>s&&s.id&&Array.isArray(s.steps));
+    if(!jsons.length){
+      if(jsonFiles.length){   // 一覧にはあるのに0件＝本体の取得に失敗（電波不安定など）
+        list.innerHTML='<div style="color:#d97706;font-size:13px;line-height:1.7">通信が不安定で取得できませんでした（'+jsonFiles.length+'件中0件）。<br>電波の良い場所で「取得」を押し直してください。</div>';
+      } else {
+        list.innerHTML='<div style="color:#64748b;font-size:13px">保存済みシナリオがありません</div>';
+      }
+      return;
+    }
+    const ng=jsonFiles.length-jsons.length;   // 一部だけ取得できたケースの注意書き
+    if(ng>0){ list.innerHTML='<div style="color:#d97706;font-size:12px;margin-bottom:8px">⚠ 通信不安定のため '+ng+' 件が取得できませんでした（'+jsons.length+'/'+jsonFiles.length+'件表示）。電波の良い場所で再取得を推奨。</div>'; }
+    else { list.innerHTML=''; }
     jsons.sort((a,b)=>(a.barcode??99)-(b.barcode??99)).forEach(s=>{
       const row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;align-items:stretch;margin-bottom:8px';
       const b=document.createElement('button'); b.className='remote-item'; b.style.margin='0'; b.style.flex='1';
