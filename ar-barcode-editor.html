@@ -186,8 +186,9 @@
     </div>
     <input type="file" id="file-photo" accept="image/*" capture="environment" style="display:none">
     <input type="file" id="file-photo-lib" accept="image/*" style="display:none">
+    <button class="btn full p" style="margin-bottom:8px" onclick="openLiveCam('setup')">📹 カメラで写す（アプリ内ライブ）</button>
     <div class="row2">
-      <button class="btn p" onclick="document.getElementById('file-photo').click()">📷 撮影する</button>
+      <button class="btn d" onclick="document.getElementById('file-photo').click()">📷 撮影する</button>
       <button class="btn d" onclick="document.getElementById('file-photo-lib').click()">🖼 ライブラリから選択</button>
     </div>
     <img id="photo-preview" alt="preview">
@@ -268,7 +269,17 @@
     </div>
     <div id="stage">
       <img id="edit-img" alt="target">
+      <video id="live-overlay" playsinline muted autoplay style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;display:none;opacity:0.45"></video>
       <div id="overlay"></div>
+    </div>
+    <!-- A+：ライブ重ね（配置した図形を現物に重ねて位置確認） -->
+    <div id="liveov-ctl" style="position:absolute;right:10px;top:10px;z-index:30;display:flex;gap:8px;align-items:center;background:rgba(15,23,42,.82);padding:7px 9px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.4)">
+      <button id="liveov-toggle" onclick="toggleLiveOverlay()" style="border:none;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;background:#0e7490;color:#fff;cursor:pointer;white-space:nowrap">📹 ライブ重ね</button>
+      <span id="liveov-more" style="display:none;align-items:center;gap:8px">
+        <span style="color:#cbd5e1;font-size:11px">濃さ</span>
+        <input id="liveov-op" type="range" min="10" max="100" value="45" style="width:78px" oninput="document.getElementById('live-overlay').style.opacity=(this.value/100)">
+        <button onclick="recaptureFromOverlay()" style="border:1px solid #10b981;border-radius:8px;padding:7px 9px;font-size:12px;font-weight:700;background:#052e2b;color:#6ee7b7;cursor:pointer;white-space:nowrap">この映像で作り直す</button>
+      </span>
     </div>
     <div id="zoomctl">
       <button data-z="out" title="縮小">－</button>
@@ -302,6 +313,17 @@
       <button class="del" onclick="deleteStep()">削除</button>
     </div>
     <div id="propbar"><div class="inner"><span class="none">図形を選択、または左のツールから追加してください</span></div></div>
+  </div>
+</div>
+
+<!-- アプリ内ライブカメラ（撮影→フリーズ取込） -->
+<div id="livecam-modal" style="display:none;position:fixed;inset:0;z-index:200;background:#000;flex-direction:column;align-items:center;justify-content:center">
+  <video id="livecam-video" playsinline muted autoplay style="max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;background:#000"></video>
+  <div style="position:absolute;top:14px;left:0;right:0;text-align:center;color:#fff;font-size:13px;pointer-events:none;text-shadow:0 1px 3px #000">対象物を画面に収めて「この画面で作成」を押してください</div>
+  <div style="position:absolute;bottom:22px;left:0;right:0;display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;padding:0 12px">
+    <button onclick="closeLiveCam()" style="border:none;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:700;background:rgba(255,255,255,.9);color:#1e293b;cursor:pointer">閉じる</button>
+    <button onclick="switchLiveCam()" style="border:none;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:700;background:rgba(255,255,255,.9);color:#1e293b;cursor:pointer">前面/背面 切替</button>
+    <button onclick="captureLiveCam()" style="border:none;border-radius:12px;padding:14px 22px;font-size:15px;font-weight:800;background:#0e7490;color:#fff;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5)">● この画面で作成</button>
   </div>
 </div>
 
@@ -350,7 +372,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.3';
+const APP_VERSION = 'v4.4';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -858,32 +880,83 @@ document.querySelectorAll('#calib .cbtn').forEach(b=>b.onclick=()=>{ const c=ED.
   else if(k==='r') c.rot=(c.rot+90)%360;
   syncCalib(); });
 
-// ══════════ 写真読込 ══════════
+// ══════════ 写真読込（ファイル選択・ライブ撮影 共通） ══════════
+function applyPhotoDataURL(dataURL){
+  const inEditor=document.getElementById('editor').classList.contains('on');
+  if(inEditor && _photoTarget!=null){
+    // 編集画面：指定面の写真を差替（面追加/差替）
+    const fi=_photoTarget; _photoTarget=null;
+    const face=ED.faces[fi]; if(!face) return;
+    face.photoDataURL=dataURL; face.loadedImg='';
+    if(fi===ED.faceIdx){ _photoDataURL=dataURL; ED._loadedImg='';
+      const img=document.getElementById('edit-img'); img.onload=()=>{ resetZoom&&resetZoom(); renderOverlay(); }; img.src=dataURL; }
+    renderFaceBar();
+  } else {
+    // セットアップ画面：最初の面の写真
+    _photoDataURL=dataURL;
+    const pv=document.getElementById('photo-preview'); pv.src=_photoDataURL; pv.style.display='block';
+    document.getElementById('btn-start').disabled=false;
+    setStatus('写真を読み込みました。「編集を開始」を押してください。');
+  }
+}
 function onPhotoPicked(e){
   const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
-  const rd=new FileReader();
-  rd.onload=()=>{
-    const inEditor=document.getElementById('editor').classList.contains('on');
-    if(inEditor && _photoTarget!=null){
-      // 編集画面：指定面の写真を差替（面追加/差替）
-      const fi=_photoTarget; _photoTarget=null;
-      const face=ED.faces[fi]; if(!face) return;
-      face.photoDataURL=rd.result; face.loadedImg='';
-      if(fi===ED.faceIdx){ _photoDataURL=rd.result; ED._loadedImg='';
-        const img=document.getElementById('edit-img'); img.onload=()=>{ resetZoom&&resetZoom(); renderOverlay(); }; img.src=rd.result; }
-      renderFaceBar();
-    } else {
-      // セットアップ画面：最初の面の写真
-      _photoDataURL=rd.result;
-      const pv=document.getElementById('photo-preview'); pv.src=_photoDataURL; pv.style.display='block';
-      document.getElementById('btn-start').disabled=false;
-      setStatus('写真を読み込みました。「編集を開始」を押してください。');
-    }
-  };
-  rd.readAsDataURL(f);
+  const rd=new FileReader(); rd.onload=()=>applyPhotoDataURL(rd.result); rd.readAsDataURL(f);
 }
 document.getElementById('file-photo').addEventListener('change', onPhotoPicked);
 document.getElementById('file-photo-lib').addEventListener('change', onPhotoPicked);
+
+// ── アプリ内ライブカメラ（ライブ映像を見ながら構図→フリーズ取込。方式A） ──
+let _liveStream=null, _liveFacing='environment';
+async function openLiveCam(target){
+  // target: 'setup'(null) or face index。face差替時は _photoTarget を先に設定
+  if(typeof target==='number') _photoTarget=target;
+  if(_overlayStream){ try{ toggleLiveOverlay(); }catch(_){} }   // 二重カメラ起動を回避（ライブ重ねを止める）
+  const m=document.getElementById('livecam-modal'), v=document.getElementById('livecam-video');
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ alert('この環境ではカメラを使用できません。'); return; }
+  try{
+    _liveStream=await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:_liveFacing}, width:{ideal:1920}, height:{ideal:1440} }, audio:false });
+    v.srcObject=_liveStream; await v.play().catch(()=>{}); m.style.display='flex';
+  }catch(e){ stopLiveStream(); alert('カメラを起動できませんでした。カメラ許可・HTTPS・対応ブラウザ（iOSはSafari）をご確認ください。\n'+((e&&e.message)||e)); }
+}
+function stopLiveStream(){ if(_liveStream){ _liveStream.getTracks().forEach(t=>t.stop()); _liveStream=null; } const v=document.getElementById('livecam-video'); if(v) v.srcObject=null; }
+function closeLiveCam(){ stopLiveStream(); document.getElementById('livecam-modal').style.display='none'; }
+async function switchLiveCam(){ _liveFacing=(_liveFacing==='environment')?'user':'environment'; stopLiveStream(); await openLiveCam(); }
+function captureLiveCam(){
+  const v=document.getElementById('livecam-video'); const w=v.videoWidth, h=v.videoHeight;
+  if(!w||!h){ alert('映像をまだ取得できていません。少し待ってから押してください。'); return; }
+  // 長辺を最大1920pxへ収めて取込（アップロード肥大防止）
+  const MAX=1920; let cw=w, ch=h; if(w>h&&w>MAX){ ch=Math.round(h*MAX/w); cw=MAX; } else if(h>=w&&h>MAX){ cw=Math.round(w*MAX/h); ch=MAX; }
+  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; cv.getContext('2d').drawImage(v,0,0,cw,ch);
+  const dataURL=cv.toDataURL('image/jpeg',0.9);
+  closeLiveCam(); applyPhotoDataURL(dataURL);
+}
+
+// ── A+：ライブ重ね（配置図形を現物に重ねてリアルタイム位置確認） ──
+let _overlayStream=null;
+async function toggleLiveOverlay(){
+  const v=document.getElementById('live-overlay'), tg=document.getElementById('liveov-toggle'), more=document.getElementById('liveov-more');
+  if(_overlayStream){   // OFF
+    _overlayStream.getTracks().forEach(t=>t.stop()); _overlayStream=null; v.srcObject=null; v.style.display='none';
+    tg.style.background='#0e7490'; tg.textContent='📹 ライブ重ね'; more.style.display='none'; return;
+  }
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ alert('この環境ではカメラを使用できません。'); return; }
+  try{
+    _overlayStream=await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1440} }, audio:false });
+    v.srcObject=_overlayStream; await v.play().catch(()=>{});
+    v.style.opacity=(document.getElementById('liveov-op').value/100); v.style.display='block';
+    tg.style.background='#b91c1c'; tg.textContent='⏹ ライブ停止'; more.style.display='flex';
+  }catch(e){ _overlayStream=null; alert('カメラを起動できませんでした。カメラ許可・HTTPS・対応ブラウザ（iOSはSafari）をご確認ください。\n'+((e&&e.message)||e)); }
+}
+function recaptureFromOverlay(){
+  const v=document.getElementById('live-overlay'); const w=v.videoWidth, h=v.videoHeight;
+  if(!w||!h){ alert('映像をまだ取得できていません。'); return; }
+  const MAX=1920; let cw=w, ch=h; if(w>h&&w>MAX){ ch=Math.round(h*MAX/w); cw=MAX; } else if(h>=w&&h>MAX){ cw=Math.round(w*MAX/h); ch=MAX; }
+  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; cv.getContext('2d').drawImage(v,0,0,cw,ch);
+  _photoTarget=ED.faceIdx;   // 現在の面の背景写真を差し替え
+  applyPhotoDataURL(cv.toDataURL('image/jpeg',0.9));
+  // 差し替え後もライブ重ねは継続（位置確認しやすいように）
+}
 function setStatus(t){ document.getElementById('setup-status').textContent=t; }
 
 // ══════════ 画面遷移 ══════════
