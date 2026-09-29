@@ -122,7 +122,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v3.7</div>
+    <div id="ver">Worklog v3.8</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -242,6 +242,9 @@ const FOLLOW_MC   = Math.min(3, Math.max(0.05, parseFloat(_HP.get('mc'))||0.5));
 const FOLLOW_BETA = Math.min(8, Math.max(0,    parseFloat(_HP.get('beta'))||2.0));   // 既定=採用値2.0（?beta=で上書き）
 // 見切れ固定の遡り時間(秒)。見切れる瞬間の“乱れた最後の1コマ”を避け、この秒数だけ前の安定姿勢で固定する。?freezeback=MS(既定200)。0で無効(最後のコマで固定)。
 const FREEZE_BACK = Math.max(0, Math.min(0.6, (parseFloat(_HP.get('freezeback'))||200)/1000));
+// 傾き固定：回転にデッドバンドを設け、微小な揺れ(水面に浮く紙のような揺らぎ)は無視。しきい値超えの向き変化のみ反映。?tiltlock=1 で有効、?tiltdeg=N でしきい値(度,既定6)。位置は従来どおり平滑追従。
+const TILT_LOCK = (_HP.get('tiltlock')==='1');
+const TILT_DEG  = Math.max(0.5, Math.min(45, parseFloat(_HP.get('tiltdeg'))||6));
 // AR.jsマーカー平滑化（smoothCount=直近Nフレーム平均）。大きいほど遅延＆見切れ後の追随ズレが増える。独自OneEuroで安定化するため軽めが良い。
 // 既定=採用値on(smoothCount=4)。横持ちの姿勢反転ゆらぎ(planar pose flipping)を抑制。見切れ時ズレはfreezeback(v3.0)が別途保護。?smooth=off で無効化、?smoothcount=N で調整。
 // スキャン(検出)頻度：AR.jsのmaxDetectionRate（1秒あたり最大検出回数）。?detectrate=N で上書き。scene初期化前に属性を書き換える。
@@ -345,7 +348,14 @@ AFRAME.registerComponent('smooth-follow', {
       let dt=(this._lastT!=null&&now>this._lastT)?(now-this._lastT):1/60; if(dt>0.1)dt=0.1; this._lastT=now;
       if(!this._started){ me.position.copy(this._p); me.quaternion.copy(this._q); this._started=true; }   // 再検出＝正確位置へ即スナップ補正
       else { me.position.set(this._fp[0].f(this._p.x,dt),this._fp[1].f(this._p.y,dt),this._fp[2].f(this._p.z,dt));
-             me.quaternion.set(this._fq[0].f(this._q.x,dt),this._fq[1].f(this._q.y,dt),this._fq[2].f(this._q.z,dt),this._fq[3].f(this._q.w,dt)).normalize(); }
+             if(TILT_LOCK){
+               // 傾き固定：回転はデッドバンド。微小な揺れは無視し、しきい値超えの向き変化のみ緩やかに反映
+               let d=Math.abs(me.quaternion.x*this._q.x+me.quaternion.y*this._q.y+me.quaternion.z*this._q.z+me.quaternion.w*this._q.w);
+               d=Math.min(1,d); const ang=2*Math.acos(d)*180/Math.PI;
+               if(ang>TILT_DEG) me.quaternion.slerp(this._q,0.4);
+             } else {
+               me.quaternion.set(this._fq[0].f(this._q.x,dt),this._fq[1].f(this._q.y,dt),this._fq[2].f(this._q.z,dt),this._fq[3].f(this._q.w,dt)).normalize();
+             } }
       me.visible=true; this._hasPose=true; this._holding=false;
       // 姿勢＋ジャイロを履歴に記録（見切れ直前の安定姿勢へ遡るため。0.6秒ぶん保持）
       const gok=!!(_devReady&&_devQ);
