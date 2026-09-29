@@ -122,7 +122,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.0</div>
+    <div id="ver">Worklog v4.2</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -244,14 +244,22 @@ const FOLLOW_BETA = Math.min(8, Math.max(0,    parseFloat(_HP.get('beta'))||0.1)
 const FREEZE_BACK = Math.max(0, Math.min(0.6, (parseFloat(_HP.get('freezeback'))||200)/1000));
 // 傾き固定：回転にデッドバンドを設け、微小な揺れ(水面に浮く紙のような揺らぎ)は無視。しきい値超えの向き変化のみ反映。?tiltlock=1 で有効、?tiltdeg=N でしきい値(度,既定6)。位置は従来どおり平滑追従。
 const TILT_LOCK = (_HP.get('tiltlock')!=='off');   // 既定=採用値ON（?tiltlock=off で無効化）
-const TILT_DEG  = Math.max(0.5, Math.min(45, parseFloat(_HP.get('tiltdeg'))||6));
+const TILT_DEG  = Math.max(0.5, Math.min(60, parseFloat(_HP.get('tiltdeg'))||45));   // 既定=採用値45°
 // 誤差適応の位置平滑：遠い=速く追従／目標近傍=強く平滑化（揺れを平均して真位置へ収束）。OneEuroの「寄せ速度と静止揺れが結合」を解消。
 // ?settle=euro で旧OneEuroに戻す。settlemin=近傍のなじみ速度(小=安定/大=速いが揺れやすい), settlemax=遠い時の追従速度, settlenear/settlefar=誤差しきい値。
 const SETTLE_ADAPT= (_HP.get('settle')!=='euro');
-const SETTLE_MIN  = Math.max(0.02, Math.min(1, parseFloat(_HP.get('settlemin'))||0.12));
+const SETTLE_MIN  = Math.max(0.02, Math.min(1, parseFloat(_HP.get('settlemin'))||0.03));
 const SETTLE_MAX  = Math.max(0.1,  Math.min(1, parseFloat(_HP.get('settlemax'))||0.7));
-const SETTLE_NEAR = Math.max(0.002, parseFloat(_HP.get('settlenear'))||0.03);
+const SETTLE_NEAR = Math.max(0.002, parseFloat(_HP.get('settlenear'))||0.35);
 const SETTLE_FAR  = Math.max(SETTLE_NEAR+0.01, parseFloat(_HP.get('settlefar'))||0.4);
+// 揺れ計測HUD：?wobdebug=1 で「位置誤差(認識中の残差)・回転ズレ角・マーカー距離」を表示。しきい値決定用。
+const WOB_DEBUG = (_HP.get('wobdebug')==='1');
+let _wobEl=null, _wobN=0;
+function _updateWob(posErr,rotDeg,dist){ if(!WOB_DEBUG) return; if((_wobN++ % 6)!==0) return;
+  if(!_wobEl){ _wobEl=document.createElement('div');
+    _wobEl.style.cssText='position:fixed;left:8px;top:64px;z-index:400;background:rgba(0,0,0,.72);color:#0ff;font:11px/1.5 monospace;padding:6px 8px;border-radius:8px;pointer-events:none;white-space:pre';
+    document.body.appendChild(_wobEl); }
+  _wobEl.textContent='WOBBLE debug\n位置誤差 posErr='+posErr.toFixed(4)+'\n回転ズレ rotDeg='+rotDeg.toFixed(2)+'°\nマーカー距離 dist='+dist.toFixed(3)+'\n(静止して各値の振れ幅を確認)'; }
 // AR.jsマーカー平滑化（smoothCount=直近Nフレーム平均）。大きいほど遅延＆見切れ後の追随ズレが増える。独自OneEuroで安定化するため軽めが良い。
 // 既定=採用値on(smoothCount=4)。横持ちの姿勢反転ゆらぎ(planar pose flipping)を抑制。見切れ時ズレはfreezeback(v3.0)が別途保護。?smooth=off で無効化、?smoothcount=N で調整。
 // スキャン(検出)頻度：AR.jsのmaxDetectionRate（1秒あたり最大検出回数）。?detectrate=N で上書き。scene初期化前に属性を書き換える。
@@ -374,6 +382,8 @@ AFRAME.registerComponent('smooth-follow', {
                me.quaternion.set(this._fq[0].f(this._q.x,dt),this._fq[1].f(this._q.y,dt),this._fq[2].f(this._q.z,dt),this._fq[3].f(this._q.w,dt)).normalize();
              } }
       me.visible=true; this._hasPose=true; this._holding=false;
+      if(WOB_DEBUG){ let dd=Math.abs(me.quaternion.x*this._q.x+me.quaternion.y*this._q.y+me.quaternion.z*this._q.z+me.quaternion.w*this._q.w); dd=Math.min(1,dd);
+        _updateWob(me.position.distanceTo(this._p), 2*Math.acos(dd)*180/Math.PI, this._p.length()); }
       // 姿勢＋ジャイロを履歴に記録（見切れ直前の安定姿勢へ遡るため。0.6秒ぶん保持）
       const gok=!!(_devReady&&_devQ);
       this._hist.push({t:now, px:me.position.x,py:me.position.y,pz:me.position.z, qx:me.quaternion.x,qy:me.quaternion.y,qz:me.quaternion.z,qw:me.quaternion.w,
