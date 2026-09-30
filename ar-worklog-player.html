@@ -122,7 +122,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.4</div>
+    <div id="ver">Worklog v4.5</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -141,6 +141,9 @@
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">上下</span><button class="cbtn" data-cal="y-">↓</button><b id="cal-y" style="flex:1;text-align:center">0.00</b><button class="cbtn" data-cal="y+">↑</button></div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="width:36px">回転</span><button class="cbtn" data-cal="r" style="flex:1;width:auto">90°回す</button><b id="cal-r" style="width:36px;text-align:center">0</b></div>
     <button id="cal-copy" style="width:100%;padding:8px;border:none;border-radius:9px;background:#1d4ed8;color:#fff;font-weight:700;font-size:12px;cursor:pointer">校正値をコピー</button>
+    <div style="border-top:1px solid #e2e8f0;margin:8px 0 6px"></div>
+    <input id="cal-token" type="password" placeholder="GitHubトークン（保存に必要）" autocomplete="off" style="width:100%;box-sizing:border-box;padding:7px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:11px;margin-bottom:6px">
+    <button id="cal-save" style="width:100%;padding:9px;border:none;border-radius:9px;background:#0e7490;color:#fff;font-weight:700;font-size:12px;cursor:pointer">💾 この校正をシナリオへ保存（全端末反映）</button>
     <div id="cal-msg" style="font-size:10px;color:#475569;margin-top:6px;line-height:1.5;word-break:break-all"></div>
   </div>
 
@@ -1027,6 +1030,47 @@ document.getElementById('cal-copy').onclick=()=>{ const msg=document.getElementB
   const txt=`${cur.name}${isMultiFace()?('/'+f.label):''}: scale=${c.scale} ox=${c.ox} oy=${c.oy} rot=${c.rot}`;
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>{msg.textContent='コピー: '+txt;},()=>{msg.textContent=txt;});
   else msg.textContent=txt; };
+
+// ── 校正をシナリオ(GitHub)へ保存＝全端末に反映 ──
+(function(){ const t=document.getElementById('cal-token'); if(t){ try{ t.value=localStorage.getItem('bc_gh_token')||''; }catch(_){} } })();
+function _b64encU(str){ return btoa(unescape(encodeURIComponent(str))); }
+function _b64decU(b64){ return decodeURIComponent(escape(atob(String(b64).replace(/\s/g,'')))); }
+function _calMsg(t,err){ const m=document.getElementById('cal-msg'); if(m){ m.textContent=t; m.style.color=err?'#dc2626':'#475569'; } }
+document.getElementById('cal-save').onclick=async()=>{
+  if(!cur){ _calMsg('シナリオ認識中に実行してください',true); return; }
+  const token=(document.getElementById('cal-token').value||'').trim();
+  if(!token){ _calMsg('GitHubトークンを入力してください（書込権限が必要）',true); return; }
+  try{ localStorage.setItem('bc_gh_token', token); }catch(_){}
+  const face=curFace(); const c=face.calib;
+  const path=`${BARCODE_DIR}/${cur.id}.json`;
+  const api=`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`;
+  const headers={Authorization:'Bearer '+token, Accept:'application/vnd.github+json'};
+  const btn=document.getElementById('cal-save'); btn.disabled=true;
+  try{
+    _calMsg('現在のシナリオを取得中…');
+    const g=await fetch(api+'?ref=main&t='+Date.now(),{headers,cache:'no-store'});
+    if(!g.ok){ _calMsg('取得失敗 HTTP '+g.status+(g.status===401?'（トークン無効）':g.status===404?'（ファイル/権限を確認）':''),true); btn.disabled=false; return; }
+    const meta=await g.json(); const sha=meta.sha;
+    const raw=JSON.parse(_b64decU(meta.content));
+    const cal={ scale:c.scale, ox:c.ox, oy:c.oy, rot:c.rot };
+    let where='';
+    if(Array.isArray(raw.faces)&&raw.faces.length){
+      let tf=raw.faces.find(f=>f.key===face.key) || raw.faces.find(f=>String(f.barcode)===String(face.barcode));
+      if(tf){ tf.calib=Object.assign({}, tf.calib||{}, cal); where=(face.label||('面'+face.key)); }
+      else { raw.faces[0].calib=Object.assign({}, raw.faces[0].calib||{}, cal); where='先頭面(該当面が見つからず)'; }
+    } else {
+      raw.calib=Object.assign({}, raw.calib||{}, cal); where='単一面';   // 旧形式
+    }
+    const body={ message:`Update calib ${cur.id} (${where}) scale=${cal.scale} ox=${cal.ox} oy=${cal.oy} rot=${cal.rot}`,
+      content:_b64encU(JSON.stringify(raw,null,2)), sha, branch:'main' };
+    _calMsg('保存中…');
+    const p=await fetch(api,{method:'PUT',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!p.ok){ let d=''; try{ d='（'+(await p.json()).message+'）'; }catch(_){} _calMsg('保存失敗 HTTP '+p.status+d,true); btn.disabled=false; return; }
+    _calMsg('✅ 保存しました（'+where+'）。全端末に反映されます（数十秒〜数分）');
+    try{ toast('✅ 校正をシナリオへ保存しました'); }catch(_){}
+  }catch(e){ _calMsg('失敗: '+((e&&e.message)||e),true); }
+  btn.disabled=false;
+};
 </script>
 </body>
 </html>
