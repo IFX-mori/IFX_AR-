@@ -1,6 +1,6 @@
 {
   "id": "bc-券売機検銭ブロックの-7xjd6",
-  "barcode": 2,
+  "barcode": 1,
   "name": "券売機 検銭ブロックのSOL3へのアクセス方法",
   "subtitle": "",
   "device": "券売機",
@@ -11,7 +11,7 @@
     {
       "key": "fmu1awepmoj",
       "label": "背面",
-      "barcode": 2,
+      "barcode": 1,
       "calib": {
         "scale": 13.57,
         "ox": 0,
