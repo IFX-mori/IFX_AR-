@@ -122,7 +122,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.2</div>
+    <div id="ver">Worklog v4.3</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -245,6 +245,8 @@ const FREEZE_BACK = Math.max(0, Math.min(0.6, (parseFloat(_HP.get('freezeback'))
 // 傾き固定：回転にデッドバンドを設け、微小な揺れ(水面に浮く紙のような揺らぎ)は無視。しきい値超えの向き変化のみ反映。?tiltlock=1 で有効、?tiltdeg=N でしきい値(度,既定6)。位置は従来どおり平滑追従。
 const TILT_LOCK = (_HP.get('tiltlock')!=='off');   // 既定=採用値ON（?tiltlock=off で無効化）
 const TILT_DEG  = Math.max(0.5, Math.min(60, parseFloat(_HP.get('tiltdeg'))||45));   // 既定=採用値45°
+// 傾き固定の“ゆっくり自己修正”：デッドバンド内でも毎フレームごく僅かに正解姿勢へ寄せる。誤った姿勢でロックされたまま直らない(枠ズレ)を自己修正。0で純粋ホールド。?tiltsync=N
+const TILT_SYNC = _HP.has('tiltsync') ? Math.max(0, Math.min(0.5, parseFloat(_HP.get('tiltsync'))||0)) : 0.04;
 // 誤差適応の位置平滑：遠い=速く追従／目標近傍=強く平滑化（揺れを平均して真位置へ収束）。OneEuroの「寄せ速度と静止揺れが結合」を解消。
 // ?settle=euro で旧OneEuroに戻す。settlemin=近傍のなじみ速度(小=安定/大=速いが揺れやすい), settlemax=遠い時の追従速度, settlenear/settlefar=誤差しきい値。
 const SETTLE_ADAPT= (_HP.get('settle')!=='euro');
@@ -377,7 +379,8 @@ AFRAME.registerComponent('smooth-follow', {
                // 傾き固定：回転はデッドバンド。微小な揺れは無視し、しきい値超えの向き変化のみ緩やかに反映
                let d=Math.abs(me.quaternion.x*this._q.x+me.quaternion.y*this._q.y+me.quaternion.z*this._q.z+me.quaternion.w*this._q.w);
                d=Math.min(1,d); const ang=2*Math.acos(d)*180/Math.PI;
-               if(ang>TILT_DEG) me.quaternion.slerp(this._q,0.4);
+               if(ang>TILT_DEG) me.quaternion.slerp(this._q,0.4);              // 大きな向き変化＝速く追従
+               else if(TILT_SYNC>0) me.quaternion.slerp(this._q,TILT_SYNC);   // 小さなズレ＝ごく緩やかに正解へ寄せる（誤ロックの自己修正・揺れは平均）
              } else {
                me.quaternion.set(this._fq[0].f(this._q.x,dt),this._fq[1].f(this._q.y,dt),this._fq[2].f(this._q.z,dt),this._fq[3].f(this._q.w,dt)).normalize();
              } }
