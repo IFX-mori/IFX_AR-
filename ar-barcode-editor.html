@@ -372,7 +372,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.8';
+const APP_VERSION = 'v4.9';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -532,8 +532,9 @@ function normToPct(x, y){
 // バーコード原点を写真上の(u,v)へ移動。図形は写真上で静止させ pos だけ再計算する。
 function setMarker(u, v){
   const aspect=imgAspect();
+  const fkey=curFaceE()?curFaceE().key:null;   // 現在の面のみ対象（他の面の図形は別マーカー基準なので触らない）
   const abs=[];
-  ED.steps.forEach(s=>s.ar.forEach(f=>abs.push({ f, u:ED.marker.u+f.pos[0], v:ED.marker.v-f.pos[1]/aspect })));
+  ED.steps.forEach(s=>{ if(fkey && s.face!==fkey) return; s.ar.forEach(f=>abs.push({ f, u:ED.marker.u+f.pos[0], v:ED.marker.v-f.pos[1]/aspect })); });
   ED.marker.u=+Math.max(0,Math.min(1,u)).toFixed(4);
   ED.marker.v=+Math.max(0,Math.min(1,v)).toFixed(4);
   abs.forEach(a=>{ a.f.pos=[ +(a.u-ED.marker.u).toFixed(3), +((ED.marker.v-a.v)*aspect).toFixed(3), a.f.pos[2]||0 ]; });
