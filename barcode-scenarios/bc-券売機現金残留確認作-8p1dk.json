@@ -11,7 +11,7 @@
       "label": "表面",
       "barcode": 2,
       "calib": {
-        "scale": 21.41,
+        "scale": 19.46,
         "ox": 0,
         "oy": 0,
         "rot": 0
@@ -236,11 +236,11 @@
           "color": "#60a5fa",
           "label": "カバーを開き確認",
           "pos": [
-            -0.4,
-            0.208,
+            -0.418,
+            0.182,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -274,7 +274,7 @@
             -0.167,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -322,7 +322,7 @@
             0.313,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -352,11 +352,11 @@
           "color": "#60a5fa",
           "label": "保留部を手前に引き確認",
           "pos": [
-            0.005,
-            0.268,
+            0.013,
+            0.244,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.35
         },
         {
           "type": "box",
@@ -390,7 +390,7 @@
             0.086,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -420,11 +420,11 @@
           "color": "#60a5fa",
           "label": "ホッパーを引出しキャリングディスク放出口を確認",
           "pos": [
-            0.027,
-            0.092,
+            -0.001,
+            0.093,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -454,11 +454,11 @@
           "color": "#60a5fa",
           "label": "鍵を開けて確認",
           "pos": [
-            0.308,
-            0.315,
+            0.301,
+            0.298,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -492,7 +492,7 @@
             0.045,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -526,7 +526,7 @@
             0.486,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -636,7 +636,7 @@
             -0.161,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -684,7 +684,7 @@
             0.469,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -718,7 +718,7 @@
             0.43,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -752,7 +752,7 @@
             0.235,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -786,7 +786,7 @@
             -0.143,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -832,7 +832,7 @@
             0.303,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.4
         },
         {
           "type": "box",
@@ -865,7 +865,7 @@
             -0.308,
             0
           ],
-          "fontScale": 0.5
+          "fontScale": 0.35
         },
         {
           "type": "box",
