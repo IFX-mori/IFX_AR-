@@ -372,7 +372,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.4';
+const APP_VERSION = 'v4.5';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1418,8 +1418,10 @@ function splitTranscriptByLines(text){
   steps.forEach(s=>{ const n=s.ar.length; s.ar=s.ar.map((f,i)=>({ ...f, pos:[0, +(((n-1)/2 - i)*0.14).toFixed(3), 0] })); });
   return steps;
 }
+// 改行の正規化：iOS(メモ.app)等はU+2028/U+2029や\r\u0085を改行に使うため\nへ統一（改行無視対策）
+function normNewlines(s){ return String(s==null?'':s).replace(new RegExp('\\r\\n','g'),'\n').replace(new RegExp('\\r','g'),'\n').replace(new RegExp('[\\u2028\\u2029\\u0085]','g'),'\n'); }
 function buildStepsByLines(){
-  const text=(document.getElementById('vid-trans').value||'').trim();
+  const text=normNewlines(document.getElementById('vid-trans').value||'').trim();
   if(!text){ alert('先に手順文を入力してください'); return; }
   const steps=splitTranscriptByLines(text);
   if(!steps.length){ alert('行が見つかりませんでした'); return; }
@@ -1433,7 +1435,7 @@ function buildStepsByLines(){
   if(document.getElementById('editor').classList.contains('on')){ syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 }
 function buildStepsFromTranscript(){
-  const text=(document.getElementById('vid-trans').value||'').trim();
+  const text=normNewlines(document.getElementById('vid-trans').value||'').trim();
   if(!text){ alert('先に文字起こしを実行してください'); return; }
   const steps=splitTranscriptToSteps(text);
   if(!steps||!steps.length){ alert('「ステップ1」「ステップ2」などの区切りが見つかりませんでした。\n（動画内で「ステップ○」と言っているか、文字起こし結果をご確認ください）'); return; }
