@@ -63,6 +63,9 @@
   #wz-sum-body td { padding:6px 0; border-bottom:1px solid #f1f5f9; word-break:break-all; }
   #wz-sum-body td.no { color:#94a3b8; }
   #wz-sum-body .edit { border:none; background:none; color:#1d4ed8; font-size:12px; font-weight:700; padding:0 0 0 6px; }
+  #build-status { display:none; margin-top:10px; padding:10px 12px; border-radius:10px; background:#dcfce7; border:1px solid #86efac; color:#166534; font-size:13px; font-weight:700; line-height:1.6; white-space:pre-line; }
+  #build-status.flash { animation:bsflash 1.2s ease-out; }
+  @keyframes bsflash { 0%{ background:#86efac; } 100%{ background:#dcfce7; } }
   #setup-status { font-size:12px; white-space:pre-line; line-height:1.6; margin-top:8px; color:#64748b; }
 
   /* ── エディタ画面 ── */
@@ -263,6 +266,7 @@
     <div id="vid-edit-hint" class="hint" style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.6">「ステップN」の区切りや操作語（回す/押す/確認/注意/数値 等）を入れると、分割と図形自動生成の精度が上がります。</div>
     <button class="btn full p" id="vid-build" style="margin-top:8px" onclick="buildStepsFromTranscript()">✂️ ステップ分割＋図形を自動生成</button>
     <button class="btn full" id="vid-build-lines" style="margin-top:6px;border:1px solid #0e7490;color:#0e7490;background:#ecfeff" onclick="buildStepsByLines()">📝 行ごとにテキスト作成（「ステップ」行＝タイトル）</button>
+    <div id="build-status"></div>
     <div class="hint" style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.6">「📝行ごと」＝先頭が「ステップ」の行をステップのタイトルにし、他の行は<b>1行ずつ別々のテキスト図形</b>にします（操作語の図形化はしません）。空行は区切りとして無視。</div>
 
     <details style="margin-top:12px">
@@ -290,7 +294,7 @@
   </div>
 
   <div class="card" data-wz="5">
-    <button class="btn full g" id="btn-start" onclick="startEditor()" disabled>✏️ 編集を開始（写真が必要）</button>
+    <button class="btn full g" id="btn-start" onclick="startEditor()" disabled>✏️ 編集を開始</button>
     <div id="setup-status"></div>
   </div>
   <div id="wz-nav" class="wz-only">
@@ -432,7 +436,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.17';
+const APP_VERSION = 'v4.18';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1662,6 +1666,9 @@ function splitTranscriptByLines(text){
 }
 // 改行の正規化：iOS(メモ.app)等はU+2028/U+2029や\r\u0085を改行に使うため\nへ統一（改行無視対策）
 function normNewlines(s){ return String(s==null?'':s).replace(new RegExp('\\r\\n','g'),'\n').replace(new RegExp('\\r','g'),'\n').replace(new RegExp('[\\u2028\\u2029\\u0085]','g'),'\n'); }
+// ステップ自動作成の完了メッセージ（ボタン直下に表示）
+function setBuildStatus(t){ const el=document.getElementById('build-status'); if(!el) return; el.textContent=t; el.style.display=t?'block':'none';
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
 function buildStepsByLines(){
   const text=normNewlines(document.getElementById('vid-trans').value||'').trim();
   if(!text){ alert('先に手順文を入力してください'); return; }
@@ -1673,7 +1680,8 @@ function buildStepsByLines(){
   ED.steps = replace ? steps : ED.steps.concat(steps);
   stepIdx=0; figIdx=-1;
   const items=steps.reduce((a,s)=>a+s.ar.length,0);
-  document.getElementById('vid-status').textContent=`✅ ${steps.length}ステップ／テキスト${items}個を作成（ステップ行＝タイトル、他の行＝各テキスト）。「編集を開始」で位置を調整してください。`;
+  const msgL=`✅ ${steps.length}ステップ／テキスト${items}個を作成しました（ステップ行＝タイトル、他の行＝各テキスト）。「編集を開始」で位置を調整してください。`;
+  document.getElementById('vid-status').textContent=msgL; setBuildStatus(msgL);
   if(document.getElementById('editor').classList.contains('on')){ syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 }
 function buildStepsFromTranscript(){
@@ -1688,7 +1696,9 @@ function buildStepsFromTranscript(){
   const gen=confirm(`${steps.length}ステップを作成しました。\n\n各ステップの説明から図形も自動生成しますか？\n（種類・向き・ラベルを提案。位置は中央なので編集画面で調整）`);
   if(gen) ED.steps.forEach(s=>{ s.ar=(s.ar||[]).concat(autoFiguresFromText(s)); });
   stepIdx=0; figIdx=-1;
-  document.getElementById('vid-status').textContent=`✅ ${steps.length}ステップを作成${gen?'＋図形自動生成':''}。「編集を開始」で写真に載せて調整してください。`;
+  const figs=ED.steps.reduce((a,s)=>a+((s.ar&&s.ar.length)||0),0);
+  const msgS=`✅ ${steps.length}ステップを作成しました${gen?`（図形${figs}個を自動生成）`:''}。「編集を開始」で写真に載せて調整してください。`;
+  document.getElementById('vid-status').textContent=msgS; setBuildStatus(msgS);
   // 既に編集画面が開いていれば反映
   if(document.getElementById('editor').classList.contains('on')){ syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 }
