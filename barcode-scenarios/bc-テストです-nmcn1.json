@@ -1,0 +1,411 @@
+{
+  "id": "bc-テストです-nmcn1",
+  "barcode": 1,
+  "name": "テストです",
+  "subtitle": "",
+  "device": "",
+  "docs": {},
+  "faces": [
+    {
+      "key": "fmuqnmcn1zm",
+      "label": "前面",
+      "barcode": 1,
+      "calib": {
+        "scale": 13.91,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-テストです-nmcn1-fmuqnmcn1zm.jpg",
+      "markerPos": {
+        "u": 0.1939,
+        "v": 0.2008,
+        "w": 0.0719
+      }
+    },
+    {
+      "key": "fmuqnn2m6ql",
+      "label": "側面",
+      "barcode": 2,
+      "calib": {
+        "scale": 12.8,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-テストです-nmcn1-fmuqnn2m6ql.jpg",
+      "markerPos": {
+        "u": 0.5072,
+        "v": 0.1701,
+        "w": 0.0781
+      }
+    },
+    {
+      "key": "fmuqnoftnc0",
+      "label": "裏面",
+      "barcode": 3,
+      "calib": {
+        "scale": 13.44,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-テストです-nmcn1-fmuqnoftnc0.jpg",
+      "markerPos": {
+        "u": 0.9519,
+        "v": 0.1953,
+        "w": 0.0744
+      }
+    }
+  ],
+  "steps": [
+    {
+      "title": "ステップ1",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "検銭ブロック交換時の現金残留チェックシート",
+          "pos": [
+            0.368,
+            -0.098,
+            0
+          ],
+          "fontScale": 0.77
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ1：表面",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "表面の確認箇所一覧",
+          "pos": [
+            0.005,
+            -0.147,
+            0
+          ],
+          "fontScale": 1.96
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnn2m6ql"
+    },
+    {
+      "title": "ステップ2：①一括投入部",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "カバーを開き確認",
+          "pos": [
+            -0.432,
+            -0.151,
+            0
+          ],
+          "fontScale": 2.19
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnoftnc0"
+    },
+    {
+      "title": "ステップ3：②補給搬送",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ4：③補給振動部",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "天板を開き、手回しノブを使用し確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ5：④補給一時保留部",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "保留部を手前に引き確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ6：⑤-1循環部（釣銭機）",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "ホッパーを引出しキャリングディスクを確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ7：⑤-2循環部（放出部）",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "ホッパーを引出しキャリングディスク放出口を確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ8：⑥硬貨補給カセット",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "鍵を開けて確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ9：⑦補給機部",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "キャリングディスクを確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ10：裏面",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "裏面の確認箇所一覧",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ11：⑧リフト搬送部",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "カバーを開き手回しノブを使用し確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ12：⑨入金振分部",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "天板を開き手回しノブを使用し確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ13：⑩入金一時保留部",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "保留部を手前に引き確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ14：⑪出勤搬送部",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "カバーを開き手回しノブを使用し確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ15：正面",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "正面の確認箇所一覧",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ16：⑫補給リジェクト",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "リジェクト庫を引出し確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    },
+    {
+      "title": "ステップ17：⑬出金リジェクト",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "リジェクト庫を引出し確認",
+          "pos": [
+            0.306,
+            -0.224,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmuqnmcn1zm"
+    }
+  ]
+}
