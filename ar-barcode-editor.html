@@ -122,6 +122,14 @@
   #calib .note { font-size:10.5px; color:#94a3b8; line-height:1.5; margin-top:2px; }
 
   /* 下：ステップ帯＋プロパティ */
+  #bottom-toggle { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 10px; min-height:32px; background:#f1f5f9; border-bottom:1px solid #e2e8f0; cursor:pointer; user-select:none; font-size:12px; font-weight:700; color:#475569; flex:0 0 auto; }
+  #bottom-toggle #bt-info { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  #bottom-toggle .bt-r { display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+  #bottom-toggle #bt-arrow { color:#1d4ed8; padding:4px 6px; }
+  #bottom-toggle .bt-nav { display:none; width:30px; height:26px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; font-weight:800; color:#334155; font-size:11px; }
+  #bottom.collapsed #bottom-toggle .bt-nav { display:inline-block; }
+  #bottom.collapsed > :not(#bottom-toggle) { display:none !important; }
+  #bottom.collapsed #bottom-toggle { border-bottom:none; }
   #bottom { position:absolute; left:0; right:0; bottom:0; height:auto; max-height:56vh; background:#fff; box-shadow:0 -2px 12px rgba(0,0,0,0.14); display:flex; flex-direction:column; }
   #facebar { display:flex; gap:6px; padding:8px 10px 2px; overflow-x:auto; align-items:center; border-bottom:1px dashed #e2e8f0; }
   #facebar .ftab { flex:0 0 auto; padding:6px 11px; border-radius:9px; border:1px solid #cbd5e1; background:#f8fafc; font-size:12px; font-weight:700; color:#334155; white-space:nowrap; }
@@ -364,6 +372,10 @@
   </div>
 
   <div id="bottom">
+    <div id="bottom-toggle" onclick="toggleBottom()" title="編集パネルの表示／非表示">
+      <span id="bt-info">編集パネル</span>
+      <span class="bt-r"><button class="bt-nav" id="bt-prev" onclick="event.stopPropagation();bottomStepNav(-1)" title="前のステップ">◀</button><button class="bt-nav" id="bt-next" onclick="event.stopPropagation();bottomStepNav(1)" title="次のステップ">▶</button><b id="bt-arrow">▼ たたむ</b></span>
+    </div>
     <div id="facebar"></div>
     <div id="steptabs"></div>
     <div id="stepmeta">
@@ -441,7 +453,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.20';
+const APP_VERSION = 'v4.21';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -947,6 +959,24 @@ document.getElementById('img-file').addEventListener('change', e=>{
 function setSub(t){ document.getElementById('sub').textContent = t || (ED.name||'.mind不要／写真に図形を配置してJSON化'); }
 
 // ══════════ ステップUI ══════════
+// ══════════ 下部編集パネルの折り畳み（作業画面を広く使う） ══════════
+function toggleBottom(force){
+  const b=document.getElementById('bottom'); const c=(typeof force==='boolean')?force:!b.classList.contains('collapsed');
+  b.classList.toggle('collapsed', c);
+  try{ localStorage.setItem('bc_bottom_collapsed', c?'1':'0'); }catch(_){}
+  updateBottomToggle(); syncBottomHeight(); renderOverlay();
+}
+function updateBottomToggle(){
+  const b=document.getElementById('bottom'); if(!b) return; const c=b.classList.contains('collapsed');
+  const s=curStep(), f=curFaceE();
+  document.getElementById('bt-info').textContent = c
+    ? `${stepIdx+1}/${ED.steps.length}. ${(s&&s.title)||''}${f?`　（${f.label||''} #${f.barcode??'?'}）`:''}`
+    : '編集パネル';
+  document.getElementById('bt-arrow').textContent = c?'▲ 開く':'▼ たたむ';
+}
+// たたんだ状態でもステップを切り替えられるように
+function bottomStepNav(d){ const n=stepIdx+d; if(n<0||n>=ED.steps.length) return;
+  stepIdx=n; figIdx=-1; syncStepMeta(); renderOverlay(); renderPropbar(); renderStepTabs(); }
 function renderStepTabs(){
   const box=document.getElementById('steptabs'); box.innerHTML='';
   ED.steps.forEach((s,i)=>{ const b=document.createElement('button'); b.className='stab'+(i===stepIdx?' on':'');
@@ -955,6 +985,7 @@ function renderStepTabs(){
   const add=document.createElement('button'); add.className='addstep'; add.textContent='＋ステップ';
   add.onclick=()=>{ ED.steps.push(mkStep()); stepIdx=ED.steps.length-1; figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); };
   box.appendChild(add);
+  updateBottomToggle();
 }
 function renderStepFaceSelect(s){ const sel=document.getElementById('step-face'); if(!sel) return;
   sel.innerHTML=ED.faces.map((f,i)=>`<option value="${f.key}">${escHtml(f.label||('面'+(i+1)))}</option>`).join('');
@@ -1798,6 +1829,7 @@ function updateCfgMoreState(){ const el=document.getElementById('cfg-more-state'
   const n=[['cfg-sub','サブタイトル'],['cfg-device','機器名'],['cfg-id','ID']].filter(([id])=>document.getElementById(id).value.trim()).map(x=>x[1]);
   el.textContent=n.length?'：'+n.join('・')+' 入力済':''; }
 ['cfg-sub','cfg-device','cfg-id'].forEach(id=>document.getElementById(id).addEventListener('input', updateCfgMoreState));
+(function restoreBottom(){ let c=false; try{ c=localStorage.getItem('bc_bottom_collapsed')==='1'; }catch(_){} document.getElementById('bottom').classList.toggle('collapsed', c); })();
 (function restoreSetupMode(){ let m='list'; try{ m=localStorage.getItem('bc_setup_mode')||'list'; }catch(_){} setSetupMode(m==='wz'?'wz':'list'); })();
 // 資料URL欄：フォーカスを外したら blob/raw を Pages URL に自動変換
 ['cfg-pdf','cfg-video'].forEach(id=>{ const el=document.getElementById(id);
