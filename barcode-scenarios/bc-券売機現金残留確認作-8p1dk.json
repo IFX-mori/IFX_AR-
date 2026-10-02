@@ -4,7 +4,10 @@
   "name": "券売機　現金残留確認作業",
   "subtitle": "",
   "device": "券売機",
-  "docs": {},
+  "docs": {
+    "pdf": "https://ifx-mori.github.io/IFX_AR-/docs/bc--8p1dk-pdf.pdf",
+    "video": "https://ifx-mori.github.io/IFX_AR-/docs/bc--8p1dk-video.mp4"
+  },
   "faces": [
     {
       "key": "fmu68p1dl6f",
