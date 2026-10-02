@@ -306,6 +306,7 @@
   <div id="stage-wrap">
     <div id="tools">
       <button data-add="marker" class="mk">▦<br>位置</button>
+      <button id="btn-autodetect" class="mk" title="写真に写っているバーコードを自動検出して基準枠を合わせる">🎯<br>自動</button>
       <button data-add="box">⬜<br>囲み</button>
       <button data-add="arrow">↑<br>上矢印</button>
       <button data-add="arrowDown">↓<br>下矢印</button>
@@ -433,7 +434,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.15';
+const APP_VERSION = 'v4.16';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -825,6 +826,101 @@ document.querySelectorAll('#tools button').forEach(b=>{
     setSub(t==='marker' ? '写真上のバーコード位置をタップ' : 'タップで図形を配置'); };
 });
 function clearAddType(){ addType=null; document.querySelectorAll('#tools button').forEach(x=>x.classList.remove('on')); setSub(''); }
+
+// ══════════ バーコード自動検出（写真内のマーカーを検出して基準枠を合わせる） ══════════
+// プレイヤー(AR.js)と同じ認識エンジン ARToolKit5 を静止画に使用。初回のみCDNから読込。
+const ATK_URL='https://cdn.jsdelivr.net/npm/@ar-js-org/artoolkit5-js@0.3.2/dist/ARToolkit.js';
+const ATK_CAM='https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/data/data/camera_para.dat';
+let _atkLoading=null; const _atkCtl={};
+function loadArtoolkit(){
+  if(window.ARToolkit) return Promise.resolve();
+  if(!_atkLoading) _atkLoading=new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=ATK_URL; s.onload=res; s.onerror=()=>{ _atkLoading=null; rej(new Error('認識エンジンを読み込めませんでした（ネット接続を確認）')); }; document.head.appendChild(s); });
+  return _atkLoading;
+}
+function loadImageCors(src){ return new Promise((res,rej)=>{ const i=new Image(); i.crossOrigin='anonymous'; i.onload=()=>res(i); i.onerror=()=>rej(new Error('写真を読み込めませんでした')); i.src=src; }); }
+// 画像(canvas)から3x3バーコードを検出 → [{id, cf, v:[[x,y]×4]}]（座標はcanvasピクセル）
+async function detectBarcodesOnCanvas(cv){
+  const k=cv.width+'x'+cv.height;
+  const ctl=_atkCtl[k]||(_atkCtl[k]=await window.ARToolkit.ARController.initWithDimensions(cv.width,cv.height,ATK_CAM,{}));
+  const A=ctl.artoolkit;
+  ctl.setPatternDetectionMode(A.AR_MATRIX_CODE_DETECTION); ctl.setMatrixCodeType(A.AR_MATRIX_CODE_3x3);
+  const modes=[A.AR_LABELING_THRESH_MODE_AUTO_OTSU, A.AR_LABELING_THRESH_MODE_MANUAL, A.AR_LABELING_THRESH_MODE_AUTO_ADAPTIVE].filter(m=>m!=null);
+  for(const m of modes){
+    ctl.setThresholdMode(m); if(m===A.AR_LABELING_THRESH_MODE_MANUAL) ctl.setThreshold(100);
+    ctl.detectMarker(cv);   // 戻り値はエラーコード（0=正常）。件数は getMarkerNum で取得
+    const out=[]; const n=ctl.getMarkerNum();
+    for(let i=0;i<n;i++){ const mk=ctl.getMarker(i); if(mk && mk.idMatrix>=0 && (mk.cfMatrix==null || mk.cfMatrix>=0.5)) out.push({ id:mk.idMatrix, cf:mk.cfMatrix, v:mk.vertex.map(p=>[p[0],p[1]]) }); }
+    if(out.length) return out;
+  }
+  return [];
+}
+// 輪郭の精密化：各辺の中央部(20〜80%)だけで黒枠の外周エッジ(暗→明)を探し、辺ごとに中央値で平行移動→隣辺の交点を新しい角に。
+// 黒枠の隅に焼き込んだ番号(白抜き)で輪郭が歪む影響を避ける。不自然な補正量なら元の頂点を返す。
+function refineQuad(cv, v){
+  const W=cv.width, H=cv.height, d=cv.getContext('2d').getImageData(0,0,W,H).data;
+  const L=(x,y)=>{ const xi=Math.max(0,Math.min(W-2,Math.floor(x))), yi=Math.max(0,Math.min(H-2,Math.floor(y))), fx=x-xi, fy=y-yi;
+    const g=(a,b)=>{ const i=(b*W+a)*4; return d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114; };
+    return g(xi,yi)*(1-fx)*(1-fy)+g(xi+1,yi)*fx*(1-fy)+g(xi,yi+1)*(1-fx)*fy+g(xi+1,yi+1)*fx*fy; };
+  const C=[v.reduce((a,p)=>a+p[0],0)/4, v.reduce((a,p)=>a+p[1],0)/4];
+  const lines=[];
+  for(let i=0;i<4;i++){
+    const P=v[i], Q=v[(i+1)%4], dx=Q[0]-P[0], dy=Q[1]-P[1], len=Math.hypot(dx,dy); if(len<12) return v;
+    let n=[dy/len, -dx/len]; const M=[(P[0]+Q[0])/2,(P[1]+Q[1])/2]; if((M[0]-C[0])*n[0]+(M[1]-C[1])*n[1]<0) n=[-n[0],-n[1]];
+    const r=Math.max(6,len*0.15), offs=[];   // 探索幅：辺長の±15%（黒枠の太さ25%より内側に収まる）
+    for(let k=0;k<=14;k++){ const t=0.2+0.6*k/14, B=[P[0]+dx*t, P[1]+dy*t];
+      let best=-1e9, bd=0; for(let s=-r;s<=r;s+=0.5){ const g=L(B[0]+n[0]*(s+0.75),B[1]+n[1]*(s+0.75))-L(B[0]+n[0]*(s-0.75),B[1]+n[1]*(s-0.75)); if(g>best){ best=g; bd=s; } }
+      if(best>8) offs.push(bd); }
+    if(offs.length<5) return v;   // エッジが見つからない辺がある＝補正しない
+    offs.sort((a,b)=>a-b); const m=offs[offs.length>>1]; if(Math.abs(m)>r*0.9) return v;
+    lines.push({ p:[P[0]+n[0]*m, P[1]+n[1]*m], u:[dx/len, dy/len] });
+  }
+  const X=(a,b)=>{ const den=a.u[0]*b.u[1]-a.u[1]*b.u[0]; if(Math.abs(den)<1e-6) return null; const t=((b.p[0]-a.p[0])*b.u[1]-(b.p[1]-a.p[1])*b.u[0])/den; return [a.p[0]+a.u[0]*t, a.p[1]+a.u[1]*t]; };
+  const out=[]; for(let i=0;i<4;i++){ const c=X(lines[(i+3)%4], lines[i]); if(!c) return v; out.push(c); }   // 角i = 辺(i-1)と辺iの交点
+  return out;
+}
+// manual=true：ボタン操作（失敗時も案内）／false：写真読込時の自動実行（失敗時は控えめに通知）
+async function autoDetectMarker(manual){
+  const el=document.getElementById('edit-img'); if(!el || !el.src) return;
+  const btn=document.getElementById('btn-autodetect'); if(btn) btn.disabled=true;
+  const msg=(t,ms)=>{ setSub(t); clearTimeout(autoDetectMarker._t); if(ms) autoDetectMarker._t=setTimeout(()=>setSub(''),ms); };
+  msg('🎯 バーコードを検出中…');
+  try{
+    await loadArtoolkit();
+    const src=await loadImageCors(el.src); const NW=src.naturalWidth, NH=src.naturalHeight;
+    let found=[], usedScale=1, usedCv=null;
+    for(const L of [1600, 1024, 2400]){   // 解像度を変えて再試行（小さすぎ/大きすぎ対策）
+      const sc=Math.min(1, L/Math.max(NW,NH)); const cv=document.createElement('canvas');
+      cv.width=Math.round(NW*sc); cv.height=Math.round(NH*sc); cv.getContext('2d').drawImage(src,0,0,cv.width,cv.height);
+      found=await detectBarcodesOnCanvas(cv); usedScale=sc; usedCv=cv; if(found.length) break;
+      if(sc===1) break;   // 原寸で駄目ならそれ以上は無意味
+    }
+    if(!found.length){ msg(manual?'⚠ バーコードが見つかりませんでした（正面から・明るく・大きめに写すと検出しやすくなります）':'（写真内のバーコードは自動検出できませんでした。「🎯自動」で再試行、または手動で枠を合わせてください）', 8000); return; }
+    const face=curFaceE(); const want=face?face.barcode:null;
+    const side=m=>{ let s=0; for(let i=0;i<4;i++){ const a=m.v[i], b=m.v[(i+1)%4]; s+=Math.hypot(a[0]-b[0],a[1]-b[1]); } return s/4; };
+    found.sort((a,b)=>side(b)-side(a));
+    const m=found.find(x=>x.id===want) || found[0];
+    try{ m.v=refineQuad(usedCv, m.v); }catch(_){}
+    const cx=m.v.reduce((a,p)=>a+p[0],0)/4/usedScale, cy=m.v.reduce((a,p)=>a+p[1],0)/4/usedScale;
+    const s=side(m)/usedScale;
+    const ang=Math.abs(((Math.atan2(m.v[1][1]-m.v[0][1], m.v[1][0]-m.v[0][0])*180/Math.PI)%90+90)%90); const tilt=Math.min(ang,90-ang);
+    setMarker(cx/NW, cy/NH); setMarkerSize(s/NW);
+    let t=`🎯 バーコード #${m.id} を検出して枠を合わせました`;
+    if(want!=null && m.id!==want) t+=`（※この面の番号は #${want} です）`;
+    if(tilt>8) t+=`／写真内で約${Math.round(tilt)}°傾いています（枠は傾き非対応のため中心と大きさのみ合わせ）`;
+    if(found.length>1) t+=`／他に${found.length-1}個検出`;
+    msg(t, 9000);
+    if(manual && face && want==null && confirm(`検出したバーコード番号は ${m.id} です。\nこの面（${face.label||''}）のバーコード番号を ${m.id} に設定しますか？`)){
+      face.barcode=m.id; ED.barcode=(ED.faces[0]===face)?m.id:ED.barcode;
+      if(ED.faces[0]===face){ const f=document.getElementById('cfg-barcode'); if(f) f.value=m.id; }
+      renderFaceBar();
+    }
+  }catch(e){ msg('⚠ 自動検出エラー：'+((e&&e.message)||e), 8000); }
+  finally{ if(btn) btn.disabled=false; }
+}
+document.getElementById('btn-autodetect').onclick=()=>{ clearAddType(); autoDetectMarker(true); };
+// 新しい写真を背景に読み込んだ直後に自動検出（デコード完了を待つ）
+function autoDetectAfterLoad(){ const el=document.getElementById('edit-img'); if(!el||!el.src) return;
+  (el.decode?el.decode():Promise.resolve()).then(()=>autoDetectMarker(false)).catch(()=>{}); }
 // ── 画像オーバーレイ（配線図PNG等）の取り込み ──
 let _imgReplaceIdx=null;   // nullなら新規追加、数値ならそのindexの画像を差し替え
 document.getElementById('tool-image').onclick=()=>{ _imgReplaceIdx=null; document.getElementById('img-file').click(); };
@@ -1031,7 +1127,8 @@ function applyPhotoDataURL(dataURL){
     const face=ED.faces[fi]; if(!face) return;
     face.photoDataURL=dataURL; face.loadedImg='';
     if(fi===ED.faceIdx){ _photoDataURL=dataURL; ED._loadedImg='';
-      const img=document.getElementById('edit-img'); img.onload=()=>{ resetZoom&&resetZoom(); renderOverlay(); }; img.src=dataURL; }
+      const img=document.getElementById('edit-img'); img.onload=()=>{ resetZoom&&resetZoom(); renderOverlay(); }; img.src=dataURL;
+      autoDetectAfterLoad(); }
     renderFaceBar();
   } else {
     // セットアップ画面：最初の面の写真
@@ -1134,6 +1231,7 @@ function startEditor(){
   loadFaceState(0);   // 背景・校正・面バー
   resetZoom();
   syncStepMeta(); renderStepTabs(); renderPropbar(); syncCalib(); setSub('');
+  if(_photoDataURL) autoDetectAfterLoad();   // 新しく撮影/選択した写真ならバーコードを自動検出して枠を合わせる
 }
 function backToSetup(){
   document.getElementById('editor').classList.remove('on');
