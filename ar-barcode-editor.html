@@ -40,6 +40,29 @@
   .btn:disabled { opacity:.5; }
   .btn.full { width:100%; }
   #photo-preview { width:100%; border-radius:10px; margin-top:8px; display:none; border:1px solid #e2e8f0; }
+  /* 入力モード切替（一覧／ウィザード） */
+  #setup-mode { display:flex; gap:0; max-width:560px; margin:0 auto 12px; background:#e2e8f0; border-radius:11px; padding:3px; }
+  #setup-mode button { flex:1; border:none; background:transparent; padding:9px 6px; border-radius:9px; font-size:13px; font-weight:700; color:#475569; }
+  #setup-mode button.on { background:#fff; color:#1d4ed8; box-shadow:0 1px 4px rgba(0,0,0,.12); }
+  .wz-only { display:none; }
+  #setup.wz .wz-only { display:block; }
+  #setup.wz #wz-nav.wz-only { display:flex; }
+  #setup.wz h2 .num { display:none; }
+  #wz-steps { display:flex; gap:4px; }
+  #wz-steps .ws { flex:1; text-align:center; font-size:10px; font-weight:700; color:#94a3b8; border:none; background:none; padding:0; }
+  #wz-steps .ws i { display:block; height:5px; border-radius:3px; background:#e2e8f0; margin-bottom:5px; }
+  #wz-steps .ws.done { color:#16a34a; } #wz-steps .ws.done i { background:#86efac; }
+  #wz-steps .ws.cur { color:#1d4ed8; } #wz-steps .ws.cur i { background:#1d4ed8; }
+  #wz-msg { font-size:12px; color:#64748b; margin-top:10px; line-height:1.6; white-space:pre-line; }
+  #wz-msg:empty { display:none; }
+  #wz-msg.err { color:#dc2626; font-weight:700; }
+  #wz-nav { position:sticky; bottom:0; max-width:560px; margin:0 auto; gap:10px; padding:10px 0 4px; background:linear-gradient(rgba(241,245,249,0),#f1f5f9 30%); }
+  #wz-nav .btn { flex:1; }
+  #wz-sum-body table { width:100%; border-collapse:collapse; font-size:13px; }
+  #wz-sum-body th { text-align:left; color:#64748b; font-weight:700; padding:6px 8px 6px 0; width:38%; vertical-align:top; border-bottom:1px solid #f1f5f9; }
+  #wz-sum-body td { padding:6px 0; border-bottom:1px solid #f1f5f9; word-break:break-all; }
+  #wz-sum-body td.no { color:#94a3b8; }
+  #wz-sum-body .edit { border:none; background:none; color:#1d4ed8; font-size:12px; font-weight:700; padding:0 0 0 6px; }
   #setup-status { font-size:12px; white-space:pre-line; line-height:1.6; margin-top:8px; color:#64748b; }
 
   /* ── エディタ画面 ── */
@@ -161,8 +184,22 @@
 
 <!-- ══════════ セットアップ ══════════ -->
 <div id="setup">
-  <div class="card">
-    <h2>① シナリオ情報</h2>
+  <div id="setup-mode">
+    <button data-mode="list" onclick="setSetupMode('list')">📋 一覧で入力</button>
+    <button data-mode="wz" onclick="setSetupMode('wz')">🧭 ウィザードで入力</button>
+  </div>
+  <div class="card wz-only" id="wz-head">
+    <div id="wz-steps"></div>
+    <div id="wz-msg"></div>
+  </div>
+  <div class="card wz-only" data-wz="0">
+    <h2>はじめに</h2>
+    <div class="hint" style="font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.6">新しくシナリオを作るか、GitHubに保存済みのシナリオを読み込んで修正するかを選んでください。</div>
+    <button class="btn full" onclick="wzNext()">🆕 新しいシナリオを作成する</button>
+    <div class="hint" style="font-size:11px;color:#94a3b8;margin-top:8px;text-align:center">既存のシナリオを修正する場合は、下の「既存シナリオを読込」から選んでください</div>
+  </div>
+  <div class="card" data-wz="1">
+    <h2><span class="num">① </span>シナリオ情報</h2>
     <div class="fld"><label>シナリオ名</label><input id="cfg-name" placeholder="例：発電機の復旧手順"></div>
     <div class="fld"><label>サブタイトル（任意）</label><input id="cfg-sub" placeholder="例：〇〇現場向け"></div>
     <div class="fld"><label>機器名（任意・選択メニューの見出しに表示）</label><input id="cfg-device" placeholder="例：踏切制御器"></div>
@@ -176,8 +213,8 @@
     <button class="btn full d" onclick="showBarcodeFromField()">▦ このバーコードを表示 / 印刷</button>
   </div>
 
-  <div class="card">
-    <h2>② 参考情報（任意）</h2>
+  <div class="card" data-wz="3">
+    <h2><span class="num">② </span>参考情報（任意）</h2>
     <div class="fld"><label>資料PDF（任意）</label>
       <input id="cfg-pdf" placeholder="URLを貼付、または下にドロップ">
       <div class="dropzone" id="drop-pdf" data-kind="pdf">📄 PDFをドラッグ&ドロップ／クリックで選択</div>
@@ -190,8 +227,8 @@
       <div class="hint" id="video-status">mp4等。大きい動画はアップロードに時間がかかります（目安40MB以下推奨）。</div></div>
   </div>
 
-  <div class="card">
-    <h2>③ 参照写真（対象パネル）</h2>
+  <div class="card" data-wz="2">
+    <h2><span class="num">③ </span>参照写真（対象パネル）</h2>
     <div class="hint" style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">
       対象パネルを正面から撮った写真を読み込み、その上に図形を置いて位置を決めます。<br>
       写真は<b>位置決め用</b>です（プレイヤーでは表示されません。実機ではバーコードマーカーで位置合わせ）。
@@ -205,8 +242,8 @@
     <img id="photo-preview" alt="preview">
   </div>
 
-  <div class="card">
-    <h2>④ 既存シナリオ読込</h2>
+  <div class="card" data-wz="0">
+    <h2><span class="num">④ </span>既存シナリオ読込</h2>
     <button class="btn full d" onclick="openRemotePicker()">📥 既存シナリオを読込</button>
     <details id="gh-settings" style="margin-top:12px">
       <summary style="font-size:12px;font-weight:700;color:#475569;cursor:pointer">🔑 GitHub設定（リポジトリ・トークン）<span id="gh-set-state" style="font-weight:600;color:#94a3b8"></span></summary>
@@ -218,8 +255,8 @@
     </details>
   </div>
 
-  <div class="card">
-    <h2>⑤ テキスト／動画からステップ自動作成（任意）</h2>
+  <div class="card" data-wz="4">
+    <h2><span class="num">⑤ </span>テキスト／動画からステップ自動作成（任意）</h2>
     <div class="hint" style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">
       下の欄に<b>手順文を直接入力</b>するか、<b>動画から文字起こし</b>して、<b>ステップ分割</b>と<b>AR図形の下書き</b>を自動生成します。<br>
       「<b>ステップ1</b>」「<b>ステップ2</b>」…で区切ると、その位置で分割されます。図形は中央に仮配置されるので編集画面で位置を調整してください。
@@ -249,9 +286,18 @@
     </details>
   </div>
 
-  <div class="card">
+  <div class="card wz-only" data-wz="5" id="wz-summary">
+    <h2>入力内容の確認</h2>
+    <div id="wz-sum-body"></div>
+  </div>
+
+  <div class="card" data-wz="5">
     <button class="btn full g" id="btn-start" onclick="startEditor()" disabled>✏️ 編集を開始（写真が必要）</button>
     <div id="setup-status"></div>
+  </div>
+  <div id="wz-nav" class="wz-only">
+    <button class="btn d" id="wz-prev" onclick="wzPrev()">◀ 戻る</button>
+    <button class="btn" id="wz-next" onclick="wzNext()">次へ ▶</button>
   </div>
 </div>
 
@@ -387,7 +433,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.14';
+const APP_VERSION = 'v4.15';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -993,6 +1039,7 @@ function applyPhotoDataURL(dataURL){
     const pv=document.getElementById('photo-preview'); pv.src=_photoDataURL; pv.style.display='block';
     document.getElementById('btn-start').disabled=false;
     setStatus('写真を読み込みました。「編集を開始」を押してください。');
+    if(isWizard()){ wzMsg('写真を読み込みました。「次へ」で進んでください。'); wzRender(); }
   }
 }
 function onPhotoPicked(e){
@@ -1398,6 +1445,7 @@ function loadScenario(data,owner,repo){
   document.getElementById('btn-start').disabled=false;
   if(f0.loadedImg){ const pv=document.getElementById('photo-preview'); pv.src=f0.loadedImg; pv.style.display='block'; }
   setStatus(`「${ED.name}」を読込（面：${faceInfo}／${ED.steps.length}ステップ）。「編集を開始」で続行。`);
+  if(isWizard()){ wzGo(1); wzMsg(`「${ED.name}」を読み込みました（面：${faceInfo}／${ED.steps.length}ステップ）。内容を確認して「次へ」で進んでください。`); }
 }
 
 // ══════════ 動画 → 文字起こし → ステップ分割 → 図形自動生成 ══════════
@@ -1566,6 +1614,60 @@ function normalizeGhUrl(u){
 function escAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// ══════════ セットアップのウィザード形式（一覧と同じ入力欄を1画面ずつ表示） ══════════
+const WZ_STEPS=['開始','シナリオ情報','参照写真','参考情報','手順文','確認'];
+const WZ_OPTIONAL=[false,false,false,true,true,false];
+let wzIdx=0, wzMax=0;
+function isWizard(){ return document.getElementById('setup').classList.contains('wz'); }
+function setSetupMode(m){
+  const st=document.getElementById('setup'); st.classList.toggle('wz', m==='wz');
+  document.querySelectorAll('#setup-mode button').forEach(b=>b.classList.toggle('on', b.getAttribute('data-mode')===m));
+  try{ localStorage.setItem('bc_setup_mode', m); }catch(_){}
+  if(m==='wz') wzRender(); else document.querySelectorAll('#setup .card[data-wz]').forEach(c=>c.style.display='');
+  st.scrollTop=0;
+}
+function wzMsg(t, err){ const el=document.getElementById('wz-msg'); if(!el) return; el.textContent=t||''; el.classList.toggle('err', !!err); }
+function wzHasPhoto(){ return !document.getElementById('btn-start').disabled; }
+// 次へ進む前のチェック（必須項目）
+function wzValidate(i){
+  if(i===1 && !document.getElementById('cfg-name').value.trim()){ wzMsg('シナリオ名を入力してください', true); document.getElementById('cfg-name').focus(); return false; }
+  if(i===2 && !wzHasPhoto()){ wzMsg('参照写真を「カメラで写す」か「ライブラリから選択」で読み込んでください', true); return false; }
+  return true;
+}
+function wzGo(i){ wzIdx=Math.max(0,Math.min(WZ_STEPS.length-1,i)); wzMax=Math.max(wzMax,wzIdx); wzMsg(''); wzRender(); document.getElementById('setup').scrollTop=0; }
+function wzNext(){ if(!wzValidate(wzIdx)) return; wzGo(wzIdx+1); }
+function wzPrev(){ wzGo(wzIdx-1); }
+// 進捗バーのタップ：戻るのは自由、先へは一度到達した段まで（途中の必須チェックは通す）
+function wzJump(i){
+  if(i>wzMax) return;
+  for(let k=1;k<i;k++){ if(!wzValidate(k)){ const m=document.getElementById('wz-msg').textContent; wzGo(k); wzMsg(m,true); return; } }
+  wzGo(i);
+}
+function wzRender(){
+  if(!isWizard()) return;
+  document.querySelectorAll('#setup .card[data-wz]').forEach(c=>{ c.style.display=(+c.getAttribute('data-wz')===wzIdx)?'':'none'; });
+  document.getElementById('wz-steps').innerHTML=WZ_STEPS.map((n,i)=>
+    `<button class="ws${i===wzIdx?' cur':(i<wzIdx?' done':'')}" onclick="wzJump(${i})"><i></i>${i+1}. ${n}</button>`).join('');
+  const prev=document.getElementById('wz-prev'), next=document.getElementById('wz-next');
+  prev.style.visibility=wzIdx>0?'visible':'hidden';
+  next.style.display=(wzIdx>=WZ_STEPS.length-1)?'none':'';
+  next.textContent=wzIdx===0?'新規作成で進む ▶':(WZ_OPTIONAL[wzIdx]?'次へ（省略可）▶':'次へ ▶');
+  if(wzIdx===WZ_STEPS.length-1) wzSummary();
+}
+function wzSummary(){
+  const v=id=>document.getElementById(id).value.trim();
+  const steps=(ED.steps||[]).filter(s=>s.title||s.detail||(s.ar&&s.ar.length));
+  const figs=steps.reduce((a,s)=>a+((s.ar&&s.ar.length)||0),0);
+  const rows=[
+    ['シナリオ名', v('cfg-name'), 1], ['サブタイトル', v('cfg-sub'), 1], ['機器名', v('cfg-device'), 1],
+    ['バーコード番号', v('cfg-barcode')||'（保存時に自動採番）', 1], ['バーコード寸法', (v('cfg-markermm')||'40')+' mm', 1],
+    ['参照写真', wzHasPhoto()?'✅ 読込済':'', 2],
+    ['資料PDF', v('cfg-pdf')?'✅ 登録済':'', 3], ['操作動画', v('cfg-video')?'✅ 登録済':'', 3],
+    ['ステップ', steps.length?`${steps.length}ステップ／図形${figs}個`:'（編集画面で作成）', 4] ];
+  document.getElementById('wz-sum-body').innerHTML='<table>'+rows.map(([k,val,go])=>
+    `<tr><th>${k}</th><td class="${val?'':'no'}">${val?escHtml(val):'なし'}<button class="edit" onclick="wzGo(${go})">修正</button></td></tr>`).join('')+'</table>';
+}
+
 // ══════════ 起動 ══════════
 document.getElementById('ver').textContent='Editor '+APP_VERSION;
 (function restore(){
@@ -1578,6 +1680,7 @@ document.getElementById('ver').textContent='Editor '+APP_VERSION;
 function updateGhSetState(){ const el=document.getElementById('gh-set-state'); if(!el) return;
   el.textContent=document.getElementById('gh-token').value.trim()?'：トークン設定済':'：トークン未設定'; }
 document.getElementById('gh-token').addEventListener('input', updateGhSetState);
+(function restoreSetupMode(){ let m='list'; try{ m=localStorage.getItem('bc_setup_mode')||'list'; }catch(_){} setSetupMode(m==='wz'?'wz':'list'); })();
 // 資料URL欄：フォーカスを外したら blob/raw を Pages URL に自動変換
 ['cfg-pdf','cfg-video'].forEach(id=>{ const el=document.getElementById(id);
   if(el) el.addEventListener('blur', ()=>{ const n=normalizeGhUrl(el.value); if(n!==el.value.trim()) el.value=n; }); });
