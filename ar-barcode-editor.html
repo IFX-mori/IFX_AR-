@@ -57,6 +57,11 @@
   .fig img { display:block; width:100%; height:100%; }
   .fig.sel::after { content:''; position:absolute; inset:-6px; border:2px dashed #fff; border-radius:8px; box-shadow:0 0 0 2px rgba(0,0,0,.4); }
   /* バーコード基準ボックス（実寸マーカーの写真上の大きさ＝原点＆cm基準） */
+  /* 選択図形のサイズ変更ハンドル（図形本体の外接枠。ラベルは含まない） */
+  .rszframe { position:absolute; pointer-events:none; transform:translate(-50%,-50%); transform-style:preserve-3d; outline:1.5px solid rgba(56,189,248,.9); }
+  .rszframe .rh { position:absolute; width:calc(16px * var(--iz,1)); height:calc(16px * var(--iz,1)); margin:calc(-8px * var(--iz,1)) 0 0 calc(-8px * var(--iz,1));
+    border-radius:50%; background:#38bdf8; border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.45); pointer-events:auto; touch-action:none; }
+  .rszframe .rh.edge { border-radius:4px; }
   .markerbox { position:absolute; transform:translate(-50%,-50%); pointer-events:auto; cursor:grab; touch-action:none;
     border:2px solid #f43f5e; background:rgba(244,63,94,.12); box-shadow:0 0 0 1px rgba(255,255,255,.5) inset; z-index:5; }
   .markerbox .mk-lb { position:absolute; left:50%; top:-9px; transform:translate(-50%,-100%); font-size:10px; font-weight:800; color:#fff; background:#f43f5e; border-radius:6px; padding:1px 6px; white-space:nowrap; }
@@ -376,7 +381,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.12';
+const APP_VERSION = 'v4.13';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -576,6 +581,7 @@ function renderOverlay(){
   const ov=document.getElementById('overlay'); const r=imgRect();
   ov.innerHTML='';
   const step=curStep(); if(!step) return;
+  let rsz=null;   // 選択図形のサイズ変更ハンドル（基準ボックスより手前に出すため最後に追加）
   step.ar.forEach((it,i)=>{
     const fc = (it.type==='image')
       ? { url:(it._dataURL||it.src||''), wUnits:(it.size||0.3), hUnits:(it.size||0.3)*(it.aspect||1) }   // 画像は幅×aspectで表示
@@ -596,6 +602,7 @@ function renderOverlay(){
     const im=document.createElement('img'); im.src=fc.url; el.appendChild(im);
     el.addEventListener('pointerdown', ev=>{ ev.stopPropagation(); startDrag(ev,i); });
     ov.appendChild(el);
+    if(i===figIdx) rsz=makeResizeFrame(it, i, p, el.style.transform);
   });
   // バーコード基準ボックス（＝座標原点＆実寸マーカーの写真上サイズ）。本体ドラッグで移動、右下ハンドルでサイズ。
   const box=document.createElement('div'); box.className='markerbox';
@@ -606,6 +613,80 @@ function renderOverlay(){
   box.addEventListener('pointerdown', ev=>{ ev.stopPropagation(); startMarkerDrag(ev); });
   box.querySelector('.mk-handle').addEventListener('pointerdown', startMarkerResize);
   ov.appendChild(box);
+  if(rsz) ov.appendChild(rsz);
+}
+
+// ══════════ ドラッグによるサイズ変更（選択図形の四隅＋上下左右ハンドル） ══════════
+// 図形本体の寸法（正規化単位, ラベル除く）。figCanvas の iw/ih と同一。text はラベル枠そのもの。
+function figBody(it){
+  if(it.type==='box') return { w:(it.sizeW||it.size||0.5), h:(it.sizeH||it.size||0.5) };
+  if(it.type==='ring'){ const s=it.size||0.6; return {w:s,h:s}; }
+  if(it.type==='arrow'||it.type==='arrowDown'){ const h=it.h||0.5; return {w:h*0.7,h}; }
+  if(it.type==='curvedArrow'){ const s=it.size||(it.scale?it.scale*0.09:0.2); return {w:s,h:s}; }
+  if(it.type==='image'){ const w=it.size||0.3; return {w, h:w*(it.aspect||1)}; }
+  if(it.type==='text'){ const tmp=document.createElement('canvas').getContext('2d'); const fp=Math.round(46*(it.fontScale||1));
+    const lm=labelMetrics(tmp,it.label||' ',fp), pd=labelPad(fp); return { w:(lm.w+2*pd.px)/PXREF, h:(lm.h+2*pd.py)/PXREF }; }
+  return {w:0.2,h:0.2};
+}
+// 縦横比固定の図形の倍率範囲（開始時の値 → 下限/上限の倍率）
+function uniformKRange(it, b0){
+  if(it.type==='text'){ const fs=it.fontScale||1; return [0.2/fs, 3/fs]; }
+  if(it.type==='arrow'||it.type==='arrowDown') return [0.05/b0.h, 50];
+  return [0.02/b0.w, 50];
+}
+// 新しい本体寸法を図形データへ反映（start=ドラッグ開始時の図形の写し）
+function applyFigBody(f, start, w, h, k){
+  if(f.type==='box'){ delete f.size; f.sizeW=+w.toFixed(4); f.sizeH=+h.toFixed(4); }
+  else if(f.type==='ring'||f.type==='image'){ f.size=+w.toFixed(4); }
+  else if(f.type==='arrow'||f.type==='arrowDown'){ f.h=+h.toFixed(4); }
+  else if(f.type==='curvedArrow'){ if(start.size) f.size=+w.toFixed(4); else f.scale=+(w/0.09).toFixed(3); }
+  else if(f.type==='text'){ f.fontScale=+Math.max(0.2,Math.min(3,(start.fontScale||1)*k)).toFixed(2); }
+}
+const RSZ_HANDLES=[[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]];   // [sx,sy] 画面向き(sy+=下)
+function makeResizeFrame(it, i, p, transform){
+  const b=figBody(it); const fr=document.createElement('div'); fr.className='rszframe';
+  fr.style.left=p.left+'%'; fr.style.top=p.top+'%';
+  fr.style.width=(b.w*100)+'%'; fr.style.height=(b.h/imgAspect()*100)+'%';
+  if(transform) fr.style.transform=transform;
+  const curs={'-1,-1':'nwse','1,1':'nwse','1,-1':'nesw','-1,1':'nesw','0,-1':'ns','0,1':'ns','-1,0':'ew','1,0':'ew'};
+  RSZ_HANDLES.forEach(([sx,sy])=>{ const h=document.createElement('div'); h.className='rh'+((sx&&sy)?'':' edge');
+    h.style.left=((sx+1)*50)+'%'; h.style.top=((sy+1)*50)+'%'; h.style.cursor=curs[sx+','+sy]+'-resize';
+    h.title=(sx&&sy)?'ドラッグで拡大縮小':'ドラッグでこの方向へサイズ変更';
+    h.addEventListener('pointerdown', ev=>startFigResize(ev,i,sx,sy)); fr.appendChild(h); });
+  return fr;
+}
+// 反対側の辺/角を固定して、ドラッグした辺/角だけを動かす。面内回転(Z)も考慮（奥行X/Yは近似で無視）。
+// box＝縦横独立（辺:一方向/角:両方向）。その他＝縦横比固定の拡大縮小（text は文字サイズ）。
+function startFigResize(ev, i, sx, sy){
+  ev.preventDefault(); ev.stopPropagation();
+  const s=curStep(); const f=s&&s.ar[i]; if(!f) return;
+  const start=JSON.parse(JSON.stringify({size:f.size,scale:f.scale,fontScale:f.fontScale}));
+  const r=imgRect(), U=r.width;                      // 1正規化単位＝画像幅px（等方）
+  const b0=figBody(f), hw=b0.w*U/2, hh=b0.h*U/2;
+  const Cx=r.left+(ED.marker.u+f.pos[0])*U, Cy=r.top+ED.marker.v*r.height-f.pos[1]*U;
+  const phi=ROT_SIGN.z*((f.rot&&f.rot.z)||0)*Math.PI/180, c=Math.cos(phi), sn=Math.sin(phi);
+  const Ax=-sx*hw, Ay=-sy*hh;                         // 固定点（ローカル座標）
+  const free=(f.type==='box'), kr=free?null:uniformKRange(f,b0), minPx=0.01*U, z=f.pos[2]||0;
+  const onMove=e=>{
+    const dx=e.clientX-Cx, dy=e.clientY-Cy;
+    const px=dx*c+dy*sn, py=-dx*sn+dy*c;              // 画面→図形ローカル（逆回転）
+    let nw=2*hw, nh=2*hh, k=1;
+    if(free){
+      if(sx) nw=Math.max(minPx, sx*(px-Ax));
+      if(sy) nh=Math.max(minPx, sy*(py-Ay));
+    } else {
+      const kx=sx?sx*(px-Ax)/(2*hw):null, ky=sy?sy*(py-Ay)/(2*hh):null;
+      k=(kx!=null&&ky!=null)?Math.max(kx,ky):(kx!=null?kx:ky);
+      k=Math.max(kr[0],Math.min(kr[1],k)); nw=2*hw*k; nh=2*hh*k;
+    }
+    const lx=sx?Ax+sx*nw/2:0, ly=sy?Ay+sy*nh/2:0;    // 新しい中心（ローカル）
+    const Sx=Cx+lx*c-ly*sn, Sy=Cy+lx*sn+ly*c;
+    applyFigBody(f, start, nw/U, nh/U, k);
+    f.pos=[ +((Sx-r.left)/U-ED.marker.u).toFixed(4), +((ED.marker.v*r.height-(Sy-r.top))/U).toFixed(4), z ];
+    renderOverlay(); updatePosLabel();
+  };
+  const onUp=()=>{ document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); document.removeEventListener('pointercancel',onUp); renderPropbar(); };
+  document.addEventListener('pointermove',onMove); document.addEventListener('pointerup',onUp); document.addEventListener('pointercancel',onUp);
 }
 
 // ══════════ 背景写真のズーム／移動 ══════════
@@ -613,6 +694,7 @@ let photoZoom=1, panX=0, panY=0;
 function applyStageTransform(){
   document.getElementById('stage').style.transform=`translate(${panX}px,${panY}px) scale(${photoZoom})`;
   const lb=document.getElementById('zoomlabel'); if(lb) lb.textContent=Math.round(photoZoom*100)+'%';
+  document.getElementById('overlay').style.setProperty('--iz', (1/photoZoom).toFixed(3));   // ハンドルを拡大率によらず一定サイズに
 }
 function setZoom(z){ photoZoom=Math.max(0.3,Math.min(6,z)); applyStageTransform(); }
 function resetZoom(){ photoZoom=1; panX=0; panY=0; applyStageTransform(); }
