@@ -74,13 +74,16 @@
   #tools button.on { background:#7c3aed; border-color:#a78bfa; }
 
   /* 右上：校正・保存 */
-  #topright { position:absolute; right:8px; top:8px; display:flex; flex-direction:column; gap:6px; align-items:flex-end; z-index:10; }
+  #topright { position:absolute; right:8px; top:54px; display:flex; flex-direction:column; gap:6px; align-items:flex-end; z-index:10; }
   #topright button { border:none; border-radius:10px; padding:8px 11px; font-size:12px; font-weight:700; color:#fff; }
   #btn-cal { background:rgba(15,23,42,.82); }
   #btn-save { background:#16a34a; }
   #btn-back { background:rgba(15,23,42,.82); }
 
-  #calib { position:absolute; right:8px; top:52px; z-index:11; display:none; background:#fff; border-radius:12px; padding:11px 12px; box-shadow:0 6px 20px rgba(0,0,0,.28); min-width:196px; }
+  #calib { position:absolute; right:72px; top:54px; z-index:12; display:none; background:#fff; border-radius:12px; padding:11px 12px; box-shadow:0 6px 20px rgba(0,0,0,.28); min-width:196px; }
+  #calib .chead { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  #calib .chead b { font-size:12px; color:#334155; }
+  #calib .cclose { border:none; background:#e2e8f0; color:#334155; border-radius:8px; width:28px; height:26px; font-size:14px; font-weight:700; cursor:pointer; }
   #calib .cr { display:flex; align-items:center; gap:6px; margin-bottom:7px; font-size:12px; }
   #calib .cr span { width:40px; color:#475569; font-weight:700; }
   #calib .cr b { flex:1; text-align:center; }
@@ -256,12 +259,12 @@
       <input type="file" id="img-file" accept="image/png,image/*" style="display:none">
     </div>
     <div id="topright">
-      <button id="btn-back" onclick="backToSetup()">‹ 戻る</button>
-      <button id="btn-reload" onclick="reloadToStart()" title="最初の画面へ（再読み込み）">⟳ 初期画面</button>
       <button id="btn-cal" onclick="toggleCalib()">校正</button>
       <button id="btn-save" onclick="openExport()">保存</button>
+      <button id="btn-back" onclick="reloadToStart()" title="最初の画面へ（再読み込み）">‹ 戻る</button>
     </div>
     <div id="calib">
+      <div class="chead"><b>校正</b><button class="cclose" onclick="toggleCalib()" title="閉じる">✕</button></div>
       <div class="cr"><span>倍率</span><button class="cbtn" data-cal="s-">－</button><b id="cv-s">6.00</b><button class="cbtn" data-cal="s+">＋</button></div>
       <div class="cr"><span>左右</span><button class="cbtn" data-cal="x-">←</button><b id="cv-x">0.00</b><button class="cbtn" data-cal="x+">→</button></div>
       <div class="cr"><span>上下</span><button class="cbtn" data-cal="y-">↓</button><b id="cv-y">0.00</b><button class="cbtn" data-cal="y+">↑</button></div>
@@ -274,7 +277,7 @@
       <div id="overlay"></div>
     </div>
     <!-- A+：ライブ重ね（配置した図形を現物に重ねて位置確認） -->
-    <div id="liveov-ctl" style="position:absolute;right:10px;top:10px;z-index:30;display:flex;gap:8px;align-items:center;background:rgba(15,23,42,.82);padding:7px 9px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.4)">
+    <div id="liveov-ctl" style="position:absolute;right:8px;top:8px;z-index:30;display:flex;gap:8px;align-items:center;background:rgba(15,23,42,.82);padding:7px 9px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.4)">
       <button id="liveov-toggle" onclick="toggleLiveOverlay()" style="border:none;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;background:#0e7490;color:#fff;cursor:pointer;white-space:nowrap">📹 ライブ重ね</button>
       <span id="liveov-more" style="display:none;align-items:center;gap:8px">
         <span style="color:#cbd5e1;font-size:11px">濃さ</span>
@@ -373,7 +376,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.10';
+const APP_VERSION = 'v4.12';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
