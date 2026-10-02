@@ -582,6 +582,7 @@ async function idbPutAsset(url, blob, type){
 function assetBlob(a){ if(!a) return null; if(a.blob) return a.blob; if(a.buf) return new Blob([a.buf],{type:a.type||''}); return null; }
 async function idbGet(store,key){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readonly'); const rq=tx.objectStore(store).get(key); rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); }); }
 async function idbAll(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readonly'); const rq=tx.objectStore(store).getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); }); }
+async function idbDel(store,key){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).delete(key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
 async function idbClear(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
 
 function toast(msg,ms){ const t=document.getElementById('toast'); t.textContent=msg; t.style.opacity='1'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.opacity='0',ms||(String(msg).length>24?6000:2600)); }
@@ -1041,6 +1042,30 @@ function _registerBatch(jsons){
   if(cur){ applyCal(); renderStep(); updateDocButtons(); }
   return jsons.length;
 }
+// GitHubから全件取得できた時だけ、GitHub側に存在しないシナリオ（削除・ファイル名に.hidden等を付けて非公開化）を
+// 画面の候補と端末保存(IndexedDB)から取り除く。1件でも取得失敗があれば何もしない（通信不良で消さないため）。
+async function pruneStaleScenarios(remoteIds){
+  let removed=0;
+  Object.keys(SCENARIOS).forEach(k=>{ const before=SCENARIOS[k].length;
+    SCENARIOS[k]=SCENARIOS[k].filter(sc=>remoteIds.has(sc.id) || (cur&&sc===cur));   // 再生中のものは作業を壊さないよう残す
+    removed+=before-SCENARIOS[k].length; if(!SCENARIOS[k].length) delete SCENARIOS[k]; });
+  try{
+    const scen=await idbAll('scenarios');
+    for(const x of scen){ if(!remoteIds.has(x.id)) await idbDel('scenarios', x.id); }
+    const saved=await idbAll('saved');
+    for(const sv of saved){ const ids=(sv.ids||[]).filter(id=>remoteIds.has(id));
+      if(!ids.length) await idbDel('saved', sv.barcode); else if(ids.length!==(sv.ids||[]).length) await idbPut('saved', Object.assign({}, sv, {ids})); }
+  }catch(_){}
+  refreshPickerIfOpen();   // 追加・削除いずれでも表示中の選択メニューを最新化
+  return removed;
+}
+// 読込完了で候補が変わったら、表示中の選択メニューを最新に作り直す
+function refreshPickerIfOpen(){
+  if(cur || !curKey || document.getElementById('scenpick').style.display!=='flex') return;
+  const key=curKey, mid=curMid, list=entryScenarios(key);
+  if(list.length>1) showPicker(key, mid);
+  else { hidePicker(); curKey=null; if(list.length===1) onFound(key, mid); }
+}
 async function loadRemoteScenarios(){
   const bust='t='+Date.now();
   const pages=`https://${GH_OWNER.toLowerCase()}.github.io/${GH_REPO}/${BARCODE_DIR}`;
@@ -1052,7 +1077,10 @@ async function loadRemoteScenarios(){
         const jsons=await Promise.all(files.map(fn=>{ const name=(typeof fn==='string')?fn:(fn&&(fn.file||fn.name)); if(!name) return null;
           return fetch(`${pages}/${name}?${bust}`,{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null); }));
         const n=_registerBatch(jsons); _loadInfo={count:n, src:'pages', status:ir.status};
-        if(n>0) return;
+        if(n>0){
+          if(jsons.every(j=>j)) await pruneStaleScenarios(new Set(jsons.map(j=>j.id)));
+          else refreshPickerIfOpen();
+          return; }
       }
     }
   }catch(_){}
@@ -1067,6 +1095,7 @@ async function loadRemoteScenarios(){
       .filter(f=>f.name.endsWith('.json')&&f.download_url)
       .map(f=>fetch(f.download_url+(f.download_url.includes('?')?'&':'?')+bust,{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null)));
     const n=_registerBatch(jsons); _loadInfo={count:n, src:'api', status:res.status};
+    if(n>0 && jsons.every(j=>j)) await pruneStaleScenarios(new Set(jsons.map(j=>j.id))); else refreshPickerIfOpen();
   }catch(_){ /* オフライン等：端末保存分で動作 */ }
 }
 (async()=>{ await loadLocalScenarios(); await loadRemoteScenarios(); })();
