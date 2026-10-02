@@ -165,55 +165,61 @@
     <h2>① シナリオ情報</h2>
     <div class="fld"><label>シナリオ名</label><input id="cfg-name" placeholder="例：発電機の復旧手順"></div>
     <div class="fld"><label>サブタイトル（任意）</label><input id="cfg-sub" placeholder="例：〇〇現場向け"></div>
+    <div class="fld"><label>機器名（任意・選択メニューの見出しに表示）</label><input id="cfg-device" placeholder="例：踏切制御器"></div>
     <div class="row2">
       <div class="fld"><label>ID（ファイル名）</label><input id="cfg-id" placeholder="自動生成"></div>
       <div class="fld"><label>バーコード番号</label><input id="cfg-barcode" placeholder="空＝自動採番" inputmode="numeric">
         <div class="hint">3x3マトリクスの番号。空欄なら空き番号を自動割当。<b>同じ機器に複数の操作（起動/再起動/終了 等）を登録する場合は、その機器と同じ番号を入力</b>してください。認識後にプレイヤーで操作を選べます。</div></div>
     </div>
-    <div class="fld"><label>機器名（任意・選択メニューの見出しに表示）</label><input id="cfg-device" placeholder="例：踏切制御器"></div>
-    <div class="fld"><label>資料PDF（任意）</label>
-      <input id="cfg-pdf" placeholder="URLを貼付、または下にドロップ">
-      <div class="dropzone" id="drop-pdf" data-kind="pdf">📄 PDFをドラッグ&ドロップ／クリックで選択</div>
-      <input type="file" id="file-pdf" accept="application/pdf,.pdf" style="display:none">
-      <div class="hint" id="pdf-status">GitHubの <code>docs/</code> に自動アップロードしてURL登録します（③のリポジトリ・トークンが必要）。blob/raw URLは保存時にPages URLへ自動変換。</div></div>
-    <div class="fld"><label>操作動画（任意）</label>
-      <input id="cfg-video" placeholder="URLを貼付、または下にドロップ">
-      <div class="dropzone" id="drop-video" data-kind="video">🎬 動画をドラッグ&ドロップ／クリックで選択</div>
-      <input type="file" id="file-video" accept="video/*" style="display:none">
-      <div class="hint" id="video-status">mp4等。大きい動画はアップロードに時間がかかります（目安40MB以下推奨）。</div></div>
-    <div class="fld"><label>マーカー実寸（1辺・mm）</label><input id="cfg-markermm" value="40" inputmode="numeric">
+    <div class="fld"><label>バーコード寸法（1辺・mm）</label><input id="cfg-markermm" value="40" inputmode="numeric">
       <div class="hint">印刷するバーコードの1辺の長さ。既定40mm（＝4cm角）。配置は実寸(cm)で扱われます。</div></div>
     <button class="btn full d" onclick="showBarcodeFromField()">▦ このバーコードを表示 / 印刷</button>
   </div>
 
   <div class="card">
-    <h2>② 参照写真（対象パネル）</h2>
+    <h2>② 参考情報（任意）</h2>
+    <div class="fld"><label>資料PDF（任意）</label>
+      <input id="cfg-pdf" placeholder="URLを貼付、または下にドロップ">
+      <div class="dropzone" id="drop-pdf" data-kind="pdf">📄 PDFをドラッグ&ドロップ／クリックで選択</div>
+      <input type="file" id="file-pdf" accept="application/pdf,.pdf" style="display:none">
+      <div class="hint" id="pdf-status">GitHubの <code>docs/</code> に自動アップロードしてURL登録します（④の「GitHub設定」のリポジトリ・トークンが必要）。blob/raw URLは保存時にPages URLへ自動変換。</div></div>
+    <div class="fld"><label>操作動画（任意）</label>
+      <input id="cfg-video" placeholder="URLを貼付、または下にドロップ">
+      <div class="dropzone" id="drop-video" data-kind="video">🎬 動画をドラッグ&ドロップ／クリックで選択</div>
+      <input type="file" id="file-video" accept="video/*" style="display:none">
+      <div class="hint" id="video-status">mp4等。大きい動画はアップロードに時間がかかります（目安40MB以下推奨）。</div></div>
+  </div>
+
+  <div class="card">
+    <h2>③ 参照写真（対象パネル）</h2>
     <div class="hint" style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">
       対象パネルを正面から撮った写真を読み込み、その上に図形を置いて位置を決めます。<br>
       写真は<b>位置決め用</b>です（プレイヤーでは表示されません。実機ではバーコードマーカーで位置合わせ）。
     </div>
     <input type="file" id="file-photo" accept="image/*" capture="environment" style="display:none">
     <input type="file" id="file-photo-lib" accept="image/*" style="display:none">
-    <button class="btn full p" style="margin-bottom:8px" onclick="openLiveCam('setup')">📹 カメラで写す（アプリ内ライブ）</button>
     <div class="row2">
-      <button class="btn d" onclick="document.getElementById('file-photo').click()">📷 撮影する</button>
+      <button class="btn p" onclick="openLiveCam('setup')">📹 カメラで写す</button>
       <button class="btn d" onclick="document.getElementById('file-photo-lib').click()">🖼 ライブラリから選択</button>
     </div>
     <img id="photo-preview" alt="preview">
   </div>
 
   <div class="card">
-    <h2>③ GitHub 連携</h2>
-    <div class="fld"><label>リポジトリ（owner/repo）</label><input id="gh-repo" placeholder="ifx-mori/IFX_AR-"></div>
-    <div class="fld"><label>Personal Access Token（保存時のみ使用）</label><input id="gh-token" type="password" placeholder="ghp_...">
-      <div class="hint">contents:write 権限のトークン。ブラウザのlocalStorageに保存されます。</div></div>
-    <div class="row2">
-      <button class="btn d" onclick="openRemotePicker()">📥 既存シナリオを読込</button>
-    </div>
+    <h2>④ 既存シナリオ読込</h2>
+    <button class="btn full d" onclick="openRemotePicker()">📥 既存シナリオを読込</button>
+    <details id="gh-settings" style="margin-top:12px">
+      <summary style="font-size:12px;font-weight:700;color:#475569;cursor:pointer">🔑 GitHub設定（リポジトリ・トークン）<span id="gh-set-state" style="font-weight:600;color:#94a3b8"></span></summary>
+      <div style="margin-top:8px">
+        <div class="fld"><label>リポジトリ（owner/repo）</label><input id="gh-repo" placeholder="ifx-mori/IFX_AR-"></div>
+        <div class="fld"><label>Personal Access Token（保存時のみ使用）</label><input id="gh-token" type="password" placeholder="ghp_...">
+          <div class="hint">contents:write 権限のトークン。ブラウザのlocalStorageに保存されます。</div></div>
+      </div>
+    </details>
   </div>
 
   <div class="card">
-    <h2>④ テキスト／動画からステップ自動作成（任意）</h2>
+    <h2>⑤ テキスト／動画からステップ自動作成（任意）</h2>
     <div class="hint" style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">
       下の欄に<b>手順文を直接入力</b>するか、<b>動画から文字起こし</b>して、<b>ステップ分割</b>と<b>AR図形の下書き</b>を自動生成します。<br>
       「<b>ステップ1</b>」「<b>ステップ2</b>」…で区切ると、その位置で分割されます。図形は中央に仮配置されるので編集画面で位置を調整してください。
@@ -381,7 +387,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.13';
+const APP_VERSION = 'v4.14';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1133,7 +1139,7 @@ async function uploadDoc(kind, file){
   if(!file){ return; }
   const repoStr=(document.getElementById('gh-repo').value.trim())||'ifx-mori/IFX_AR-';
   const token=document.getElementById('gh-token').value.trim();
-  if(!token){ set('❌ ③GitHub連携にトークンを入力してください',true); return; }
+  if(!token){ set('❌ ④既存シナリオ読込の「GitHub設定」にトークンを入力してください',true); return; }
   if(!repoStr.includes('/')){ set('❌ リポジトリは owner/repo 形式で入力してください',true); return; }
   // 種別チェック
   if(kind==='pdf' && !(file.type==='application/pdf' || /\.pdf$/i.test(file.name))){ set('❌ PDFファイルを選んでください',true); return; }
@@ -1204,7 +1210,7 @@ async function ghDeleteFile(owner,repo,token,path,message){
 async function deleteScenario(s){
   const repoStr=(document.getElementById('gh-repo').value.trim())||'ifx-mori/IFX_AR-';
   const token=document.getElementById('gh-token').value.trim();
-  if(!token){ alert('削除にはトークンが必要です（③GitHub連携にPATを入力してください）'); return; }
+  if(!token){ alert('削除にはトークンが必要です（④既存シナリオ読込の「GitHub設定」にPATを入力してください）'); return; }
   if(!repoStr.includes('/')){ alert('リポジトリは owner/repo 形式で入力してください'); return; }
   if(!confirm(`「${s.name||s.id}」（バーコード${s.barcode??'—'}）を削除します。よろしいですか？\nこの操作は取り消せません。`)) return;
   const [owner,repo]=repoStr.split('/');
@@ -1236,7 +1242,7 @@ async function assignBarcode(owner,repo,extraUsed){
 async function githubUpload(){
   const repoStr=(document.getElementById('gh-repo').value.trim())||'ifx-mori/IFX_AR-';
   const token=document.getElementById('gh-token').value.trim();
-  if(!token){ setJsonStatus('❌ トークンを入力してください（③GitHub連携）',true); return; }
+  if(!token){ setJsonStatus('❌ トークンを入力してください（④既存シナリオ読込の「GitHub設定」）',true); return; }
   if(!repoStr.includes('/')){ setJsonStatus('❌ リポジトリは owner/repo 形式',true); return; }
   const [owner,repo]=repoStr.split('/');
   localStorage.setItem('bc_gh_token',token); localStorage.setItem('bc_gh_repo',repoStr);
@@ -1566,7 +1572,12 @@ document.getElementById('ver').textContent='Editor '+APP_VERSION;
   const t=localStorage.getItem('bc_gh_token'), r=localStorage.getItem('bc_gh_repo');
   if(t) document.getElementById('gh-token').value=t;
   document.getElementById('gh-repo').value=r||'ifx-mori/IFX_AR-';
+  updateGhSetState();
 })();
+// GitHub設定（折り畳み）の見出しにトークン設定状況を表示
+function updateGhSetState(){ const el=document.getElementById('gh-set-state'); if(!el) return;
+  el.textContent=document.getElementById('gh-token').value.trim()?'：トークン設定済':'：トークン未設定'; }
+document.getElementById('gh-token').addEventListener('input', updateGhSetState);
 // 資料URL欄：フォーカスを外したら blob/raw を Pages URL に自動変換
 ['cfg-pdf','cfg-video'].forEach(id=>{ const el=document.getElementById(id);
   if(el) el.addEventListener('blur', ()=>{ const n=normalizeGhUrl(el.value); if(n!==el.value.trim()) el.value=n; }); });
