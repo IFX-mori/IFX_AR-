@@ -80,6 +80,16 @@
   .sp-item b { display:block; font-size:15px; color:#1e293b; }
   .sp-item small { display:block; font-size:11px; color:#64748b; margin-top:2px; }
   .sp-item:active { background:#e0e7ff; }
+  .sp-home { display:block; width:100%; margin-top:6px; padding:12px; border:1px solid #cbd5e1; border-radius:11px; background:#fff; color:#475569; font-size:14px; font-weight:700; cursor:pointer; }
+  #btn-home { pointer-events:auto; border:1px solid #cbd5e1; border-radius:9px; background:#fff; color:#334155; font-size:12px; font-weight:700; padding:6px 10px; cursor:pointer; white-space:nowrap; }
+  #finmodal { position:fixed; inset:0; z-index:45; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); padding:20px; }
+  #finmodal .fm-box { background:#fff; border-radius:16px; padding:20px 18px 16px; width:100%; max-width:360px; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+  #finmodal .fm-icon { font-size:34px; line-height:1; }
+  #finmodal .fm-head { font-size:16px; font-weight:800; color:#15803d; margin-top:8px; }
+  #finmodal .fm-name { font-size:12px; color:#64748b; margin:4px 0 14px; }
+  #finmodal .fm-btn { display:block; width:100%; padding:13px; border-radius:12px; font-size:14px; font-weight:800; cursor:pointer; margin-top:8px; }
+  #finmodal .fm-home { border:none; background:#1d4ed8; color:#fff; }
+  #finmodal .fm-again { border:1px solid #cbd5e1; background:#fff; color:#334155; }
   /* 作業記録モーダル */
   #logmodal { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); padding:16px; }
   #logmodal .lm-box { background:#fff; border-radius:16px; padding:16px; width:100%; max-width:520px; max-height:84vh; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,.35); }
@@ -121,8 +131,9 @@
   <div id="topbar">
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
+    <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.9</div>
+    <div id="ver">Worklog v4.10</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -184,6 +195,18 @@
   <div class="sp-box">
     <div class="sp-head">操作を選択　<span id="sp-dev" style="font-weight:500;color:#94a3b8;font-size:11px"></span></div>
     <div id="sp-list"></div>
+    <button class="sp-home" onclick="goHome()">🏠 最初の画面に戻る</button>
+  </div>
+</div>
+
+<!-- 作業終了ダイアログ -->
+<div id="finmodal">
+  <div class="fm-box">
+    <div class="fm-icon">✅</div>
+    <div class="fm-head">作業を記録しました</div>
+    <div class="fm-name" id="fm-name"></div>
+    <button class="fm-btn fm-home" onclick="resetToIdle()">🏠 最初の画面に戻る</button>
+    <button class="fm-btn fm-again" id="fm-again"></button>
   </div>
 </div>
 
@@ -631,6 +654,8 @@ function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=k
   document.getElementById('scsub').textContent=scenario.subtitle||'';
   renderStep(); updateDocButtons();   // renderStep が面の追従・校正・誘導まで行う
   document.getElementById('btn-menu').style.display = (entryScenarios(entryBarcode(scenario)).length>1) ? 'inline-block':'none';
+  document.getElementById('btn-home').style.display='inline-block';
+  _homeSup.clear();
   _lockOrient=_curOrient(); _updateOrientLock();   // 再生開始時の向きを基準にソフトロック
   resolveImageAssets();   // 画像オーバーレイの端末保存blobを解決（オフライン表示用）
   logEvent('start',{totalSteps:scenario.steps.length});
@@ -758,15 +783,62 @@ function hidePicker(){ document.getElementById('scenpick').style.display='none';
 document.getElementById('btn-menu').onclick=()=>{ if(curKey) showPicker(curKey, curMid); };
 function finishScenario(){
   logEvent('finish',{checked:checkedSteps.size, totalSteps:(cur&&cur.steps.length)||0});
-  closeDoc(); const key=curKey, mid=curMid;
+  closeDoc(); closePhoto(); const key=curKey, mid=curMid, finName=(cur&&cur.name)||'';
   cur=null; idx=0; checkedSteps=new Set();
   content.setAttribute('visible', false);
   _lockOrient=null; _updateOrientLock();   // 作業終了で向きロック解除
-  toast('✅ 作業を記録しました');
-  const list=entryScenarios(key);
-  if(list.length>1){ curKey=key; showPicker(key,mid); }
-  else if(key){ curKey=null; onFound(key,mid); }
+  showFinish(key, mid, finName);
 }
+// ══════ 最初の画面（待機状態）へ戻る ══════
+// 戻った時点で写っているバーコードでは即再開しない。一度カメラを外して(HOME_REARM_MS以上)から向け直すと開始。
+const HOME_REARM_MS=1500;
+const _homeSup=new Map();   // key → 見えなくなった時刻（0＝まだ見えている）
+let _finOpen=false;
+function showFinish(key, mid, name){
+  _finOpen=true; curKey=null; stxt.textContent='作業終了'; dot.classList.remove('on'); setFrameRecognized(false);
+  _visible.forEach(k=>_homeSup.set(k,0));
+  document.getElementById('fm-name').textContent=name||'';
+  const again=document.getElementById('fm-again'); const list=entryScenarios(key);
+  if(list.length>1){ again.textContent='≡ 続けて別の操作を選ぶ'; again.style.display=''; again.onclick=()=>{ hideFinish(); curKey=key; showPicker(key,mid); }; }
+  else if(list.length===1){ again.textContent='↻ もう一度最初から'; again.style.display=''; again.onclick=()=>{ hideFinish(); _homeSup.clear(); setScenario(list[0],key,mid); }; }
+  else again.style.display='none';
+  document.getElementById('btn-home').style.display='none';
+  document.getElementById('finmodal').style.display='flex';
+}
+function hideFinish(){ _finOpen=false; document.getElementById('finmodal').style.display='none'; }
+// 再生中／選択メニューから「最初へ」：途中まで確認済みなら確認してから中断扱いで戻る
+function goHome(){
+  if(cur && checkedSteps.size>0 && !confirm('作業を中断して最初の画面に戻りますか？\n（ここまでの確認は「中断」として記録に残ります）')) return;
+  if(cur) logEvent('abort',{checked:checkedSteps.size, totalSteps:cur.steps.length});
+  resetToIdle();
+}
+function resetToIdle(){
+  closeDoc(); closePhoto(); hidePicker(); hideFinish();
+  clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
+  cur=null; idx=0; checkedSteps=new Set(); curKey=null;
+  content.setAttribute('visible', false); while(content.firstChild) content.removeChild(content.firstChild);
+  _lockOrient=null; _updateOrientLock();
+  _visible.forEach(k=>_homeSup.set(k,0));   // 今写っているバーコードでは即再開しない
+  document.getElementById('scname').textContent='シナリオ未選択';
+  document.getElementById('scsub').textContent='バーコードにカメラを向けてください';
+  document.getElementById('btn-menu').style.display='none';
+  document.getElementById('btn-home').style.display='none';
+  updateDocButtons(); updatePhotoBtn(); resetCardIdle();
+  dot.classList.remove('on'); dot.style.background=''; setFrameRecognized(false); hint.classList.remove('hidden');
+  if(_visible.size){ hint.innerHTML='最初の画面に戻りました<small>作業を始めるときは、カメラを一度バーコードから外し、もう一度向けてください</small>'; stxt.textContent='待機中'; }
+  else { hint.innerHTML='バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small>'; stxt.textContent='マーカー未認識'; }
+}
+// 手順カードを未選択時の表示へ
+function resetCardIdle(){
+  document.getElementById('stitle').textContent='–'; document.getElementById('sdetail').textContent='–';
+  const b=document.getElementById('badge'); b.textContent='STEP'; b.style.background='';
+  document.getElementById('counter').textContent='– / –';
+  document.getElementById('btn-prev').style.visibility='hidden';
+  const n=document.getElementById('btn-next'); n.style.display=''; n.disabled=true; n.style.background='';
+  document.getElementById('btn-finish').style.display='none';
+  const bc=document.getElementById('btn-check'); bc.disabled=true; bc.classList.remove('checked'); bc.textContent='☑ このステップを確認しました';
+}
+document.getElementById('btn-home').onclick=goHome;
 document.getElementById('btn-finish').onclick=()=>{ if(!document.getElementById('btn-finish').disabled) finishScenario(); };
 
 // ══════ マーカー認識（多面対応） ══════
@@ -836,6 +908,12 @@ function handleFound(key, mid){
     if(!total){ hint.classList.remove('hidden'); hint.innerHTML='シナリオを取得できていません<small>'+(navigator.onLine?('通信/GitHub制限の可能性。再読込するか、オンラインの端末で「この機器を保存」を実施'):'オフライン：オンライン時に開くか、事前に端末保存が必要')+'</small>'; }
   } return; }
   _visible.add(key);
+  if(_finOpen) return;   // 終了ダイアログ表示中は自動で再開しない
+  if(!cur && !curKey && _homeSup.has(key)){
+    const t=_homeSup.get(key);
+    if(!t || Date.now()-t<HOME_REARM_MS){ _homeSup.set(key,0); stxt.textContent='待機中'; return; }   // 一瞬見失っただけ→まだ再開しない
+    _homeSup.delete(key);   // 一度しっかり外してから向け直した→通常どおり開始
+  }
   // ── 再生中は割り込ませない：現在のシナリオの面のマーカーだけ反応、他は無視 ──
   if(cur){
     if(faceKeys(cur).has(key)){ clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;} updateWanted(); }
@@ -854,6 +932,7 @@ function handleFound(key, mid){
   }
 }
 function handleLost(key){ _visible.delete(key); if(key===pendingKey) clearPending();
+  if(_homeSup.has(key)) _homeSup.set(key, Date.now());
   if(cur && faceKeys(cur).has(key)){
     if(key===wantKey()){ if(lostTimer)clearTimeout(lostTimer); lostTimer=setTimeout(()=>{ lostTimer=null; updateWanted(); },1000); }
     return;
