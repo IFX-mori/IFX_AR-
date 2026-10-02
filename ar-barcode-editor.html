@@ -203,11 +203,9 @@
     <div class="fld"><label>シナリオ名</label><input id="cfg-name" placeholder="例：発電機の復旧手順"></div>
     <div class="fld"><label>サブタイトル（任意）</label><input id="cfg-sub" placeholder="例：〇〇現場向け"></div>
     <div class="fld"><label>機器名（任意・選択メニューの見出しに表示）</label><input id="cfg-device" placeholder="例：踏切制御器"></div>
-    <div class="row2">
-      <div class="fld"><label>ID（ファイル名）</label><input id="cfg-id" placeholder="自動生成"></div>
-      <div class="fld"><label>バーコード番号</label><input id="cfg-barcode" placeholder="空＝自動採番" inputmode="numeric">
-        <div class="hint">3x3マトリクスの番号。空欄なら空き番号を自動割当。<b>同じ機器に複数の操作（起動/再起動/終了 等）を登録する場合は、その機器と同じ番号を入力</b>してください。認識後にプレイヤーで操作を選べます。</div></div>
-    </div>
+    <div class="fld"><label>ID（ファイル名）</label><input id="cfg-id" placeholder="自動生成"></div>
+    <div class="fld"><label>バーコード番号 <span style="font-weight:600;color:#0e7490">（最初のステップで採用するバーコード番号）</span></label><input id="cfg-barcode" placeholder="空＝自動採番" inputmode="numeric">
+      <div class="hint">3x3マトリクスの番号。最初のステップの面（前面）に割り当てられ、写真の自動検出ではこの番号のバーコードに枠を合わせます。空欄なら空き番号を自動割当。<b>同じ機器に複数の操作（起動/再起動/終了 等）を登録する場合は、その機器と同じ番号を入力</b>してください。認識後にプレイヤーで操作を選べます。2つ目以降の面の番号は編集画面の「＋面を追加」「⚙」で設定します。</div></div>
     <div class="fld"><label>バーコード寸法（1辺・mm）</label><input id="cfg-markermm" value="40" inputmode="numeric">
       <div class="hint">印刷するバーコードの1辺の長さ。既定40mm（＝4cm角）。配置は実寸(cm)で扱われます。</div></div>
     <button class="btn full d" onclick="showBarcodeFromField()">▦ このバーコードを表示 / 印刷</button>
@@ -434,7 +432,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.16';
+const APP_VERSION = 'v4.17';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
