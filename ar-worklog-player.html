@@ -88,6 +88,7 @@
   #finmodal .fm-head { font-size:16px; font-weight:800; color:#15803d; margin-top:8px; }
   #finmodal .fm-name { font-size:12px; color:#64748b; margin:4px 0 14px; }
   #finmodal .fm-btn { display:block; width:100%; padding:13px; border-radius:12px; font-size:14px; font-weight:800; cursor:pointer; margin-top:8px; }
+  #finmodal .fm-resume { border:2px solid #15803d; background:#f0fdf4; color:#15803d; }
   #finmodal .fm-home { border:none; background:#1d4ed8; color:#fff; }
   #finmodal .fm-again { border:1px solid #cbd5e1; background:#fff; color:#334155; }
   /* 作業記録モーダル */
@@ -205,6 +206,7 @@
     <div class="fm-icon">✅</div>
     <div class="fm-head">作業を記録しました</div>
     <div class="fm-name" id="fm-name"></div>
+    <button class="fm-btn fm-resume" onclick="resumeFinished()">↩ 元の作業に戻る（進捗を確認）</button>
     <button class="fm-btn fm-home" onclick="resetToIdle()">🏠 最初の画面に戻る</button>
     <button class="fm-btn fm-again" id="fm-again"></button>
   </div>
@@ -304,6 +306,32 @@ function applyMarkerSmoothing(){ document.querySelectorAll('a-marker').forEach(m
   else { m.setAttribute('smooth','true'); m.setAttribute('smoothCount', String(SMOOTH_COUNT)); } }); }
 document.addEventListener('DOMContentLoaded', applyMarkerSmoothing);
 (function(){ const sc=document.querySelector('a-scene'); if(sc){ if(sc.hasLoaded) applyMarkerSmoothing(); else sc.addEventListener('loaded', applyMarkerSmoothing); } })();
+// ── 二値化(しきい値)モード：暗所・明るさムラ対策（試験オプション）──
+// ?thresh=auto|otsu（全体の明るさから自動）／adaptive（場所ごとに自動＝ムラ・逆光に強いが処理が重め）／median／bracket／数値0-255（固定しきい値）
+// 未指定は従来どおり（AR.js既定の固定しきい値）。AR.jsの初期化完了を待って適用し、以後も定期的に再適用（再初期化対策）。
+const THRESH_PARAM = (_HP.get('thresh')||'').toLowerCase();
+let _threshLabel='';
+function _arController(){ const sc=document.querySelector('a-scene'); const sys=sc&&sc.systems&&sc.systems.arjs;
+  const ctx=sys&&sys._arSession&&sys._arSession.arContext; return (ctx&&ctx.arController)||null; }
+function applyThresholdMode(){
+  if(!THRESH_PARAM) return;
+  const ctl=_arController(); if(!ctl||typeof ctl.setThresholdMode!=='function') return;
+  const A=ctl.artoolkit||{}; const C=(n,d)=>(A[n]!=null?A[n]:d);
+  const MODES={ auto:['AR_LABELING_THRESH_MODE_AUTO_OTSU',2,'自動(Otsu)'], otsu:['AR_LABELING_THRESH_MODE_AUTO_OTSU',2,'自動(Otsu)'],
+    adaptive:['AR_LABELING_THRESH_MODE_AUTO_ADAPTIVE',3,'自動(適応)'], median:['AR_LABELING_THRESH_MODE_AUTO_MEDIAN',1,'自動(中央値)'],
+    bracket:['AR_LABELING_THRESH_MODE_AUTO_BRACKETING',4,'自動(ブラケット)'] };
+  let want, label, manual=null;
+  if(/^\d{1,3}$/.test(THRESH_PARAM)){ manual=Math.max(0,Math.min(255,parseInt(THRESH_PARAM,10))); want=C('AR_LABELING_THRESH_MODE_MANUAL',0); label='固定'+manual; }
+  else if(MODES[THRESH_PARAM]){ const m=MODES[THRESH_PARAM]; want=C(m[0],m[1]); label=m[2]; }
+  else return;
+  try{
+    if(ctl.getThresholdMode()!==want) ctl.setThresholdMode(want);
+    if(manual!=null && ctl.getThreshold()!==manual) ctl.setThreshold(manual);
+    if(!_threshLabel){ _threshLabel=label; const v=document.getElementById('ver'); if(v) v.textContent+=' ／二値化:'+label;
+      try{ toast('二値化モード：'+label+' を適用しました'); }catch(_){} }
+  }catch(e){ console.warn('しきい値モード適用失敗',e); }
+}
+if(THRESH_PARAM) setInterval(applyThresholdMode, 1000);   // 初期化待ち＋再初期化時の再適用（軽量）
 // 向きソフトロック：シナリオ再生中に開始時と違う向きになったら案内を出す（iOSはOSの回転自体は止められないため）。?orientlock=off で無効。
 const ORIENT_LOCK = (_HP.get('orientlock')!=='off');
 let _lockOrient=null, _orientOverlay=null;
@@ -784,6 +812,7 @@ document.getElementById('btn-menu').onclick=()=>{ if(curKey) showPicker(curKey, 
 function finishScenario(){
   logEvent('finish',{checked:checkedSteps.size, totalSteps:(cur&&cur.steps.length)||0});
   closeDoc(); closePhoto(); const key=curKey, mid=curMid, finName=(cur&&cur.name)||'';
+  _finSnap={ sc:cur, idx, checked:new Set(checkedSteps), key, mid, sessionId };   // 「元の作業に戻る」用に退避
   cur=null; idx=0; checkedSteps=new Set();
   content.setAttribute('visible', false);
   _lockOrient=null; _updateOrientLock();   // 作業終了で向きロック解除
@@ -805,6 +834,20 @@ function showFinish(key, mid, name){
   document.getElementById('btn-home').style.display='none';
   document.getElementById('finmodal').style.display='flex';
 }
+// 終了直前の状態（最終ステップ・確認済み）へ戻し、進捗一覧を開いて作業漏れを確認できるようにする
+let _finSnap=null;
+function resumeFinished(){
+  const sn=_finSnap; if(!sn||!sn.sc){ resetToIdle(); return; }
+  hideFinish(); _homeSup.clear();
+  cur=sn.sc; idx=sn.idx; checkedSteps=new Set(sn.checked); curKey=sn.key; sessionId=sn.sessionId;
+  document.getElementById('scname').textContent=cur.name;
+  document.getElementById('scsub').textContent=cur.subtitle||'';
+  renderStep(); updateDocButtons();
+  document.getElementById('btn-menu').style.display = (entryScenarios(entryBarcode(cur)).length>1) ? 'inline-block':'none';
+  document.getElementById('btn-home').style.display='inline-block';
+  _lockOrient=_curOrient(); _updateOrientLock();
+  openProg();   // 進捗（未・済）一覧を表示
+}
 function hideFinish(){ _finOpen=false; document.getElementById('finmodal').style.display='none'; }
 // 再生中／選択メニューから「最初へ」：途中まで確認済みなら確認してから中断扱いで戻る
 function goHome(){
@@ -813,6 +856,7 @@ function goHome(){
   resetToIdle();
 }
 function resetToIdle(){
+  _finSnap=null;
   closeDoc(); closePhoto(); hidePicker(); hideFinish();
   clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
   cur=null; idx=0; checkedSteps=new Set(); curKey=null;
