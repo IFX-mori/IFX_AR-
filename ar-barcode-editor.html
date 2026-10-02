@@ -257,6 +257,7 @@
     </div>
     <div id="topright">
       <button id="btn-back" onclick="backToSetup()">‹ 戻る</button>
+      <button id="btn-reload" onclick="reloadToStart()" title="最初の画面へ（再読み込み）">⟳ 初期画面</button>
       <button id="btn-cal" onclick="toggleCalib()">校正</button>
       <button id="btn-save" onclick="openExport()">保存</button>
     </div>
@@ -372,7 +373,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.9';
+const APP_VERSION = 'v4.10';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1001,6 +1002,8 @@ function backToSetup(){
   document.getElementById('setup').style.display='';
   document.getElementById('setup').scrollTop=0;
 }
+// 初期画面へ（URL再読み込み＝完全初期化）。未保存の変更は失われるため確認。
+function reloadToStart(){ if(confirm('最初の画面に戻ります。保存していない変更は失われます。よろしいですか？')) location.reload(); }
 function genId(name){
   const slug=(name||'bc').replace(/[^0-9A-Za-z一-龠ぁ-んァ-ヶ]/g,'').slice(0,10) || 'bc';
   return 'bc-'+slug+'-'+Date.now().toString(36).slice(-5);

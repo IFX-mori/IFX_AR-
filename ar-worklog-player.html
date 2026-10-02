@@ -122,7 +122,7 @@
     <div id="title"><span id="scname">シナリオ未選択</span><small id="scsub">バーコードにカメラを向けてください</small></div>
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.6</div>
+    <div id="ver">Worklog v4.7</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -777,6 +777,7 @@ function updateWanted(){
   if(!cur){ content.setAttribute('visible', false); return; }
   const face=curFace(); const w=String(face.barcode);
   const vis=_visible.has(w);
+  const faceLbl=(face.label||'次の面')+'：'+w;   // 「裏面：3」のように面名＋バーコード番号
   updateCheckGate(vis);   // 認識中だけ「確認しました」を押せるように
   followMarker('m'+w);   // 追従対象を現ステップの面へ（見切れ中の推定ホールドもこの面の最後の姿勢を使う）
   const sf=anchor.components&&anchor.components['smooth-follow'];
@@ -786,17 +787,17 @@ function updateWanted(){
   if(vis){
     if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
     dot.classList.add('on'); dot.style.background=''; hint.classList.add('hidden'); setFrameRecognized(true);
-    stxt.textContent='認識中：'+cur.name+(isMultiFace()?(' ／ '+(face.label||'')):'');
+    stxt.textContent='認識中：'+cur.name+(isMultiFace()?(' ／ '+faceLbl):'');
   } else if(holding){
     // 推定表示中：バーコード見切れ。回転はジャイロ補正、位置は再検出で補正。
     dot.classList.remove('on'); dot.style.background='#f59e0b'; hint.classList.add('hidden'); setFrameRecognized(false);
-    stxt.textContent='推定表示中：'+cur.name+(isMultiFace()?(' ／ '+(face.label||'')):'')+'（バーコードを写すと補正）';
+    stxt.textContent='推定表示中：'+cur.name+(isMultiFace()?(' ／ '+faceLbl):'')+'（バーコードを写すと補正）';
   } else {
     dot.classList.remove('on'); dot.style.background=''; setFrameRecognized(false); hint.classList.remove('hidden');
     hint.innerHTML = isMultiFace()
-      ? ('「'+(face.label||'次の面')+'」のマーカーにカメラを向けてください<small>次の操作はこの面です</small>')
+      ? ('「'+faceLbl+'」のマーカーにカメラを向けてください<small>次の操作はこの面です</small>')
       : 'マーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small>';
-    stxt.textContent = isMultiFace() ? ((face.label||'次の面')+'マーカー待ち') : 'マーカー未認識';
+    stxt.textContent = isMultiFace() ? ('「'+faceLbl+'」マーカー待ち') : 'マーカー未認識';
   }
 }
 // 新規にシナリオへ入る（開始面のマーカーからのみ）
