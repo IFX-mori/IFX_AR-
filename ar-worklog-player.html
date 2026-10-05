@@ -136,7 +136,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.14</div>
+    <div id="ver">Worklog v4.15</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -784,42 +784,71 @@ function loadPdfJs(){ if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib
   _pdfjsLoading=(async()=>{ try{ await loadScriptEl(PDFJS_LOCAL); window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_LOCAL_W; }
     catch(_){ await loadScriptEl(PDFJS_CDN); window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_CDN_W; }
     if(!window.pdfjsLib) throw new Error('PDF.jsの読み込みに失敗'); return window.pdfjsLib; })(); return _pdfjsLoading; }
-// 古いiOS(Safari)では標準版PDF.jsのワーカーが動かず「Setting up fake worker failed」になる → 互換(legacy)版に切替えて再試行
-const PDFJS_LEGACY='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js', PDFJS_LEGACY_W='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js';
-let _pdfjsLegacy=false;
-async function loadPdfJsLegacy(){
-  if(_pdfjsLegacy && window.pdfjsLib) return window.pdfjsLib;
+// 古いiOS(Safari)では標準版PDF.jsのワーカーが動かず「Setting up fake worker failed」になる
+// → 互換(legacy)版 3.11 → さらに旧世代の互換版 2.16 の順に切替えて再試行。
+//   互換版は処理部(ワーカー)もページ内に読込み、バックグラウンド処理(Worker)を使わず画面側で処理する（遅いが確実）。
+const PDFJS_FALLBACKS=[
+  { name:'互換版3.11', lib:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js', worker:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js' },
+  { name:'互換版2.16', lib:'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/legacy/build/pdf.min.js', worker:'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/legacy/build/pdf.worker.min.js' } ];
+let _pdfjsLegacy=false, _pdfjsGood=null;   // _pdfjsGood=表示に成功した版（以後はそれを使う）
+// スクリプトを読み込み、実行時エラー（構文エラー等）も捕まえる（onloadは実行に失敗しても発火するため）
+function loadScriptCapture(src){ return new Promise((res)=>{ let err=null;
+  const onErr=ev=>{ if(!ev) return; const f=ev.filename||''; if(!f || f.indexOf(src.split('/').pop())>=0 || f===src) err=(ev.message||'error')+(ev.lineno?` (行${ev.lineno})`:''); };
+  window.addEventListener('error', onErr, true);
+  const s=document.createElement('script'); s.src=src;
+  s.onload=()=>{ setTimeout(()=>{ window.removeEventListener('error', onErr, true); res(err); },0); };
+  s.onerror=()=>{ window.removeEventListener('error', onErr, true); res('読込失敗(通信)'); };
+  document.head.appendChild(s); }); }
+// Safari15.3以前に無い機能の最小補完（互換版を画面側で動かすため）
+function _pdfPolyfills(){
+  const def=(o,k,v)=>{ if(!o[k]) try{ Object.defineProperty(o,k,{value:v,writable:true,configurable:true}); }catch(_){} };
+  def(Array.prototype,'at',function(n){ n=Math.trunc(n)||0; if(n<0) n+=this.length; return (n<0||n>=this.length)?undefined:this[n]; });
+  def(String.prototype,'at',function(n){ n=Math.trunc(n)||0; if(n<0) n+=this.length; return (n<0||n>=this.length)?undefined:this.charAt(n); });
+  def(Object,'hasOwn',function(o,k){ return Object.prototype.hasOwnProperty.call(o,k); });
+  ['Int8Array','Uint8Array','Uint8ClampedArray','Int16Array','Uint16Array','Int32Array','Uint32Array','Float32Array','Float64Array'].forEach(n=>{ const T=window[n]; if(T) def(T.prototype,'at',Array.prototype.at); });
+}
+async function loadPdfJsFallback(fb, diag){
+  _pdfPolyfills();
   try{ delete window.pdfjsLib; }catch(_){ window.pdfjsLib=undefined; }
   try{ delete window['pdfjs-dist/build/pdf']; }catch(_){}
-  await loadScriptEl(PDFJS_LEGACY);
-  if(!window.pdfjsLib) throw new Error('互換版PDF.jsの読み込みに失敗');
-  window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_LEGACY_W;
-  // 処理部(ワーカー)もページ内に読み込んでおく → PDF.jsはバックグラウンド処理を使わず画面側で処理（遅いが確実）
+  const e1=await loadScriptCapture(fb.lib);
+  if(!window.pdfjsLib) throw new Error(`${fb.name}の本体を読み込めません${e1?'：'+e1:''}`);
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc=fb.worker;
   try{ delete window.pdfjsWorker; }catch(_){ window.pdfjsWorker=undefined; }
-  try{ await loadScriptEl(PDFJS_LEGACY_W); }catch(e){ console.warn('互換版ワーカーの読込失敗',e); }
+  const e2=await loadScriptCapture(fb.worker);
+  if(!(window.pdfjsWorker&&window.pdfjsWorker.WorkerMessageHandler)) diag.push(`${fb.name} 処理部：${e2||'pdfjsWorker未定義'}`);
   _pdfjsLegacy=true; _pdfjsLoading=Promise.resolve(window.pdfjsLib);
   return window.pdfjsLib;
 }
 async function renderPdf(url,container){
   container.innerHTML='<div style="padding:16px;color:#64748b;font-size:13px;">PDF読み込み中…</div>';
-  try{ await renderPdfWith(await loadPdfJs(), url, container); }
-  catch(e1){
-    if(_pdfjsLegacy){ showPdfError(container, e1); return; }
-    console.warn('PDF.js標準版で失敗→互換版で再試行', e1);
-    container.innerHTML='<div style="padding:16px;color:#64748b;font-size:13px;">PDF読み込み中…（互換モード）</div>';
-    try{ await renderPdfWith(await loadPdfJsLegacy(), url, container); }
-    catch(e2){ showPdfError(container, e2, e1); }
+  const errs=[], diag=[];
+  if(!_pdfjsLegacy){
+    try{ await renderPdfWith(await loadPdfJs(), url, container); return; }
+    catch(e){ errs.push(['標準版',e]); console.warn('PDF.js標準版で失敗→互換版で再試行', e); }
+  } else if(_pdfjsGood){
+    try{ await renderPdfWith(window.pdfjsLib, url, container); return; }
+    catch(e){ errs.push([_pdfjsGood.name,e]); }
   }
+  for(const fb of PDFJS_FALLBACKS){
+    if(_pdfjsGood===fb) continue;
+    container.innerHTML=`<div style="padding:16px;color:#64748b;font-size:13px;">PDF読み込み中…（互換モード：${fb.name}）</div>`;
+    try{ const lib=await loadPdfJsFallback(fb, diag); await renderPdfWith(lib, url, container); _pdfjsGood=fb; return; }
+    catch(e){ errs.push([fb.name,e]); console.warn(fb.name+'で失敗',e); }
+  }
+  showPdfError(container, errs, diag);
 }
-// 失敗時は原因切り分け用の診断情報（どの版で失敗したか・端末のiOS/Safari）も表示
+// 失敗時は原因切り分け用の診断情報（各版のエラー・処理部の読込エラー・端末のiOS/Safari）も表示
 function _osInfo(){ const ua=navigator.userAgent||''; const m=ua.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); const v=ua.match(/Version\/([\d.]+)/);
   const ipadDesk=/Macintosh/.test(ua)&&navigator.maxTouchPoints>1;   // iPadOS13+はMac表記になる
   return (m?`iOS ${m[1]}.${m[2]}${m[3]?'.'+m[3]:''}`:(ipadDesk?'iPadOS(Mac表記)':'その他'))+(v?` / Safari ${v[1]}`:''); }
-function showPdfError(container, e, first){
+function showPdfError(container, errs, diag){
   const msg=m=>escHtml((m&&m.message)||String(m));
-  container.innerHTML=`<div style="padding:16px;color:#dc2626;font-size:13px;line-height:1.6">PDFの表示に失敗しました。上部の「別タブ」から開いてください。<br>${msg(e)}`
+  const last=errs.length?errs[errs.length-1][1]:'';
+  container.innerHTML=`<div style="padding:16px;color:#dc2626;font-size:13px;line-height:1.6">PDFの表示に失敗しました。上部の「別タブ」から開いてください。<br>${msg(last)}`
     +`<div style="margin-top:8px;padding:8px;border-radius:8px;background:#f1f5f9;color:#475569;font-size:11px;word-break:break-all">【診断】${APP_VER_TXT()}<br>`
-    +(first?`互換版：失敗（上記）<br>標準版：${msg(first)}`:`標準版で失敗（互換版：${_pdfjsLegacy?'使用中':'未試行'}）`)
+    +errs.map(([n,e])=>`${escHtml(n)}：${msg(e)}`).join('<br>')
+    +(diag.length?'<br>'+diag.map(escHtml).join('<br>'):'')
     +`<br>端末：${escHtml(_osInfo())}</div></div>`; }
 function APP_VER_TXT(){ const v=document.getElementById('ver'); return v?escHtml(v.textContent):''; }
 async function renderPdfWith(pdfjsLib, url, container){
