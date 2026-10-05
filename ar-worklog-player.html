@@ -136,7 +136,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.11</div>
+    <div id="ver">Worklog v4.12</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -144,9 +144,8 @@
   <div id="tool-fab">
     <button id="btn-prog">✅ 進捗</button>
     <button id="btn-save">💾 保存</button>
-    <button id="btn-light" onclick="cycleLightMode()" title="環境光に合わせて認識設定を切替（標準→明るい・西日→暗い）">💡 光:標準</button>
-    <button id="btn-torch" onclick="toggleTorch()" style="display:none" title="カメラのライトを点灯/消灯">🔦 ライト</button>
     <button id="btn-log">📋 記録</button>
+    <button id="btn-light" onclick="cycleLightMode()" title="環境光に合わせて認識設定を切替（標準→明るい→暗い）">照明：標準</button>
   </div>
 
   <button id="cal-toggle" style="position:absolute;left:12px;top:96px;pointer-events:auto;background:rgba(15,23,42,0.82);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer">校正</button>
@@ -313,16 +312,15 @@ document.addEventListener('DOMContentLoaded', applyMarkerSmoothing);
 // ── 明るさモード（標準／明るい・西日／暗い）：環境光による認識の不安定さ対策 ──
 // 2段構え：(1)認識側の二値化(しきい値)方式を切替＝どの端末でも有効
 //          (2)カメラ側の露出補正・ライト(トーチ)＝端末/ブラウザが対応している場合のみ適用（iPad Safariは非対応のことが多い）
-// 画面右の「💡 光」ボタンで切替（選択は端末に記憶）。URL ?light=normal|bright|dark で初期指定可。
+// 画面右の「照明：○○」ボタンで切替（起動時は常に「標準」）。URL ?light=normal|bright|dark で初期指定可。ライト(トーチ)ボタンは要望により非表示（機能は残置）。
 // ?thresh=… を付けた場合は、二値化方式だけはそちらを優先（試験用）。
 const THRESH_PARAM = (_HP.get('thresh')||'').toLowerCase();
 const LIGHT_MODES = {
-  normal:{ label:'標準',        icon:'💡', thresh:'manual100', ev:0,   desc:'従来どおりの設定' },
-  bright:{ label:'明るい・西日', icon:'☀️', thresh:'adaptive',  ev:-1,  desc:'明暗のムラ・逆光・反射に強い認識方式' },
-  dark:  { label:'暗い',        icon:'🌙', thresh:'otsu',      ev:+1,  desc:'暗い場所に合わせて自動で白黒を判定' } };
+  normal:{ label:'標準',        icon:'', thresh:'manual100', ev:0,   desc:'従来どおりの設定' },
+  bright:{ label:'明るい',      icon:'', thresh:'adaptive',  ev:-1,  desc:'明暗のムラ・逆光・反射に強い認識方式' },
+  dark:  { label:'暗い',        icon:'', thresh:'otsu',      ev:+1,  desc:'暗い場所に合わせて自動で白黒を判定' } };
 const LIGHT_ORDER=['normal','bright','dark'];
-let _lightMode=(()=>{ const q=(_HP.get('light')||'').toLowerCase(); if(LIGHT_MODES[q]) return q;
-  try{ const s=localStorage.getItem('wl_light_mode'); if(LIGHT_MODES[s]) return s; }catch(_){} return 'normal'; })();
+let _lightMode=(()=>{ const q=(_HP.get('light')||'').toLowerCase(); return LIGHT_MODES[q]?q:'normal'; })();   // 起動時は常に「標準」
 let _torchOn=false, _camCaps=null, _camTrackId=null, _camApplied='';
 function _arController(){ const sc=document.querySelector('a-scene'); const sys=sc&&sc.systems&&sc.systems.arjs;
   const ctx=sys&&sys._arSession&&sys._arSession.arContext; return (ctx&&ctx.arController)||null; }
@@ -365,17 +363,16 @@ async function applyCameraLight(force){
   if(Object.keys(adv).length){ try{ await t.applyConstraints({advanced:[adv]}); }catch(e){ console.warn('カメラ設定の適用失敗',adv,e); } }
 }
 function camSupportText(){ const c=_camCaps||{}; const f=[];
-  f.push(c.exposureCompensation?'露出補正○':'露出補正×'); f.push(c.torch?'ライト○':'ライト×'); return f.join('／'); }
+  f.push(c.exposureCompensation?'露出補正○':'露出補正×'); return f.join('／'); }
 function setLightMode(m, silent){
   if(!LIGHT_MODES[m]) return; _lightMode=m;
-  try{ localStorage.setItem('wl_light_mode', m); }catch(_){}
   applyThresholdMode(); applyCameraLight(true); updateLightBtn();
   if(!silent){ const L=LIGHT_MODES[m];
-    toast(`${L.icon} 明るさモード：${L.label}\n${L.desc}`+(THRESH_PARAM?'\n（?thresh指定中のため二値化はURL指定を優先）':'')+(_camCaps?`\nカメラ調整：${camSupportText()}`:''), 5000); }
+    toast(`照明：${L.label}\n${L.desc}`+(THRESH_PARAM?'\n（?thresh指定中のため二値化はURL指定を優先）':'')+(_camCaps?`\nカメラ調整：${camSupportText()}`:''), 5000); }
 }
 function cycleLightMode(){ const i=LIGHT_ORDER.indexOf(_lightMode); setLightMode(LIGHT_ORDER[(i+1)%LIGHT_ORDER.length]); }
 function updateLightBtn(){ const b=document.getElementById('btn-light'); if(!b) return; const L=LIGHT_MODES[_lightMode];
-  b.textContent=`${L.icon} 光:${L.label}`; b.classList.toggle('alt', _lightMode!=='normal');
+  b.textContent=`照明：${L.label}`; b.classList.toggle('alt', _lightMode!=='normal');
   const v=document.getElementById('ver'); if(v){ v.textContent=v.textContent.replace(/ ／.*$/,'')+(_lightMode!=='normal'||THRESH_PARAM?` ／${L.label}${THRESH_PARAM?'('+THRESH_PARAM+')':''}`:''); } }
 function updateTorchBtn(){ const b=document.getElementById('btn-torch'); if(!b) return;
   b.style.display=(_camCaps&&_camCaps.torch)?'':'none'; b.textContent=_torchOn?'🔦 ライトON':'🔦 ライト'; b.classList.toggle('on',_torchOn); }
