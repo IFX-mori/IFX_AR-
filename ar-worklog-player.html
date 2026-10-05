@@ -58,6 +58,8 @@
   /* 右側フローティング操作 */
   #tool-fab { position:absolute; right:12px; top:96px; display:flex; flex-direction:column; gap:8px; pointer-events:auto; }
   #tool-fab button { border:none; border-radius:10px; padding:8px 11px; font-size:12px; font-weight:700; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.35); cursor:pointer; white-space:nowrap; }
+  #btn-light { background:#a16207; } #btn-light.alt { background:#d97706; box-shadow:0 0 0 2px #fde68a; }
+  #btn-torch { background:#334155; } #btn-torch.on { background:#eab308; color:#1e293b; }
   #btn-save { background:#0e7490; } #btn-log { background:#475569; } #btn-prog { background:#15803d; }
   /* 進捗一覧 */
   #progmodal { position:fixed; inset:0; z-index:61; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); padding:16px; }
@@ -134,7 +136,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.10</div>
+    <div id="ver">Worklog v4.11</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -142,6 +144,8 @@
   <div id="tool-fab">
     <button id="btn-prog">✅ 進捗</button>
     <button id="btn-save">💾 保存</button>
+    <button id="btn-light" onclick="cycleLightMode()" title="環境光に合わせて認識設定を切替（標準→明るい・西日→暗い）">💡 光:標準</button>
+    <button id="btn-torch" onclick="toggleTorch()" style="display:none" title="カメラのライトを点灯/消灯">🔦 ライト</button>
     <button id="btn-log">📋 記録</button>
   </div>
 
@@ -306,32 +310,78 @@ function applyMarkerSmoothing(){ document.querySelectorAll('a-marker').forEach(m
   else { m.setAttribute('smooth','true'); m.setAttribute('smoothCount', String(SMOOTH_COUNT)); } }); }
 document.addEventListener('DOMContentLoaded', applyMarkerSmoothing);
 (function(){ const sc=document.querySelector('a-scene'); if(sc){ if(sc.hasLoaded) applyMarkerSmoothing(); else sc.addEventListener('loaded', applyMarkerSmoothing); } })();
-// ── 二値化(しきい値)モード：暗所・明るさムラ対策（試験オプション）──
-// ?thresh=auto|otsu（全体の明るさから自動）／adaptive（場所ごとに自動＝ムラ・逆光に強いが処理が重め）／median／bracket／数値0-255（固定しきい値）
-// 未指定は従来どおり（AR.js既定の固定しきい値）。AR.jsの初期化完了を待って適用し、以後も定期的に再適用（再初期化対策）。
+// ── 明るさモード（標準／明るい・西日／暗い）：環境光による認識の不安定さ対策 ──
+// 2段構え：(1)認識側の二値化(しきい値)方式を切替＝どの端末でも有効
+//          (2)カメラ側の露出補正・ライト(トーチ)＝端末/ブラウザが対応している場合のみ適用（iPad Safariは非対応のことが多い）
+// 画面右の「💡 光」ボタンで切替（選択は端末に記憶）。URL ?light=normal|bright|dark で初期指定可。
+// ?thresh=… を付けた場合は、二値化方式だけはそちらを優先（試験用）。
 const THRESH_PARAM = (_HP.get('thresh')||'').toLowerCase();
-let _threshLabel='';
+const LIGHT_MODES = {
+  normal:{ label:'標準',        icon:'💡', thresh:'manual100', ev:0,   desc:'従来どおりの設定' },
+  bright:{ label:'明るい・西日', icon:'☀️', thresh:'adaptive',  ev:-1,  desc:'明暗のムラ・逆光・反射に強い認識方式' },
+  dark:  { label:'暗い',        icon:'🌙', thresh:'otsu',      ev:+1,  desc:'暗い場所に合わせて自動で白黒を判定' } };
+const LIGHT_ORDER=['normal','bright','dark'];
+let _lightMode=(()=>{ const q=(_HP.get('light')||'').toLowerCase(); if(LIGHT_MODES[q]) return q;
+  try{ const s=localStorage.getItem('wl_light_mode'); if(LIGHT_MODES[s]) return s; }catch(_){} return 'normal'; })();
+let _torchOn=false, _camCaps=null, _camTrackId=null, _camApplied='';
 function _arController(){ const sc=document.querySelector('a-scene'); const sys=sc&&sc.systems&&sc.systems.arjs;
   const ctx=sys&&sys._arSession&&sys._arSession.arContext; return (ctx&&ctx.arController)||null; }
-function applyThresholdMode(){
-  if(!THRESH_PARAM) return;
-  const ctl=_arController(); if(!ctl||typeof ctl.setThresholdMode!=='function') return;
-  const A=ctl.artoolkit||{}; const C=(n,d)=>(A[n]!=null?A[n]:d);
-  const MODES={ auto:['AR_LABELING_THRESH_MODE_AUTO_OTSU',2,'自動(Otsu)'], otsu:['AR_LABELING_THRESH_MODE_AUTO_OTSU',2,'自動(Otsu)'],
+// 二値化方式の指定（文字列）→ [モード定数, 固定しきい値(null可), 表示名]
+function _threshSpec(spec, A){ const C=(n,d)=>(A[n]!=null?A[n]:d);
+  if(/^\d{1,3}$/.test(spec)){ const v=Math.max(0,Math.min(255,parseInt(spec,10))); return [C('AR_LABELING_THRESH_MODE_MANUAL',0), v, '固定'+v]; }
+  if(spec==='manual100') return [C('AR_LABELING_THRESH_MODE_MANUAL',0), 100, '固定100'];
+  const M={ auto:['AR_LABELING_THRESH_MODE_AUTO_OTSU',2,'自動(Otsu)'], otsu:['AR_LABELING_THRESH_MODE_AUTO_OTSU',2,'自動(Otsu)'],
     adaptive:['AR_LABELING_THRESH_MODE_AUTO_ADAPTIVE',3,'自動(適応)'], median:['AR_LABELING_THRESH_MODE_AUTO_MEDIAN',1,'自動(中央値)'],
     bracket:['AR_LABELING_THRESH_MODE_AUTO_BRACKETING',4,'自動(ブラケット)'] };
-  let want, label, manual=null;
-  if(/^\d{1,3}$/.test(THRESH_PARAM)){ manual=Math.max(0,Math.min(255,parseInt(THRESH_PARAM,10))); want=C('AR_LABELING_THRESH_MODE_MANUAL',0); label='固定'+manual; }
-  else if(MODES[THRESH_PARAM]){ const m=MODES[THRESH_PARAM]; want=C(m[0],m[1]); label=m[2]; }
-  else return;
+  const m=M[spec]; return m?[C(m[0],m[1]), null, m[2]]:null; }
+let _threshLabel='', _threshTouched=false, _camTouched=false;
+function applyThresholdMode(){
+  // 標準モードで一度も変更していなければ何もしない（従来動作を完全に維持）
+  if(!THRESH_PARAM && _lightMode==='normal' && !_threshTouched) return;
+  const ctl=_arController(); if(!ctl||typeof ctl.setThresholdMode!=='function') return;
+  _threshTouched=true;
+  const sp=_threshSpec(THRESH_PARAM || LIGHT_MODES[_lightMode].thresh, ctl.artoolkit||{}); if(!sp) return;
   try{
-    if(ctl.getThresholdMode()!==want) ctl.setThresholdMode(want);
-    if(manual!=null && ctl.getThreshold()!==manual) ctl.setThreshold(manual);
-    if(!_threshLabel){ _threshLabel=label; const v=document.getElementById('ver'); if(v) v.textContent+=' ／二値化:'+label;
-      try{ toast('二値化モード：'+label+' を適用しました'); }catch(_){} }
+    if(ctl.getThresholdMode()!==sp[0]) ctl.setThresholdMode(sp[0]);
+    if(sp[1]!=null && ctl.getThreshold()!==sp[1]) ctl.setThreshold(sp[1]);
+    _threshLabel=sp[2];
   }catch(e){ console.warn('しきい値モード適用失敗',e); }
 }
-if(THRESH_PARAM) setInterval(applyThresholdMode, 1000);   // 初期化待ち＋再初期化時の再適用（軽量）
+// カメラの映像トラック（AR.jsが作る video 要素）
+function _camTrack(){ const v=document.getElementById('arjs-video')||document.querySelector('video');
+  const st=v&&v.srcObject; const t=st&&st.getVideoTracks&&st.getVideoTracks()[0]; return (t&&t.readyState==='live')?t:null; }
+// カメラ側の調整（対応している項目だけ）。露出補正はEV値を端末の範囲・刻みに合わせる。
+async function applyCameraLight(force){
+  const t=_camTrack(); if(!t) return;
+  if(t.id!==_camTrackId){ _camTrackId=t.id; _camApplied=''; try{ _camCaps=t.getCapabilities?t.getCapabilities():{}; }catch(_){ _camCaps={}; } updateTorchBtn(); }
+  if(_lightMode==='normal' && !_torchOn && !_camTouched) return;   // 標準のままなら従来どおりカメラ設定に触れない
+  const key=_lightMode+'|'+_torchOn; if(!force && _camApplied===key) return; _camApplied=key; _camTouched=true;
+  const caps=_camCaps||{}, adv={};
+  if(caps.exposureCompensation){ const c=caps.exposureCompensation, step=c.step||0.1;
+    let ev=LIGHT_MODES[_lightMode].ev; ev=Math.max(c.min, Math.min(c.max, Math.round(ev/step)*step));
+    if(Array.isArray(caps.exposureMode)&&caps.exposureMode.includes('continuous')) adv.exposureMode='continuous';
+    adv.exposureCompensation=+ev.toFixed(3); }
+  if(caps.torch) adv.torch=!!_torchOn;
+  if(Object.keys(adv).length){ try{ await t.applyConstraints({advanced:[adv]}); }catch(e){ console.warn('カメラ設定の適用失敗',adv,e); } }
+}
+function camSupportText(){ const c=_camCaps||{}; const f=[];
+  f.push(c.exposureCompensation?'露出補正○':'露出補正×'); f.push(c.torch?'ライト○':'ライト×'); return f.join('／'); }
+function setLightMode(m, silent){
+  if(!LIGHT_MODES[m]) return; _lightMode=m;
+  try{ localStorage.setItem('wl_light_mode', m); }catch(_){}
+  applyThresholdMode(); applyCameraLight(true); updateLightBtn();
+  if(!silent){ const L=LIGHT_MODES[m];
+    toast(`${L.icon} 明るさモード：${L.label}\n${L.desc}`+(THRESH_PARAM?'\n（?thresh指定中のため二値化はURL指定を優先）':'')+(_camCaps?`\nカメラ調整：${camSupportText()}`:''), 5000); }
+}
+function cycleLightMode(){ const i=LIGHT_ORDER.indexOf(_lightMode); setLightMode(LIGHT_ORDER[(i+1)%LIGHT_ORDER.length]); }
+function updateLightBtn(){ const b=document.getElementById('btn-light'); if(!b) return; const L=LIGHT_MODES[_lightMode];
+  b.textContent=`${L.icon} 光:${L.label}`; b.classList.toggle('alt', _lightMode!=='normal');
+  const v=document.getElementById('ver'); if(v){ v.textContent=v.textContent.replace(/ ／.*$/,'')+(_lightMode!=='normal'||THRESH_PARAM?` ／${L.label}${THRESH_PARAM?'('+THRESH_PARAM+')':''}`:''); } }
+function updateTorchBtn(){ const b=document.getElementById('btn-torch'); if(!b) return;
+  b.style.display=(_camCaps&&_camCaps.torch)?'':'none'; b.textContent=_torchOn?'🔦 ライトON':'🔦 ライト'; b.classList.toggle('on',_torchOn); }
+function toggleTorch(){ _torchOn=!_torchOn; applyCameraLight(true); updateTorchBtn(); }
+// AR.js/カメラの初期化完了を待って適用し、以後も定期的に再適用（再初期化対策・軽量）
+setInterval(()=>{ applyThresholdMode(); applyCameraLight(false); }, 1000);
 // 向きソフトロック：シナリオ再生中に開始時と違う向きになったら案内を出す（iOSはOSの回転自体は止められないため）。?orientlock=off で無効。
 const ORIENT_LOCK = (_HP.get('orientlock')!=='off');
 let _lockOrient=null, _orientOverlay=null;
@@ -1129,6 +1179,7 @@ async function saveDevice(){
   }catch(e){ toast('保存失敗: '+((e&&e.name)||'')+' '+((e&&e.message)||e), 20000); }
 }
 document.getElementById('btn-save').onclick=saveDevice;
+updateLightBtn();
 
 // ══════ 作業記録モーダル ══════
 function download(name, text, mime){ const blob=new Blob([text],{type:mime||'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},1000); }
