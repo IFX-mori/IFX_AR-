@@ -1,0 +1,50 @@
+{
+  "id": "bc-てすと-4d2d2",
+  "barcode": 2,
+  "name": "てすと",
+  "subtitle": "",
+  "device": "",
+  "docs": {},
+  "faces": [
+    {
+      "key": "fmuz4d2d2fr",
+      "label": "前面",
+      "barcode": 2,
+      "calib": {
+        "scale": 20.16,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-てすと-4d2d2-fmuz4d2d2fr.jpg",
+      "markerPos": {
+        "u": 0.2291,
+        "v": 0.7285,
+        "w": 0.0496
+      }
+    }
+  ],
+  "steps": [
+    {
+      "title": "ステップ1",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "arrow",
+          "pos": [
+            0.236,
+            0.154,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "押す",
+          "h": 0.1343
+        }
+      ],
+      "photo": "",
+      "face": "fmuz4d2d2fr"
+    }
+  ]
+}
