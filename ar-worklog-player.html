@@ -124,8 +124,10 @@
   <a-marker id="m8" type="barcode" value="8" smooth="true" smoothCount="20" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
   <a-marker id="m9" type="barcode" value="9" smooth="true" smoothCount="20" smoothTolerance="0.02" smoothThreshold="5"></a-marker>
   <a-entity id="anchor" smooth-follow="target: #m0; mc: 0.3; beta: 1.0">
-    <a-entity id="markerframe" rotation="-90 0 0"></a-entity>
-    <a-entity id="wrapper"><a-entity id="content" rotation="-90 0 0"></a-entity></a-entity>
+    <a-entity id="orientfix">
+      <a-entity id="markerframe" rotation="-90 0 0"></a-entity>
+      <a-entity id="wrapper"><a-entity id="content" rotation="-90 0 0"></a-entity></a-entity>
+    </a-entity>
   </a-entity>
   <a-entity camera></a-entity>
 </a-scene>
@@ -136,7 +138,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.15</div>
+    <div id="ver">Worklog v4.16</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -155,6 +157,10 @@
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">左右</span><button class="cbtn" data-cal="x-">←</button><b id="cal-x" style="flex:1;text-align:center">0.00</b><button class="cbtn" data-cal="x+">→</button></div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:36px">上下</span><button class="cbtn" data-cal="y-">↓</button><b id="cal-y" style="flex:1;text-align:center">0.00</b><button class="cbtn" data-cal="y+">↑</button></div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="width:36px">回転</span><button class="cbtn" data-cal="r" style="flex:1;width:auto">90°回す</button><b id="cal-r" style="width:36px;text-align:center">0</b></div>
+    <div style="border-top:1px solid #e2e8f0;margin:2px 0 6px"></div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:4px">表示位置の補正（<b id="of-orient">横向き</b>・この端末）</div>
+    <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px"><button class="cbtn" data-of="l" title="左へ1mm">←</button><button class="cbtn" data-of="r" title="右へ1mm">→</button><button class="cbtn" data-of="u" title="上へ1mm">↑</button><button class="cbtn" data-of="d" title="下へ1mm">↓</button><button class="cbtn" data-of="0" title="補正なしに戻す" style="width:auto;padding:0 7px">0</button></div>
+    <div id="of-val" style="font-size:11px;color:#0e7490;font-weight:700;margin-bottom:8px">右±0mm／上±0mm</div>
     <button id="cal-copy" style="width:100%;padding:8px;border:none;border-radius:9px;background:#1d4ed8;color:#fff;font-weight:700;font-size:12px;cursor:pointer">校正値をコピー</button>
     <div style="border-top:1px solid #e2e8f0;margin:8px 0 6px"></div>
     <input id="cal-token" type="password" placeholder="GitHubトークン（保存に必要）" autocomplete="off" style="width:100%;box-sizing:border-box;padding:7px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:11px;margin-bottom:6px">
@@ -714,6 +720,7 @@ function renderStep(){ const sc=cur; if(!sc) return; const step=sc.steps[idx]; c
   followMarker('m'+face.barcode);   // このステップの面のマーカーへ追従
   updateWanted();                    // その面が見えているか→認識/誘導を更新
   updatePhotoBtn();                  // このステップの参考写真ボタンの表示と、開いていれば内容を更新
+  applyOrientFix();                  // 向き別の表示位置補正（面のマーカー寸法で換算）
 }
 document.getElementById('btn-check').onclick=()=>{
   if(!cur) return;
@@ -1296,8 +1303,34 @@ document.getElementById('lm-json').onclick=async()=>{ const logs=await idbAll('l
 document.getElementById('lm-clear').onclick=async()=>{ if(!confirm('すべての作業記録を消去します。よろしいですか？')) return; await idbClear('logs'); openLog(); toast('記録を消去しました'); };
 
 // ══════ 校正パネル ══════
+// ══════ 向き別の表示位置補正 ══════
+// AR.jsは画面の向きによって3D表示層とカメラ映像の対応がわずかにずれる（特に縦向き）。
+// 緑の枠がバーコードにぴったり重なるよう、向きごとに目で合わせた補正量(mm)を端末に保存して枠・AR図形をまとめて動かす。
+const ORIENT_OFF_KEY='wl_orient_off';
+let _orientOff={ port:{x:0,y:0}, land:{x:0,y:0} };
+try{ const sv=JSON.parse(localStorage.getItem(ORIENT_OFF_KEY)||'null'); if(sv&&sv.port&&sv.land) _orientOff=sv; }catch(_){}
+function _orientKey(){ return (window.innerWidth>=window.innerHeight)?'land':'port'; }
+function _markerMM(){ const f=cur?curFace():null; return (f&&f.markerSizeMM)||40; }
+function applyOrientFix(){
+  const el=document.getElementById('orientfix'); if(!el) return;
+  const o=_orientOff[_orientKey()], mm=_markerMM();
+  // マーカー座標：1単位＝マーカー1辺、x＝右、-z＝上（マーカーの上辺方向）
+  el.setAttribute('position', `${(o.x/mm).toFixed(4)} 0 ${(-o.y/mm).toFixed(4)}`);
+  const lb=document.getElementById('of-orient'); if(lb) lb.textContent=(_orientKey()==='port')?'縦向き':'横向き';
+  const fmt=v=>(v>0?'+':(v<0?'':'±'))+v;
+  const vv=document.getElementById('of-val'); if(vv) vv.textContent=`右${fmt(o.x)}mm／上${fmt(o.y)}mm`;
+}
+document.querySelectorAll('[data-of]').forEach(b=>b.onclick=()=>{
+  const k=b.getAttribute('data-of'), o=_orientOff[_orientKey()];
+  if(k==='0'){ o.x=0; o.y=0; } else if(k==='l') o.x-=1; else if(k==='r') o.x+=1; else if(k==='u') o.y+=1; else if(k==='d') o.y-=1;
+  try{ localStorage.setItem(ORIENT_OFF_KEY, JSON.stringify(_orientOff)); }catch(_){}
+  applyOrientFix();
+});
+window.addEventListener('resize', ()=>setTimeout(applyOrientFix,100));
+window.addEventListener('orientationchange', ()=>setTimeout(applyOrientFix,400));
+applyOrientFix();
 document.getElementById('cal-toggle').onclick=()=>{ const p=document.getElementById('calib'); p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'; };
-document.querySelectorAll('#calib .cbtn').forEach(bn=>{ bn.onclick=()=>{ if(!cur){return;} const c=curFace().calib; const k=bn.getAttribute('data-cal');
+document.querySelectorAll('#calib .cbtn[data-cal]').forEach(bn=>{ bn.onclick=()=>{ if(!cur){return;} const c=curFace().calib; const k=bn.getAttribute('data-cal');
   if(k==='s+') c.scale=+Math.min(30,c.scale*1.1).toFixed(2);
   else if(k==='s-') c.scale=+Math.max(0.5,c.scale/1.1).toFixed(2);
   else if(k==='x+') c.ox=+(c.ox+0.02).toFixed(2);
