@@ -26,6 +26,24 @@
         "v": 0.8483,
         "w": 0.1296
       }
+    },
+    {
+      "key": "fmv61dlupsy",
+      "label": "側面",
+      "barcode": 6,
+      "calib": {
+        "scale": 8.57,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-発電機の復旧赤-296re-fmv61dlupsy.jpg",
+      "markerPos": {
+        "u": 0.5946,
+        "v": 0.1476,
+        "w": 0.1167
+      }
     }
   ],
   "steps": [
@@ -257,8 +275,8 @@
         {
           "type": "arrowDown",
           "pos": [
-            0.667,
-            0.374,
+            -0.101,
+            -0.327,
             0
           ],
           "color": "#e22400",
