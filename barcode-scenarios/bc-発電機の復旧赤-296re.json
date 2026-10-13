@@ -4,7 +4,10 @@
   "name": "発電機の復旧（赤）",
   "subtitle": "",
   "device": "発電機",
-  "docs": {},
+  "docs": {
+    "pdf": "https://ifx-mori.github.io/IFX_AR-/docs/bc--296re-pdf.pdf",
+    "video": "https://ifx-mori.github.io/IFX_AR-/docs/bc--296re-video.mp4"
+  },
   "faces": [
     {
       "key": "fmu1bh87zrl",
