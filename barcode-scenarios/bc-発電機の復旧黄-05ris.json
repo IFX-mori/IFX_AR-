@@ -1,0 +1,38 @@
+{
+  "id": "bc-発電機の復旧黄-05ris",
+  "barcode": 5,
+  "name": "発電機の復旧（黄）",
+  "subtitle": "",
+  "device": "",
+  "docs": {},
+  "faces": [
+    {
+      "key": "fmv605ris7o",
+      "label": "前面",
+      "barcode": 5,
+      "calib": {
+        "scale": 7.36,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-発電機の復旧黄-05ris-fmv605ris7o.jpg",
+      "markerPos": {
+        "u": 0.156,
+        "v": 0.8776,
+        "w": 0.1359
+      }
+    }
+  ],
+  "steps": [
+    {
+      "title": "ステップ1",
+      "detail": "",
+      "warn": "normal",
+      "ar": [],
+      "photo": "",
+      "face": "fmv605ris7o"
+    }
+  ]
+}
