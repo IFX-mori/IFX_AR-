@@ -15,8 +15,8 @@
       "barcode": 5,
       "calib": {
         "scale": 9.51,
-        "ox": -0.02,
-        "oy": 0.04,
+        "ox": 0,
+        "oy": 0.02,
         "rot": 0
       },
       "markerSizeMM": 40,
