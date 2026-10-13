@@ -26,6 +26,24 @@
         "v": 0.8776,
         "w": 0.1359
       }
+    },
+    {
+      "key": "fmv61av73hv",
+      "label": "側面",
+      "barcode": 6,
+      "calib": {
+        "scale": 8.35,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-発電機の復旧黄-05ris-fmv61av73hv.jpg",
+      "markerPos": {
+        "u": 0.5955,
+        "v": 0.1421,
+        "w": 0.1198
+      }
     }
   ],
   "steps": [
@@ -180,13 +198,13 @@
         {
           "type": "arrowDown",
           "pos": [
-            0.701,
-            0.584,
+            -0.102,
+            -0.312,
             0
           ],
           "color": "#60a5fa",
           "label": "下に",
-          "h": 0.217
+          "h": 0.164
         }
       ],
       "photo": "",
