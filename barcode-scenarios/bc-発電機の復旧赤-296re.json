@@ -28,21 +28,21 @@
       }
     },
     {
-      "key": "fmv61dlupsy",
+      "key": "fmv61ih5zy5",
       "label": "側面",
       "barcode": 6,
       "calib": {
-        "scale": 8.57,
+        "scale": 8.74,
         "ox": 0,
         "oy": 0,
         "rot": 0
       },
       "markerSizeMM": 40,
-      "imageFile": "barcode-targets/bc-発電機の復旧赤-296re-fmv61dlupsy.jpg",
+      "imageFile": "barcode-targets/bc-発電機の復旧赤-296re-fmv61ih5zy5.jpg",
       "markerPos": {
-        "u": 0.5946,
-        "v": 0.1476,
-        "w": 0.1167
+        "u": 0.5743,
+        "v": 0.1581,
+        "w": 0.1144
       }
     }
   ],
@@ -275,8 +275,8 @@
         {
           "type": "arrowDown",
           "pos": [
-            -0.101,
-            -0.327,
+            -0.091,
+            -0.314,
             0
           ],
           "color": "#e22400",
@@ -285,7 +285,7 @@
         }
       ],
       "photo": "",
-      "face": "fmu1bh87zrl"
+      "face": "fmv61ih5zy5"
     }
   ]
 }
