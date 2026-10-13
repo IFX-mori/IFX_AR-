@@ -4,7 +4,10 @@
   "name": "発電機の復旧（黄）",
   "subtitle": "",
   "device": "",
-  "docs": {},
+  "docs": {
+    "pdf": "https://ifx-mori.github.io/IFX_AR-/docs/bc--05ris-pdf.pdf",
+    "video": "https://ifx-mori.github.io/IFX_AR-/docs/bc--05ris-video.mp4"
+  },
   "faces": [
     {
       "key": "fmv605ris7o",
@@ -27,10 +30,165 @@
   ],
   "steps": [
     {
-      "title": "ステップ1",
+      "title": "ステップ1：黄色ランプの点灯を確認",
       "detail": "",
       "warn": "normal",
-      "ar": [],
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0.528,
+            0.908,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true
+        }
+      ],
+      "photo": "",
+      "face": "fmv605ris7o"
+    },
+    {
+      "title": "ステップ2：中段のボタンを押す",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "arrow",
+          "pos": [
+            0.247,
+            0.42,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "押す",
+          "h": 0.249
+        },
+        {
+          "type": "arrow",
+          "pos": [
+            0.63,
+            0.422,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "押す",
+          "h": 0.249
+        }
+      ],
+      "photo": "",
+      "face": "fmv605ris7o"
+    },
+    {
+      "title": "ステップ3：ダイヤルを回す",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "curvedArrow",
+          "pos": [
+            0.061,
+            0.915,
+            0
+          ],
+          "color": "#60a5fa",
+          "dir": "right",
+          "scale": 1.82,
+          "label": "回す"
+        },
+        {
+          "type": "curvedArrow",
+          "pos": [
+            0.257,
+            0.911,
+            0
+          ],
+          "color": "#60a5fa",
+          "dir": "left",
+          "scale": 1.82,
+          "label": "回す"
+        }
+      ],
+      "photo": "",
+      "face": "fmv605ris7o"
+    },
+    {
+      "title": "ステップ4：トグルスイッチを操作する",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "arrowDown",
+          "pos": [
+            0.36,
+            0.026,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "下に",
+          "h": 0.217
+        },
+        {
+          "type": "arrow",
+          "pos": [
+            0.153,
+            0.396,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "上に",
+          "h": 0.217,
+          "labelPos": {
+            "x": 0,
+            "y": 0.185
+          }
+        }
+      ],
+      "photo": "",
+      "face": "fmv605ris7o"
+    },
+    {
+      "title": "ステップ5：青色ランプの点灯を確認",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0.402,
+            0.91,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true
+        }
+      ],
+      "photo": "",
+      "face": "fmv605ris7o"
+    },
+    {
+      "title": "ステップ6：側面のトグルスイッチを操作",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "arrowDown",
+          "pos": [
+            0.701,
+            0.584,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "下に",
+          "h": 0.217
+        }
+      ],
       "photo": "",
       "face": "fmv605ris7o"
     }
