@@ -60,10 +60,11 @@
             0
           ],
           "color": "#60a5fa",
-          "size": 0.12,
-          "lineThick": 0.015,
+          "lineThick": 0.0096,
           "label": "確認",
-          "labelBelow": true
+          "labelBelow": true,
+          "sizeW": 0.104,
+          "sizeH": 0.104
         }
       ],
       "photo": "",
@@ -77,24 +78,36 @@
         {
           "type": "arrow",
           "pos": [
-            0.194,
-            0.301,
+            0.046,
+            0.337,
             0
           ],
           "color": "#60a5fa",
           "label": "押す",
-          "h": 0.249
+          "h": 0.164
         },
         {
           "type": "arrow",
           "pos": [
-            0.488,
-            0.303,
+            0.333,
+            0.337,
             0
           ],
           "color": "#60a5fa",
           "label": "押す",
-          "h": 0.249
+          "h": 0.164
+        },
+        {
+          "type": "image",
+          "pos": [
+            0.778,
+            0.403,
+            0
+          ],
+          "size": 0.3,
+          "aspect": 0.6021,
+          "opacity": 1,
+          "src": "barcode-assets/bc-発電機の復旧黄-05ris-s2i3.png"
         }
       ],
       "photo": "",
@@ -108,13 +121,13 @@
         {
           "type": "curvedArrow",
           "pos": [
-            0.036,
-            0.723,
+            0.039,
+            0.721,
             0
           ],
           "color": "#60a5fa",
-          "dir": "right",
-          "scale": 1.58,
+          "dir": "left",
+          "scale": 1.37,
           "label": "回す"
         },
         {
@@ -125,9 +138,21 @@
             0
           ],
           "color": "#60a5fa",
-          "dir": "left",
-          "scale": 1.58,
+          "dir": "right",
+          "scale": 1.37,
           "label": "回す"
+        },
+        {
+          "type": "image",
+          "pos": [
+            -0.24,
+            0.718,
+            0
+          ],
+          "size": 0.3,
+          "aspect": 0.6632,
+          "opacity": 1,
+          "src": "barcode-assets/bc-発電機の復旧黄-05ris-s3i3.png"
         }
       ],
       "photo": "",
@@ -141,28 +166,40 @@
         {
           "type": "arrowDown",
           "pos": [
-            0.282,
-            -0.002,
+            0.44,
+            0.039,
             0
           ],
           "color": "#60a5fa",
           "label": "下に",
-          "h": 0.217
+          "h": 0.143
         },
         {
           "type": "arrow",
           "pos": [
             0.119,
-            0.324,
+            0.285,
             0
           ],
           "color": "#60a5fa",
           "label": "上に",
-          "h": 0.217,
+          "h": 0.143,
           "labelPos": {
             "x": 0,
             "y": 0.185
           }
+        },
+        {
+          "type": "image",
+          "pos": [
+            0.76,
+            0.122,
+            0
+          ],
+          "size": 0.3,
+          "aspect": 0.5694,
+          "opacity": 1,
+          "src": "barcode-assets/bc-発電機の復旧黄-05ris-s4i3.png"
         }
       ],
       "photo": "",
@@ -176,15 +213,28 @@
         {
           "type": "box",
           "pos": [
-            0.309,
-            0.706,
+            0.308,
+            0.716,
             0
           ],
           "color": "#60a5fa",
-          "size": 0.12,
-          "lineThick": 0.015,
+          "lineThick": 0.0096,
           "label": "確認",
-          "labelBelow": true
+          "labelBelow": true,
+          "sizeW": 0.104,
+          "sizeH": 0.104
+        },
+        {
+          "type": "image",
+          "pos": [
+            0.756,
+            0.701,
+            0
+          ],
+          "size": 0.3,
+          "aspect": 0.4859,
+          "opacity": 1,
+          "src": "barcode-assets/bc-発電機の復旧黄-05ris-s5i2.png"
         }
       ],
       "photo": "",
@@ -204,7 +254,7 @@
           ],
           "color": "#60a5fa",
           "label": "下に",
-          "h": 0.164
+          "h": 0.124
         }
       ],
       "photo": "",
