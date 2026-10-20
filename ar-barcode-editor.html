@@ -150,6 +150,71 @@
   #stepmeta select { padding:7px 8px; border:1px solid #cbd5e1; border-radius:8px; }
   #stepmeta .del { padding:7px 9px; border:1px solid #fecaca; color:#dc2626; background:#fff; border-radius:8px; font-weight:700; font-size:12px; }
   #stepmeta .mv { width:32px; padding:7px 0; border:1px solid #cbd5e1; background:#fff; border-radius:8px; font-weight:800; color:#334155; font-size:13px; }
+  /* ── 🧩 かんたん作成（全画面） ── */
+  #easy { position:fixed; inset:0; z-index:60; background:#f1f5f9; overflow:auto; display:none; -webkit-overflow-scrolling:touch; }
+  #easy.on { display:block; }
+  #easy .eh { position:sticky; top:0; z-index:5; display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 14px; background:#fff; border-bottom:1px solid #e2e8f0; }
+  #easy .eh h2 { font-size:16px; font-weight:800; color:#1e3a5f; margin-right:auto; }
+  #easy .eh h2 small { font-size:11px; font-weight:600; color:#64748b; margin-left:6px; }
+  #easy .eh label { font-size:12px; color:#475569; display:flex; gap:4px; align-items:center; }
+  #easy .hb { padding:8px 12px; border-radius:9px; border:1px solid #cbd5e1; background:#fff; font-size:13px; font-weight:700; color:#334155; cursor:pointer; }
+  #easy .hb.p { background:#16a34a; border-color:#16a34a; color:#fff; }
+  #eb-tabs { display:none; gap:6px; padding:8px 14px 0; }
+  #eb-tabs button { flex:1; padding:9px; border-radius:9px; border:1px solid #cbd5e1; background:#fff; font-weight:800; font-size:14px; color:#475569; }
+  #eb-tabs button.on { background:#0f172a; color:#fff; border-color:#0f172a; }
+  #easy .eb-main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; padding:14px; align-items:start; }
+  @media (max-width:900px){ #easy .eb-main { grid-template-columns:minmax(0,1fr); } #eb-tabs { display:flex; } #easy .eb-main.t-list #eb-pane-flow, #easy .eb-main.t-flow #eb-pane-list { display:none; } }
+  #easy .pane-h { font-size:13px; font-weight:800; color:#475569; margin:2px 2px 8px; }
+  #eb-hint { display:none; background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; border-radius:10px; padding:9px 12px; font-size:13px; line-height:1.6; margin-bottom:10px; }
+  #easy input, #easy select, #easy textarea { font-family:inherit; font-size:15px; }
+  #easy .ecard { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:9px 10px; margin-bottom:8px; }
+  #easy .ecard.sel { border-color:#1d4ed8; box-shadow:0 0 0 2px #bfdbfe; }
+  #easy .erow { display:flex; gap:6px; align-items:center; }
+  #easy .no { flex:0 0 auto; min-width:28px; height:28px; padding:0 6px; border-radius:999px; background:#e2e8f0; color:#334155; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  #easy input.t { flex:1; min-width:0; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; }
+  #easy .det { display:flex; gap:6px; margin-top:6px; padding-left:34px; }
+  #easy .det textarea { flex:1; min-height:38px; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; resize:vertical; }
+  #easy .det select { padding:6px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; align-self:flex-start; }
+  #easy .acts { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; padding-left:34px; }
+  #easy .ab { padding:7px 11px; border-radius:9px; border:1px solid #cbd5e1; background:#fff; font-size:13px; font-weight:700; color:#334155; cursor:pointer; }
+  #easy .ab.add { border-color:#1d4ed8; color:#1d4ed8; }
+  #easy .ab.br { border-color:#d97706; color:#b45309; background:#fffbeb; }
+  #easy .ab.del { border-color:#fecaca; color:#dc2626; }
+  #easy .ab.sm { padding:5px 9px; font-size:12px; }
+  #easy .ecard.branch { background:#fffbeb; border-color:#fcd34d; }
+  #easy .ecard.branch.sel { border-color:#d97706; box-shadow:0 0 0 2px #fde68a; }
+  #easy .ecard.branch.nested { background:#fff7ed; border-color:#fdba74; }
+  #easy .bh { font-size:13px; font-weight:800; color:#92400e; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  #easy .bh .sp { margin-left:auto; }
+  #easy .q { width:100%; padding:8px 10px; border:1px solid #fbbf24; border-radius:8px; font-weight:700; margin-bottom:8px; background:#fff; }
+  #easy .ans { background:#fff; border:1px solid #fde68a; border-left:5px solid #1d4ed8; border-radius:10px; padding:8px; margin-bottom:8px; }
+  #easy .ans.warn { border-left-color:#d97706; } #easy .ans.danger { border-left-color:#dc2626; }
+  #easy .ans .lbl { font-size:12px; font-weight:800; color:#64748b; white-space:nowrap; }
+  #easy .ans input.al { flex:1; min-width:0; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; }
+  #easy .ans select { padding:6px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; }
+  #easy .sub { margin:6px 0 0 14px; padding-left:10px; border-left:2px dashed #cbd5e1; }
+  #easy .sub .ecard { padding:7px 8px; margin-bottom:6px; }
+  #easy .sub .det, #easy .sub .acts { padding-left:0; }
+  #easy .sub .no { background:#ccfbf1; color:#0f766e; }
+  #easy .then { margin-top:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:13px; color:#475569; }
+  #easy .then input { padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; flex:1; min-width:140px; }
+  #easy .ic { width:30px; height:30px; border-radius:8px; border:1px solid #cbd5e1; background:#fff; font-weight:800; color:#64748b; flex:0 0 auto; cursor:pointer; }
+  #easy .eintro { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px; }
+  #easy .eintro h3 { font-size:16px; font-weight:800; color:#0f172a; margin-bottom:4px; }
+  #easy .eintro p { font-size:13px; color:#475569; line-height:1.7; margin-bottom:8px; }
+  #easy .eintro textarea { width:100%; min-height:170px; padding:10px; border:1px solid #cbd5e1; border-radius:10px; line-height:1.7; }
+  #eb-pane-flow { position:sticky; top:66px; }
+  #eb-svg { background:#fff; border:1px solid #e2e8f0; border-radius:12px; overflow:auto; max-height:62vh; }
+  #eb-svg svg { display:block; margin:0 auto; } #eb-svg .fn { cursor:pointer; }
+  #eb-checks { margin-top:8px; font-size:13px; line-height:1.7; }
+  #eb-checks .e { color:#b91c1c; cursor:pointer; } #eb-checks .w { color:#b45309; cursor:pointer; } #eb-checks .ok { color:#15803d; font-weight:800; }
+  #eb-routes { margin-top:6px; font-size:12px; color:#475569; line-height:1.7; }
+  .etpl { display:block; width:100%; text-align:left; padding:12px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; margin-bottom:8px; cursor:pointer; }
+  .etpl b { display:block; font-size:15px; color:#0f172a; margin-bottom:3px; } .etpl span { font-size:12.5px; color:#475569; line-height:1.6; }
+  #eb-toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0f172a; color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:90; }
+  .easy-entry { border:2px solid #16a34a; background:#f0fdf4; border-radius:12px; padding:12px; margin-bottom:12px; }
+  .easy-entry b { color:#15803d; } .easy-entry p { font-size:12px; color:#475569; line-height:1.6; margin:4px 0 8px; }
+  .easybtn { flex:0 0 auto; padding:6px 10px; border-radius:9px; border:1px solid #16a34a; background:#f0fdf4; color:#15803d; font-weight:700; font-size:12px; white-space:nowrap; cursor:pointer; }
   /* 分岐（区間） */
   #secbar { display:none; gap:6px; padding:8px 10px 0; overflow-x:auto; align-items:center; }
   #secbar.on { display:flex; }
@@ -324,7 +389,11 @@
   </div>
 
   <div class="card" data-wz="4">
-    <h2><span class="num">⑤ </span>テキスト／動画からステップ自動作成（任意）</h2>
+    <h2><span class="num">⑤ </span>手順の作成（任意）</h2>
+    <div class="easy-entry"><b>🧩 かんたん作成（おすすめ）</b>
+      <p>いつもの手順を1行ずつ書いて、判断が分かれる所（異常のとき・やり直し・中止など）を足していく作り方です。流れはフロー図で確認できます。編集画面の下部からも開けます。</p>
+      <button class="btn full g" onclick="EB.open()">🧩 かんたん作成で手順を作る</button></div>
+    <div style="font-size:12px;font-weight:800;color:#475569;margin:4px 0 6px">ほかの作り方：テキスト／動画から自動作成</div>
     <div class="hint" style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">
       下の欄に<b>手順文を直接入力</b>するか、<b>動画から文字起こし</b>して、<b>ステップ分割</b>と<b>AR図形の下書き</b>を自動生成します。<br>
       「<b>ステップ1</b>」「<b>ステップ2</b>」…で区切ると、その位置で分割されます。図形は中央に仮配置されるので編集画面で位置を調整してください。
@@ -500,6 +569,31 @@
   </div>
 </div>
 
+<!-- 🧩 かんたん作成 -->
+<div id="easy">
+  <div class="eh">
+    <h2>🧩 かんたん作成<small>いつもの手順を書いて、判断が分かれる所を足していきます</small></h2>
+    <label title="反映するとき、新しく増えた手順にステップ名の文字をARとして置きます"><input type="checkbox" id="eb-text" checked>新しい手順に文字を置く</label>
+    <button class="hb" onclick="EB.sample()">サンプル</button>
+    <button class="hb" onclick="EB.close()">閉じる</button>
+    <button class="hb p" onclick="EB.apply()">✅ この内容で反映</button>
+  </div>
+  <div id="eb-tabs"><button id="eb-tab-list" class="on" onclick="EB.setTab('list')">手順</button><button id="eb-tab-flow" onclick="EB.setTab('flow')">フロー図</button></div>
+  <div class="eb-main t-list" id="eb-main">
+    <section id="eb-pane-list"><div id="eb-hint"></div><div class="pane-h">手順</div><div id="eb-list"></div></section>
+    <section id="eb-pane-flow"><div class="pane-h">フロー図（自動で描きます。押すとその手順へ移動）</div><div id="eb-svg"></div><div id="eb-checks"></div><div id="eb-routes"></div></section>
+  </div>
+  <div id="eb-toast"></div>
+</div>
+<div class="modal" id="eb-tplm" style="z-index:70">
+  <div class="box">
+    <h3>よく使う分かれ方から選ぶ</h3>
+    <div style="font-size:12px;color:#475569;margin-bottom:8px">選んだ手順のすぐ後に入ります。文字はあとで自由に書き換えられます。</div>
+    <div id="eb-tpl-list"></div>
+    <div class="mact"><button class="btn d" onclick="closeModal('eb-tplm')">閉じる</button></div>
+  </div>
+</div>
+
 <!-- 分岐・フロー図モーダル -->
 <div class="modal" id="flow-modal">
   <div class="box">
@@ -537,7 +631,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.26';
+const APP_VERSION = 'v4.27';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1073,6 +1167,7 @@ function renderStepTabs(){
   const add=document.createElement('button'); add.className='addstep'; add.textContent='＋ステップ';
   add.onclick=addStepHere;
   box.appendChild(add);
+  const eb=document.createElement('button'); eb.className='easybtn'; eb.textContent='🧩 かんたん作成'; eb.title='手順と分かれ目を一覧で作る・直す'; eb.onclick=()=>EB.open(); box.appendChild(eb);
   if(!ED.flow){ const fb=document.createElement('button'); fb.className='flowbtn'; fb.textContent='🔀 分岐';
     fb.title='区間と選択肢で分岐するシナリオにする／フロー図で確認'; fb.onclick=openFlow; box.appendChild(fb); }
   updateBottomToggle();
@@ -1381,6 +1476,267 @@ function cleanFlow(){ const F=ED.flow; flowFix();
     else n={type:'end', ...((nx.label||'').trim()?{label:nx.label.trim()}:{})};
     return { key:s.key, label:s.label||'', ...(s.branch?{branch:true}:{}), next:n }; }) }; }
 
+// ══════════ 🧩 かんたん作成（いつもの手順を書いて、分かれ目を足していく） ══════════
+// 試作 scenario-builder-proto.html v0.2 を組込み。ED.builder に作成用データを保持し、「反映」で ED.steps / ED.flow を作る。
+// 手順の並び：{type:'step',id,title,detail,warn} / {type:'branch',id,q,answers:[{id,label,tone,items:[並び],then:'next'|'jump'|'back'|'end',target,endLabel}]}
+// ED.steps の各ステップは bid（かんたん作成の手順id）で対応づけ、反映し直しても写真・AR図形を引き継ぐ。
+function ebSig(){ if(!ED.flow) return ''; const t=JSON.stringify(cleanFlow()); let h=5381; for(let i=0;i<t.length;i++) h=((h*33)^t.charCodeAt(i))>>>0; return 'f'+h.toString(36); }
+const EB=(()=>{
+  const MAX_DEPTH=2;
+  let S={ items:[], sel:null }, dirty=false;
+  const uid=()=>'b'+Math.random().toString(36).slice(2,9);
+  const mkStep=t=>({ type:'step', id:uid(), title:t||'', detail:'', warn:'normal' });
+  const mkAns=(l,tone)=>({ id:uid(), label:l||'', tone:tone||'', items:[], then:'next', target:'', endLabel:'' });
+  const $=id=>document.getElementById(id);
+  function toastE(t){ const el=$('eb-toast'); el.textContent=t; el.style.opacity=1; clearTimeout(el._t); el._t=setTimeout(()=>el.style.opacity=0,2600); }
+  function findLoc(id, arr, depth, top, ans){ arr=arr||S.items; depth=depth||0;
+    for(let i=0;i<arr.length;i++){ const it=arr[i], t=depth===0?i:top;
+      if(it.id===id) return { arr, i, it, depth, top:t, ans:ans||null };
+      if(it.type==='branch') for(const a of it.answers){ const r=findLoc(id, a.items, depth+1, t, a); if(r) return r; } }
+    return null; }
+  const findItem=id=>{ const l=findLoc(id); return l&&l.it; };
+  function mainNo(){ const m={}; let n=0; S.items.forEach(it=>{ if(it.type==='step') m[it.id]=++n; }); return m; }
+  function eachBranch(fn, arr, depth, top){ (arr||S.items).forEach((it,i)=>{ const t=depth?top:i; if(it.type==='branch'){ fn(it, depth||0, t); it.answers.forEach(a=>eachBranch(fn, a.items, (depth||0)+1, t)); } }); }
+  function eachStep(fn, arr){ (arr||S.items).forEach(it=>{ if(it.type==='step') fn(it); else it.answers.forEach(a=>eachStep(fn, a.items)); }); }
+
+  // ── 開く：ED から作成用データを用意（エディタ側での変更を取り込む） ──
+  function open(){
+    const real=ED.steps.filter(s=>!(ED.steps.length===1 && !(s.ar&&s.ar.length) && !s.photo && /^ステップ\s*1?$/.test(s.title||'')));
+    if(ED.flow && !ED.builder){
+      if(!confirm('このシナリオは「🔀 フロー図」で分岐を作っています。\nかんたん作成で開くと、手順は1本の並びとして読み込み、分岐はかんたん作成で作り直すことになります。\n（「反映」するまでシナリオは変わりません）\n\n開きますか？')) return;
+    } else if(ED.flow && ED.builder && ED._ebSig!==ebSig()){
+      if(!confirm('かんたん作成で反映した後に、「🔀 フロー図」で分岐の設定が変更されています。\nかんたん作成で「反映」すると、その変更は置き換わります。\n\n開きますか？')) return;
+    }
+    S={ items: Array.isArray(ED.builder) ? JSON.parse(JSON.stringify(ED.builder)) : [], sel:null };
+    // ED.steps と同期：無くなった手順は外し、内容は ED 側を正とする。bid の無いステップは近くに差し込む
+    const byBid=new Map(real.filter(s=>s.bid).map(s=>[s.bid,s]));
+    const prune=arr=>{ for(let i=arr.length-1;i>=0;i--){ const it=arr[i]; if(it.type==='step'){ const s=byBid.get(it.id); if(!s){ arr.splice(i,1); continue; } it.title=s.title||''; it.detail=s.detail||''; it.warn=s.warn||'normal'; } else it.answers.forEach(a=>prune(a.items)); } };
+    prune(S.items);
+    const known=new Set(); eachStep(st=>known.add(st.id));
+    real.forEach((s,i)=>{ if(s.bid&&known.has(s.bid)) return;
+      const st={ type:'step', id:(s.bid&&!known.has(s.bid))?s.bid:uid(), title:s.title||'', detail:s.detail||'', warn:s.warn||'normal' }; s.bid=st.id; known.add(st.id);
+      let prev=null; for(let j=i-1;j>=0;j--){ if(real[j].sec===s.sec && real[j].bid && known.has(real[j].bid)){ prev=real[j].bid; break; } }
+      const loc=prev&&findLoc(prev); if(loc) loc.arr.splice(loc.i+1,0,st); else S.items.push(st); });
+    dirty=false; $('easy').classList.add('on'); document.body.style.overflow='hidden';
+    setTab('list'); render();
+    hint(S.items.length ? '手順を押すと「＋ 次の手順」「🔀 ここで分かれる」が出ます。右（またはタブの「フロー図」）に流れが自動で描かれます。' : '');
+  }
+  function close(){ if(dirty && !confirm('かんたん作成で変更した内容は反映されていません。閉じますか？')) return;
+    $('easy').classList.remove('on'); document.body.style.overflow=''; }
+
+  // ── 描画 ──
+  function render(){ const L=$('eb-list');
+    if(!S.items.length){ L.innerHTML=`<div class="eintro"><h3>いつもの手順を、順番に書いてください</h3>
+      <p><b>1行に1つ</b>。異常のときのことは、まだ書かなくて大丈夫です（あとで「分かれ目」として足せます）。</p>
+      <textarea id="eb-lines" placeholder="例：&#10;外観を確認する&#10;表示ランプを確認する&#10;スイッチを切る&#10;後片付けをする"></textarea>
+      <div class="erow" style="justify-content:flex-end;margin-top:8px"><button class="ab" onclick="EB.sample()">サンプルで試す</button><button class="ab add" onclick="EB.startLines()">この手順で始める</button></div></div>`;
+      renderFlow(); return; }
+    L.innerHTML=renderSeq(S.items, { depth:0, prefix:'', no:mainNo() }); renderFlow(); }
+  function renderSeq(items, ctx){ let k=0; return items.map((it,i)=> it.type==='step' ? stepCard(it, ctx.depth===0?ctx.no[it.id]:`${ctx.prefix}-${++k}`, ctx) : branchCard(it, i, ctx)).join(''); }
+  const warnSel=(v,attrs)=>`<select ${attrs} title="注意レベル"><option value="normal"${v==='normal'?' selected':''}>通常</option><option value="caution"${v==='caution'?' selected':''}>注意⚠️</option><option value="danger"${v==='danger'?' selected':''}>危険⛔</option></select>`;
+  function stepCard(it,n,ctx){ const sel=S.sel===it.id, canBr=ctx.depth<MAX_DEPTH;
+    return `<div class="ecard${sel?' sel':''}" id="eb-it-${it.id}" data-id="${it.id}">
+      <div class="erow"><span class="no">${escHtml(n)}</span><input class="t" data-k="title" value="${escAttr(it.title)}" placeholder="${ctx.depth?'この答えのときの手順':'手順の内容（例：電源ランプを確認）'}"></div>
+      ${sel?`<div class="det"><textarea data-k="detail" placeholder="作業者への説明（任意）">${escHtml(it.detail)}</textarea>${warnSel(it.warn,'data-k="warn"')}</div>
+      <div class="acts"><button class="ab add" data-act="addAfter">＋ 次の手順</button>
+        ${canBr?`<button class="ab br" data-act="branch">🔀 ここで分かれる</button><button class="ab br" data-act="tpl">🔀 よく使う分かれ方</button>`:''}
+        <button class="ab sm" data-act="up" title="上へ">↑</button><button class="ab sm" data-act="down" title="下へ">↓</button><button class="ab sm del" data-act="del">削除</button></div>
+      ${!canBr?'<div class="acts" style="font-size:12px;color:#94a3b8">分かれ目は2段までです（この中にはこれ以上入れられません）</div>':''}`:''}
+    </div>`; }
+  const jumpList=(ctx,top)=>{ const after=S.items.slice(top+1).filter(x=>x.type==='step'); return ctx.depth===0?after.slice(1):after; };
+  const backList=top=>S.items.slice(0,top).filter(x=>x.type==='step');
+  function thenDesc(a,no){ if(!a) return '次の手順へ'; if(a.then==='end') return '作業終了'; if((a.then==='jump'||a.then==='back')&&a.target) return `手順${no[a.target]}へ${a.then==='back'?'戻る':''}`; if(a.then==='next') return '分かれ目の後の手順へ'; return '行き先未設定'; }
+  function branchCard(b,i,ctx){ const sel=S.sel===b.id, no=ctx.no, top=ctx.depth===0?i:ctx.top;
+    const after=S.items.slice(top+1).filter(x=>x.type==='step'), jl=jumpList(ctx,top), bl=backList(top);
+    const restInSeq=ctx.items?ctx.items.slice(i+1).some(x=>x.type==='step'):false;
+    const nextTxt = ctx.depth===0
+      ? (after.length ? `次の手順へ進む（手順${no[after[0].id]}）` : '次の手順へ進む（この後に手順が無いので作業終了）')
+      : (restInSeq ? 'この分かれ目の後の手順へ進む' : `「${escHtml(ctx.ansLabel||'元の答え')}」のその後と同じ（${thenDesc(ctx.ans,no)}）`);
+    const ans=b.answers.map((a,ai)=>{
+      const tgt=a.then==='jump'?jl:a.then==='back'?bl:[];
+      const tsel=(a.then==='jump'||a.then==='back') ? `<select data-ans="${a.id}" data-k="target"><option value="">（手順を選ぶ）</option>${tgt.map(s=>`<option value="${s.id}"${s.id===a.target?' selected':''}>手順${no[s.id]} ${escHtml(s.title||'（未入力）')}</option>`).join('')}</select>` : '';
+      const lbl=(a.label||'答え'+(ai+1)).slice(0,4);
+      return `<div class="ans ${a.tone||''}">
+        <div class="erow"><span class="lbl">答え${ai+1}</span><input class="al" data-ans="${a.id}" data-k="label" value="${escAttr(a.label)}" placeholder="例：異常あり">
+          <select data-ans="${a.id}" data-k="tone" title="ボタンの色"><option value=""${!a.tone?' selected':''}>青</option><option value="warn"${a.tone==='warn'?' selected':''}>黄</option><option value="danger"${a.tone==='danger'?' selected':''}>赤</option></select>
+          ${b.answers.length>2?`<button class="ic" data-act="ansDel" data-ans="${a.id}" title="この答えを削除">✕</button>`:''}</div>
+        ${a.items.length?`<div class="sub">${renderSeq(a.items,{ depth:ctx.depth+1, prefix:(ctx.prefix?ctx.prefix+'・':'')+lbl, no, top, items:a.items, ansLabel:a.label, ans:a })}</div>`:''}
+        <div class="then"><button class="ab sm add" data-act="subAdd" data-ans="${a.id}">＋ ${a.items.length?'手順を追加':'この答えのときの手順を書く'}</button></div>
+        <div class="then"><b>${a.items.length?'その後：':'選んだら：'}</b>
+          <select data-ans="${a.id}" data-k="then"><option value="next"${a.then==='next'?' selected':''}>${nextTxt}</option>
+            ${jl.length?`<option value="jump"${a.then==='jump'?' selected':''}>後の手順へ飛ぶ</option>`:''}
+            ${bl.length?`<option value="back"${a.then==='back'?' selected':''}>前の手順に戻る（やり直し）</option>`:''}
+            <option value="end"${a.then==='end'?' selected':''}>作業終了</option></select>
+          ${tsel}${a.then==='end'?`<input data-ans="${a.id}" data-k="endLabel" value="${escAttr(a.endLabel)}" placeholder="終了の名前（任意）例：作業中止・指令へ連絡">`:''}</div>
+      </div>`; }).join('');
+    return `<div class="ecard branch${sel?' sel':''}${ctx.depth?' nested':''}" id="eb-it-${b.id}" data-id="${b.id}">
+      <div class="bh">🔀 分かれ目${ctx.depth?'（2段目）':''}<span class="sp"></span><button class="ab sm del" data-act="del">分かれ目を削除</button></div>
+      <input class="q" data-k="q" value="${escAttr(b.q)}" placeholder="何を確認しますか？（例：異常はありましたか？）">
+      ${ans}
+      ${b.answers.length<4?`<button class="ab sm" data-act="ansAdd">＋ 答えを追加</button>`:''}
+    </div>`; }
+
+  // ── 操作 ──
+  function target(e){ const card=e.target.closest('[data-id]'); const it=card&&findItem(card.dataset.id); return {card,it}; }
+  function bind(){ const L=$('eb-list');
+    L.addEventListener('input',e=>{ const {it}=target(e); if(!it) return; const el=e.target, k=el.dataset.k; if(!k) return;
+      let o=it; if(el.dataset.ans) o=it.answers.find(a=>a.id===el.dataset.ans);
+      o[k]=el.value; dirty=true; if(el.tagName==='SELECT') rerenderKeep(el); else scheduleFlow(); });
+    L.addEventListener('focusin',e=>{ const t=e.target.tagName; if(t!=='INPUT'&&t!=='TEXTAREA') return;
+      const {it}=target(e); if(it && S.sel!==it.id){ S.sel=it.id; rerenderKeep(e.target); } });
+    L.addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); const {it}=target(e);
+      if(!b){ if(it&&S.sel!==it.id){ S.sel=it.id; render(); } return; }
+      const act=b.dataset.act, loc=it?findLoc(it.id):null; dirty=true;
+      if(act==='addAfter'){ const s=mkStep(); loc.arr.splice(loc.i+1,0,s); S.sel=s.id; render(); focusItem(s.id); return; }
+      if(act==='branch'){ insertBranch(loc,{ q:'', answers:[mkAns(''),mkAns('')] }); return; }
+      if(act==='tpl'){ openTpl(loc); return; }
+      if(act==='up'||act==='down'){ const j=loc.i+(act==='up'?-1:1); if(j<0||j>=loc.arr.length) return; [loc.arr[loc.i],loc.arr[j]]=[loc.arr[j],loc.arr[loc.i]]; fixBranches(); render(); return; }
+      if(act==='del'){ if(it.type==='step' && !confirm(`手順「${it.title||'（未入力）'}」を削除しますか？`)) return;
+        if(it.type==='branch' && !confirm('この分かれ目を削除しますか？（答えのときの手順も消えます）')) return;
+        loc.arr.splice(loc.i,1); S.sel=null; fixBranches(); render(); return; }
+      const a=it&&it.answers&&it.answers.find(x=>x.id===b.dataset.ans);
+      if(act==='ansAdd'){ if(it.answers.length<4){ const n=mkAns(''); it.answers.push(n); render(); focusSel(`[data-ans="${n.id}"][data-k="label"]`); } return; }
+      if(act==='ansDel'){ it.answers=it.answers.filter(x=>x!==a); render(); return; }
+      if(act==='subAdd'){ const s=mkStep(); a.items.push(s); S.sel=s.id; render(); focusItem(s.id); return; } });
+    L.addEventListener('keydown',e=>{ if(e.key!=='Enter'||e.isComposing||e.target.tagName!=='INPUT'||e.target.dataset.k!=='title') return;
+      e.preventDefault(); const {it}=target(e); if(!it||it.type!=='step') return; const loc=findLoc(it.id);
+      const s=mkStep(); loc.arr.splice(loc.i+1,0,s); S.sel=s.id; dirty=true; render(); focusItem(s.id); });
+    $('eb-svg').addEventListener('click',e=>{ const g=e.target.closest('.fn'); if(g&&_conv) goItem(_conv.firstItem[g.getAttribute('data-k')]); });
+  }
+  function insertBranch(loc,b){ if(loc.depth>=MAX_DEPTH){ toastE('分かれ目は2段までです'); return; }
+    const br={ type:'branch', id:uid(), q:b.q, answers:b.answers };
+    loc.arr.splice(loc.i+1,0,br); S.sel=br.id; fixBranches(); render();
+    const el=$('eb-it-'+br.id); if(el) el.scrollIntoView({block:'nearest',behavior:'smooth'}); if(!b.q) focusSel(`#eb-it-${br.id} .q`); }
+  function fixBranches(){ eachBranch((b,depth,top)=>{ const bef=backList(top).map(s=>s.id), aft=jumpList({depth},top).map(s=>s.id);
+    const imm=depth===0?(S.items.slice(top+1).find(x=>x.type==='step')||{}).id:null;   // 飛び先がすぐ次の手順になったら「次へ」に戻す
+    b.answers.forEach(a=>{ if(a.then==='jump'&&a.target&&a.target===imm){ a.then='next'; a.target=''; return; }
+      if(a.then==='back'&&!bef.includes(a.target)) a.target=''; if(a.then==='jump'&&!aft.includes(a.target)) a.target=''; }); }); }
+  function rerenderKeep(el){ const c=el.closest('[data-id]'); let q=null; if(c){ q=`#eb-it-${c.dataset.id} `+(el.dataset.ans?`[data-ans="${el.dataset.ans}"]`:'')+(el.dataset.k?`[data-k="${el.dataset.k}"]`:''); } render(); if(q) focusSel(q); }
+  function focusSel(q){ const el=document.querySelector('#easy '+q); if(el){ el.focus(); if(el.setSelectionRange&&el.type==='text'){ const n=el.value.length; try{ el.setSelectionRange(n,n); }catch(_){} } } }
+  const focusItem=id=>focusSel(`#eb-it-${id} > .erow input.t`);
+  let _ft=null; const scheduleFlow=()=>{ clearTimeout(_ft); _ft=setTimeout(renderFlow,250); };
+  function hint(t){ const h=$('eb-hint'); h.innerHTML=t; h.style.display=t?'block':'none'; }
+  function goItem(id){ if(!id) return; S.sel=id; setTab('list'); render(); const el=$('eb-it-'+id); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); }
+  function setTab(t){ $('eb-main').className='eb-main t-'+t; $('eb-tab-list').classList.toggle('on',t==='list'); $('eb-tab-flow').classList.toggle('on',t==='flow'); if(t==='flow') renderFlow(); }
+  function startLines(){ const v=($('eb-lines').value||''); const lines=normNewlines(v).split('\n').map(x=>x.trim()).filter(Boolean);
+    if(!lines.length){ toastE('手順を1つ以上書いてください'); return; }
+    S.items=lines.map(t=>mkStep(t)); S.sel=null; dirty=true; render();
+    hint('<b>次に、判断が分かれる所を足します。</b>その手順を押して「🔀 よく使う分かれ方」か「🔀 ここで分かれる」を選んでください。分かれる所が無ければ「✅ この内容で反映」で完了です。'); }
+
+  // ── よく使う分かれ方 ──
+  const TPLS=[
+    { name:'確認して、異常なら対応して戻ってくる', desc:'異常なし → そのまま次へ／異常あり → 対応の手順 → 次の手順で合流', make:()=>{ const a=mkAns('異常なし'), b=mkAns('異常あり','warn'); b.items=[mkStep('異常箇所を記録する'),mkStep('応急処置をする')]; return { q:'異常はありましたか？', answers:[a,b] }; } },
+    { name:'続けられなければ中止する', desc:'続けられる → そのまま次へ／続けられない → 指令へ連絡 → 作業終了（作業中止）', make:()=>{ const a=mkAns('続けられる'), b=mkAns('続けられない','danger'); b.items=[mkStep('指令へ連絡する')]; b.then='end'; b.endLabel='作業中止・指令へ連絡'; return { q:'作業を続けられますか？', answers:[a,b] }; } },
+    { name:'基準外なら調整してやり直す', desc:'基準内 → そのまま次へ／基準外 → 調整の手順 → この確認の手順に戻ってやり直し', make:loc=>{ const a=mkAns('基準内'), b=mkAns('基準外','warn'); b.items=[mkStep('調整する')]; b.then='back';
+        const prev=loc.depth===0?S.items[loc.i]:null; b.target=(prev&&prev.type==='step')?prev.id:''; return { q:'測定値は基準内ですか？', answers:[a,b] }; } },
+    { name:'自分で作る（空の分かれ目）', desc:'質問と答えを自由に書きます', make:()=>({ q:'', answers:[mkAns(''),mkAns('')] }) },
+  ];
+  let _tplAt=null;
+  function openTpl(loc){ _tplAt=loc; $('eb-tpl-list').innerHTML=TPLS.map((t,k)=>`<button class="etpl" onclick="EB.useTpl(${k})"><b>🔀 ${escHtml(t.name)}</b><span>${escHtml(t.desc)}</span></button>`).join(''); $('eb-tplm').classList.add('on'); }
+  function useTpl(k){ closeModal('eb-tplm'); insertBranch(_tplAt, TPLS[k].make(_tplAt)); }
+
+  // ── サンプル ──
+  function sample(){ if(S.items.length && !confirm('今の内容を消して、サンプルを読み込みますか？')) return;
+    const s1=mkStep('外観を確認する'), s2=mkStep('表示ランプを確認する'), s3=mkStep('通常の操作をする'), s4=mkStep('後片付けをする'), s5=mkStep('終了報告をする');
+    s2.warn='caution'; s2.detail='運転ランプが緑で点灯していること';
+    const a=mkAns('異常なし'), b=mkAns('異常あり','warn'), c=mkAns('判断できない','danger');
+    const b1=mkAns('直った'), b2=mkAns('直らない','danger'); b2.items=[mkStep('指令へ連絡する')]; b2.then='end'; b2.endLabel='作業中止・指令へ連絡';
+    b.items=[mkStep('異常箇所を記録する'),mkStep('応急処置をする'),{ type:'branch', id:uid(), q:'応急処置で直りましたか？', answers:[b1,b2] }];
+    b.then='jump'; b.target=s4.id;
+    c.items=[mkStep('指令へ連絡する')]; c.then='end'; c.endLabel='作業中止・指令へ連絡';
+    S={ items:[s1,s2,{type:'branch',id:uid(),q:'異常はありましたか？',answers:[a,b,c]},s3,s4,s5], sel:null }; dirty=true;
+    render(); hint('サンプルを読み込みました。「異常あり」の中に2段目の分かれ目（応急処置で直ったか）が入っています。'); }
+
+  // ── 区間(flow)へ変換：並びを「手順のかたまり＋最後の分かれ目」に区切る。答えの「次へ」＝分かれ目の後（並びの最後なら外側の答えのその後） ──
+  function toFlow(){
+    const no=mainNo(), targets=new Set();
+    eachBranch(b=>b.answers.forEach(a=>{ if((a.then==='jump'||a.then==='back')&&a.target) targets.add(a.target); }));
+    const sections=[], firstItem={}, secOfItem={}, startOf={}; let n=0;
+    const newSec=(label,branch)=>{ const s={ key:'s'+(++n), label, branch:!!branch, next:null, steps:[], _no:[] }; sections.push(s); return s; };
+    const endSecs={}; const endSec=lbl=>{ const k=lbl||''; if(!endSecs[k]){ const s=newSec(lbl||'作業終了',true); s.next={type:'end',...(lbl?{label:lbl}:{})}; endSecs[k]=s; } return endSecs[k].key; };
+    const keyOf=spec=> spec.type==='goto' ? spec.to : endSec(spec.label||'');
+    function seq(items, isMain, label, cont, tone){
+      const segs=[]; let cur=null;
+      items.forEach(it=>{ if(it.type==='step'){ if(!cur || cur.branch || (isMain&&targets.has(it.id))){ cur={ steps:[], branch:null }; segs.push(cur); } cur.steps.push(it); }
+        else { if(!cur || cur.branch){ cur={ steps:[], branch:null }; segs.push(cur); } cur.branch=it; } });
+      if(!segs.length) return keyOf(cont);
+      segs.forEach((g,gi)=>{ g.sec=newSec(isMain?'':(label+(gi?'（続き）':'')), !isMain);
+        g.steps.forEach(st=>{ secOfItem[st.id]=g.sec.key; startOf[st.id]=startOf[st.id]||g.sec.key; if(isMain) g.sec._no.push(no[st.id]);
+          g.sec.steps.push({ bid:st.id, title:st.title||'（未入力）', detail:st.detail||'', warn:(st.warn&&st.warn!=='normal')?st.warn:(!isMain&&tone==='danger'?'danger':!isMain&&tone==='warn'?'caution':'normal') }); });
+        firstItem[g.sec.key]=(g.steps[0]||g.branch).id; if(g.branch) secOfItem[g.branch.id]=g.sec.key;
+        if(isMain) g.sec.label = !g.sec._no.length ? '分かれ目' : g.sec._no.length>1 ? `手順${g.sec._no[0]}〜${g.sec._no[g.sec._no.length-1]}` : `手順${g.sec._no[0]}`; });
+      for(let gi=segs.length-1; gi>=0; gi--){ const g=segs[gi];
+        const after = gi<segs.length-1 ? {type:'goto', to:segs[gi+1].sec.key} : cont;
+        if(!g.branch){ g.sec.next=after; continue; }
+        const opts=g.branch.answers.map((a,ai)=>{
+          const aCont = a.then==='next' ? after : (a.then==='jump'||a.then==='back') ? {type:'goto', to:a.target?'T:'+a.target:''} : {type:'end', label:a.endLabel||''};
+          const to = a.items.length ? seq(a.items, false, `「${a.label||('答え'+(ai+1))}」のとき`, aCont, a.tone) : keyOf(aCont);
+          return { label:a.label||'', to, ...(a.tone?{tone:a.tone}:{}) }; });
+        g.sec.next={ type:'choice', prompt:g.branch.q||'', options:opts }; }
+      return segs[0].sec.key; }
+    seq(S.items, true, '', {type:'end'});
+    const res=k=> (typeof k==='string'&&k.startsWith('T:')) ? (startOf[k.slice(2)]||'') : k;
+    sections.forEach(s=>{ const nx=s.next; if(!nx){ s.next={type:'end'}; return; }
+      if(nx.type==='goto') nx.to=res(nx.to); if(nx.type==='choice') nx.options.forEach(o=>o.to=res(o.to)); if(nx.type==='end'&&!nx.label) delete nx.label; });
+    const steps=[]; sections.forEach(s=>s.steps.forEach(st=>steps.push({ sec:s.key, ...st })));
+    const clean=sections.map(s=>({ key:s.key, label:s.label, ...(s.branch?{branch:true}:{}), next:s.next }));
+    return { flow:{ start:clean.length?clean[0].key:'s1', sections:clean }, steps, firstItem, secOfItem };
+  }
+
+  // ── フロー図と問題点（エディタの解析・描画を利用） ──
+  let _conv=null;
+  function renderFlow(){ const wrap=$('eb-svg'), chk=$('eb-checks'), rt=$('eb-routes');
+    if(!S.items.length){ wrap.innerHTML='<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">手順を書くと、ここに流れが描かれます</div>'; chk.innerHTML=''; rt.innerHTML=''; return; }
+    _conv=toFlow(); const F=_conv.flow, A=flowAnalyze(F,_conv.steps);
+    wrap.innerHTML=flowSVG(A,F,{ cur:S.sel?_conv.secOfItem[S.sel]:null, route:null });
+    const P=problems(A); let h='';
+    if(!P.e.length&&!P.w.length) h='<div class="ok">✓ 問題は見つかりませんでした</div>';
+    P.e.forEach(x=>h+=`<div class="e" data-go="${x.id||''}">✕ ${escHtml(x.m)}</div>`); P.w.forEach(x=>h+=`<div class="w" data-go="${x.id||''}">⚠ ${escHtml(x.m)}</div>`);
+    chk.innerHTML=h; chk.querySelectorAll('[data-go]').forEach(d=>d.onclick=()=>goItem(d.dataset.go));
+    rt.innerHTML = A.routes.length>1 ? '<b>流れの種類</b><br>'+A.routes.map((r,i)=>`${i+1}. ${escHtml(routeText(A,r))}（${r.steps}手順）`).join('<br>') : ''; }
+  function problems(A){ const e=[], w=[], no=mainNo();
+    const walk=(arr,prefix)=>arr.forEach(it=>{ if(it.type==='step'&&!it.title.trim()) w.push({id:it.id, m:prefix?`「${prefix}」のときの手順が空欄です`:`手順${no[it.id]}の内容が空欄です`});
+      if(it.type==='branch') it.answers.forEach(a=>walk(a.items, a.label||'答え')); });
+    walk(S.items,'');
+    if(S.items[0]&&S.items[0].type==='branch') e.push({id:S.items[0].id, m:'最初の手順より前に分かれ目があります（分かれ目は手順の後に置きます）'});
+    eachBranch(b=>{ if(!b.q.trim()) w.push({id:b.id, m:'分かれ目の質問が空欄です'});
+      if(b.answers.length<2) e.push({id:b.id, m:'分かれ目の答えが2つ未満です'});
+      b.answers.forEach((a,ai)=>{ const n=`「${b.q||'分かれ目'}」の答え${ai+1}`;
+        if(!a.label.trim()) e.push({id:b.id, m:`${n}が空欄です`});
+        if((a.then==='jump'||a.then==='back')&&!a.target) e.push({id:b.id, m:`${n}の行き先の手順を選んでください`}); }); });
+    A.errors.filter(m=>/たどり着けません/.test(m)).forEach(m=>{ const key=[...A.by.keys()].find(k=>m.indexOf(`「${A.by.get(k).label}」`)===0); e.push({ id:key?_conv.firstItem[key]:'', m:m.replace('（抜け出せないループ）','（やり直しがループしています）') }); });
+    return { e, w }; }
+
+  // ── 反映：ED.steps / ED.flow を作る（bid が同じステップは写真・AR図形を引き継ぐ） ──
+  function apply(){
+    if(!S.items.length){ toastE('先に手順を書いてください'); return; }
+    const c=toFlow(), A=flowAnalyze(c.flow,c.steps), P=problems(A);
+    if(P.e.length && !confirm(`直したほうがよい点が${P.e.length}件あります。\n・${P.e.slice(0,5).map(x=>x.m).join('\n・')}\n\nこのまま反映しますか？`)) return;
+    const old=new Map(ED.steps.filter(s=>s.bid).map(s=>[s.bid,s]));
+    const keep=new Set(c.steps.map(s=>s.bid));
+    const lost=ED.steps.filter(s=>(s.bid?!keep.has(s.bid):true) && ((s.ar&&s.ar.length)||s.photo));
+    if(lost.length && !confirm(`かんたん作成から消した手順のうち、${lost.length}件に写真やAR図形があります（${lost.slice(0,3).map(s=>'「'+(s.title||'')+'」').join('')}${lost.length>3?' ほか':''}）。\n反映するとこれらは削除されます。よろしいですか？`)) return;
+    const fk=(curFaceE()&&curFaceE().key)||(ED.faces[0]&&ED.faces[0].key)||'';
+    const withText=$('eb-text').checked, hasBranch=S.items.some(x=>x.type==='branch');
+    const steps=c.steps.map(cs=>{ let s=old.get(cs.bid);
+      if(s){ s.title=cs.title; s.detail=cs.detail; s.warn=cs.warn; }
+      else { s={ title:cs.title, detail:cs.detail, warn:cs.warn, ar:[], photo:'', face:fk, bid:cs.bid };
+        if(withText) s.ar.push({ type:'text', pos:[0,0.16,0], color: cs.warn==='danger'?'#ef4444':cs.warn==='caution'?'#f59e0b':'#60a5fa', label:cs.title.slice(0,16), fontScale:1 }); }
+      if(hasBranch) s.sec=cs.sec; else delete s.sec; return s; });
+    ED.steps.splice(0, ED.steps.length, ...steps);
+    ED.flow = hasBranch ? JSON.parse(JSON.stringify(c.flow)) : null;
+    ED.builder = JSON.parse(JSON.stringify(S.items));
+    stepIdx=0; figIdx=-1; _flowRoute=-1;
+    if(ED.flow) flowFix(); ED._ebSig=ebSig();
+    dirty=false; $('easy').classList.remove('on'); document.body.style.overflow='';
+    const msg=`✅ かんたん作成を反映しました（${steps.length}ステップ${hasBranch?'・分かれ目あり':''}）`;
+    if(document.getElementById('editor').classList.contains('on')){ syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); setSub(msg); }
+    else { setStatus(msg+'。写真を読み込んで「編集を開始」でAR図形の位置を調整してください。'); setBuildStatus(msg); if(isWizard()) wzMsg(msg); }
+  }
+  return { open, close, apply, sample, startLines, useTpl, setTab, bind };
+})();
+EB.bind();
+
 // ══════════ 図形プロパティ ══════════
 function selectFig(i){ figIdx=i; renderPropbar(); renderOverlay(); }
 function updatePosLabel(){ const el=document.getElementById('pp-pos'); const f=curFig(); if(el&&f) el.textContent=posCmLabel(f); }
@@ -1652,6 +2008,7 @@ function buildScenarioJSON(){
     docs: ED.docs||{},
     faces,                        // ← 多面。各面のマーカー番号・校正・写真
     ...(ED.flow ? { formatVersion: 2, flow: cleanFlow() } : {}),   // 分岐（区間・選択肢）。無ければ従来どおり1本道
+    ...(ED.builder ? { builder: ED.builder, builderSig: ED._ebSig||'' } : {}),   // 🧩かんたん作成の作成用データ（プレイヤーは使わない）
     steps: ED.steps.map(s=>{ const o={ ...s, ar:(s.ar||[]).map(f=>{ const {_dataURL, ...rest}=f; return rest; }) }; if(!ED.flow) delete o.sec; return o; }),   // _dataURL(作業用)は出力しない
     ...(ED.status ? { status: ED.status, updatedAt: new Date().toISOString() } : {})   // OneDrive保存時：draft=下書き / published=公開
   }, null, 2);
@@ -2190,7 +2547,7 @@ function loadScenario(data,owner,repo,resolve){
   ED.steps=(data.steps&&data.steps.length)?data.steps:[{title:'ステップ1',detail:'',warn:'normal',ar:[],face:ED.faces[0].key}];
   // 分岐：開始区間を先頭に置き、所属の無いステップは開始区間へ
   if((data.formatVersion||1)>2) alert('このシナリオは新しい版のエディタで作られています。編集・保存すると一部の設定が失われる可能性があります。');
-  ED.flow=null; _flowRoute=-1;
+  ED.flow=null; _flowRoute=-1; ED.builder=Array.isArray(data.builder)?JSON.parse(JSON.stringify(data.builder)):null; ED._ebSig=data.builderSig||'';
   if(data.flow&&Array.isArray(data.flow.sections)&&data.flow.sections.length){
     const F=JSON.parse(JSON.stringify(data.flow)); F.sections.forEach((x,i)=>{ if(!x.key) x.key='s'+(i+1); if(!x.next) x.next={type:'end'}; });
     const si=F.sections.findIndex(x=>x.key===F.start); if(si>0) F.sections.unshift(...F.sections.splice(si,1));
@@ -2392,7 +2749,7 @@ function escAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ══════════ セットアップのウィザード形式（一覧と同じ入力欄を1画面ずつ表示） ══════════
-const WZ_STEPS=['開始','シナリオ情報','参照写真','参考情報','手順文','確認'];
+const WZ_STEPS=['開始','シナリオ情報','参照写真','参考情報','手順','確認'];
 const WZ_OPTIONAL=[false,false,false,true,true,false];
 let wzIdx=0, wzMax=0;
 function isWizard(){ return document.getElementById('setup').classList.contains('wz'); }
@@ -2441,7 +2798,7 @@ function wzSummary(){
     ['バーコード番号', v('cfg-barcode')||'（保存時に自動採番）', 1], ['バーコード寸法', (v('cfg-markermm')||'40')+' mm', 1],
     ['参照写真', wzHasPhoto()?'✅ 読込済':'', 2],
     ['資料PDF', v('cfg-pdf')?'✅ 登録済':'', 3], ['操作動画', v('cfg-video')?'✅ 登録済':'', 3],
-    ['ステップ', steps.length?`${steps.length}ステップ／図形${figs}個`:'（編集画面で作成）', 4] ];
+    ['ステップ', steps.length?`${steps.length}ステップ／図形${figs}個${ED.flow?'／分かれ目あり':''}`:'（編集画面で作成）', 4] ];
   document.getElementById('wz-sum-body').innerHTML='<table>'+rows.map(([k,val,go])=>
     `<tr><th>${k}</th><td class="${val?'':'no'}">${val?escHtml(val):'なし'}<button class="edit" onclick="wzGo(${go})">修正</button></td></tr>`).join('')+'</table>';
 }

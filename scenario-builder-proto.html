@@ -243,7 +243,9 @@ function insertBranch(loc,b){ if(loc.depth>=MAX_DEPTH){ toast('分かれ目は2�
   if(!b.q) focusSel(`#it-${br.id} .q`); hint(''); }
 // 移動・削除で行き先が無効になったら選び直しにする
 function fixBranches(){ eachBranch((b,depth,top)=>{ const bef=backList(top).map(s=>s.id), aft=jumpList(b,{depth},top).map(s=>s.id);
-  b.answers.forEach(a=>{ if(a.then==='back'&&!bef.includes(a.target)) a.target=''; if(a.then==='jump'&&!aft.includes(a.target)) a.target=''; }); }); }
+  const imm=depth===0?(S.items.slice(top+1).find(x=>x.type==='step')||{}).id:null;   // 飛び先がすぐ次の手順になったら「次へ」に戻す
+  b.answers.forEach(a=>{ if(a.then==='jump'&&a.target&&a.target===imm){ a.then='next'; a.target=''; return; }
+    if(a.then==='back'&&!bef.includes(a.target)) a.target=''; if(a.then==='jump'&&!aft.includes(a.target)) a.target=''; }); }); }
 function rerenderKeep(el){ const sel=selectorOf(el); render(); if(sel) focusSel(sel); }
 function selectorOf(el){ const c=el.closest('[data-id]'); if(!c) return null; let s=`#it-${c.dataset.id} `; if(el.dataset.ans) s+=`[data-ans="${el.dataset.ans}"]`; if(el.dataset.k) s+=`[data-k="${el.dataset.k}"]`; return s; }
 function focusSel(q){ const el=document.querySelector(q); if(el){ el.focus(); if(el.setSelectionRange&&el.type==='text'){ const n=el.value.length; try{ el.setSelectionRange(n,n); }catch(_){} } } }
