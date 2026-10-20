@@ -1,6 +1,6 @@
 {
   "id": "bc-分岐シナリオテスト-3xrqd",
-  "barcode": 0,
+  "barcode": 1,
   "name": "分岐シナリオテスト",
   "subtitle": "",
   "device": "発電機",
@@ -9,7 +9,7 @@
     {
       "key": "f1",
       "label": "前面",
-      "barcode": 0,
+      "barcode": 1,
       "calib": {
         "scale": 6.67,
         "ox": 0,
