@@ -1,0 +1,457 @@
+{
+  "id": "bc-かんたん作成のテスト-eidu7",
+  "barcode": 1,
+  "name": "かんたん作成のテスト",
+  "subtitle": "",
+  "device": "",
+  "docs": {},
+  "faces": [
+    {
+      "key": "fmvgeidu71c",
+      "label": "前面",
+      "barcode": 1,
+      "calib": {
+        "scale": 6.67,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-かんたん作成のテスト-eidu7-fmvgeidu71c.jpg",
+      "markerPos": {
+        "u": 0.5585,
+        "v": 0.5525,
+        "w": 0.15
+      }
+    }
+  ],
+  "formatVersion": 2,
+  "flow": {
+    "start": "s1",
+    "sections": [
+      {
+        "key": "s1",
+        "label": "手順1〜2",
+        "next": {
+          "type": "choice",
+          "prompt": "ランプの点灯色は？",
+          "options": [
+            {
+              "label": "青",
+              "to": "s2"
+            },
+            {
+              "label": "黄",
+              "to": "s3"
+            },
+            {
+              "label": "赤",
+              "to": "s5"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s2",
+        "label": "手順3〜4",
+        "next": {
+          "type": "end"
+        }
+      },
+      {
+        "key": "s3",
+        "label": "「黄」のとき",
+        "branch": true,
+        "next": {
+          "type": "choice",
+          "prompt": "ランプ点灯色は？",
+          "options": [
+            {
+              "label": "青",
+              "to": "s2"
+            },
+            {
+              "label": "黄",
+              "to": "s4"
+            },
+            {
+              "label": "赤",
+              "to": "s4"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s4",
+        "label": "作業を中止して、指令へ連絡してください",
+        "branch": true,
+        "next": {
+          "type": "end",
+          "label": "作業を中止して、指令へ連絡してください"
+        }
+      },
+      {
+        "key": "s5",
+        "label": "「赤」のとき",
+        "branch": true,
+        "next": {
+          "type": "choice",
+          "prompt": "ランプ点灯色は？",
+          "options": [
+            {
+              "label": "青",
+              "to": "s2"
+            },
+            {
+              "label": "黄",
+              "to": "s4"
+            },
+            {
+              "label": "赤",
+              "to": "s4"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "builder": [
+    {
+      "type": "step",
+      "id": "bocdaspm",
+      "title": "盤面の前に立つ",
+      "detail": "",
+      "warn": "normal"
+    },
+    {
+      "type": "step",
+      "id": "bcac09m8",
+      "title": "左上配置のランプ状態を確認",
+      "detail": "",
+      "warn": "normal"
+    },
+    {
+      "type": "branch",
+      "id": "bmj01lvu",
+      "q": "ランプの点灯色は？",
+      "answers": [
+        {
+          "id": "b1ggv3k3",
+          "label": "青",
+          "tone": "",
+          "items": [],
+          "then": "next",
+          "target": "",
+          "endLabel": ""
+        },
+        {
+          "id": "boqwbde8",
+          "label": "黄",
+          "tone": "",
+          "items": [
+            {
+              "type": "step",
+              "id": "bbn69f6g",
+              "title": "ダイヤルスイッチを回す",
+              "detail": "左ダイヤル：20\n右ダイヤル：80",
+              "warn": "normal"
+            },
+            {
+              "type": "branch",
+              "id": "b9co9m9f",
+              "q": "ランプ点灯色は？",
+              "answers": [
+                {
+                  "id": "bvggari7",
+                  "label": "青",
+                  "tone": "",
+                  "items": [],
+                  "then": "jump",
+                  "target": "bkzaz8iv",
+                  "endLabel": ""
+                },
+                {
+                  "id": "b8mne39i",
+                  "label": "黄",
+                  "tone": "",
+                  "items": [],
+                  "then": "end",
+                  "target": "bcac09m8",
+                  "endLabel": "作業を中止して、指令へ連絡してください"
+                },
+                {
+                  "id": "b5lr9dho",
+                  "label": "赤",
+                  "tone": "",
+                  "items": [],
+                  "then": "end",
+                  "target": "",
+                  "endLabel": "作業を中止して、指令へ連絡してください"
+                }
+              ]
+            }
+          ],
+          "then": "next",
+          "target": "",
+          "endLabel": ""
+        },
+        {
+          "id": "bbt3o58o",
+          "label": "赤",
+          "tone": "",
+          "items": [
+            {
+              "type": "step",
+              "id": "bznvf1fj",
+              "title": "トグルスイッチを操作する",
+              "detail": "",
+              "warn": "normal"
+            },
+            {
+              "type": "branch",
+              "id": "b8wukese",
+              "q": "ランプ点灯色は？",
+              "answers": [
+                {
+                  "id": "bbfbrcwp",
+                  "label": "青",
+                  "tone": "",
+                  "items": [],
+                  "then": "jump",
+                  "target": "bkzaz8iv",
+                  "endLabel": ""
+                },
+                {
+                  "id": "bvcjwkx3",
+                  "label": "黄",
+                  "tone": "",
+                  "items": [],
+                  "then": "end",
+                  "target": "",
+                  "endLabel": "作業を中止して、指令へ連絡してください"
+                },
+                {
+                  "id": "bidp9kj3",
+                  "label": "赤",
+                  "tone": "",
+                  "items": [],
+                  "then": "end",
+                  "target": "",
+                  "endLabel": "作業を中止して、指令へ連絡してください"
+                }
+              ]
+            }
+          ],
+          "then": "next",
+          "target": "",
+          "endLabel": ""
+        }
+      ]
+    },
+    {
+      "type": "step",
+      "id": "bkzaz8iv",
+      "title": "盤面右側面のトグルスイッチを操作する",
+      "detail": "",
+      "warn": "normal"
+    },
+    {
+      "type": "step",
+      "id": "bphiz169",
+      "title": "デモ終了",
+      "detail": "",
+      "warn": "normal"
+    }
+  ],
+  "builderSig": "fdua1dd",
+  "steps": [
+    {
+      "title": "盤面の前に立つ",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            -0.022,
+            0.22,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "盤面の前に立つ",
+          "fontScale": 1
+        }
+      ],
+      "photo": "",
+      "face": "fmvgeidu71c",
+      "bid": "bocdaspm",
+      "sec": "s1"
+    },
+    {
+      "title": "左上配置のランプ状態を確認",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0.034,
+            -0.417,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "左上配置のランプ状態を確認",
+          "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.1686,
+            0.557,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "sizeW": 0.4654,
+          "sizeH": 0.184
+        }
+      ],
+      "photo": "",
+      "face": "fmvgeidu71c",
+      "bid": "bcac09m8",
+      "sec": "s1"
+    },
+    {
+      "title": "盤面右側面のトグルスイッチを操作する",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0.005,
+            0.382,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "盤面右側面のトグルスイッチを操作",
+          "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.521,
+            0.448,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "sizeW": 0.1997,
+          "sizeH": 0.273
+        }
+      ],
+      "photo": "",
+      "face": "fmvgeidu71c",
+      "bid": "bkzaz8iv",
+      "sec": "s2"
+    },
+    {
+      "title": "デモ終了",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            -0.075,
+            -0.376,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "デモ終了",
+          "fontScale": 1
+        }
+      ],
+      "photo": "",
+      "face": "fmvgeidu71c",
+      "bid": "bphiz169",
+      "sec": "s2"
+    },
+    {
+      "title": "トグルスイッチを操作する",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            -0.042,
+            -0.125,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "トグルスイッチを操作する",
+          "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            -0.067,
+            -0.305,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "sizeW": 0.6995,
+          "sizeH": 0.238
+        }
+      ],
+      "photo": "",
+      "face": "fmvgeidu71c",
+      "bid": "bznvf1fj",
+      "sec": "s2"
+    },
+    {
+      "title": "ダイヤルスイッチを回す",
+      "detail": "左ダイヤル：20\n右ダイヤル：80",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            -0.268,
+            0.354,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "ダイヤルスイッチを回す",
+          "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            -0.2731,
+            0.5654,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "sizeW": 0.5351,
+          "sizeH": 0.2675
+        }
+      ],
+      "photo": "",
+      "face": "fmvgeidu71c",
+      "bid": "bbn69f6g",
+      "sec": "s3"
+    }
+  ]
+}
