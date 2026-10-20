@@ -613,8 +613,8 @@
     <h2>🔀 フロー図<small>手順と分かれ目を作る・直す（左）／流れを確かめる（右）</small></h2>
     <label title="反映するとき、新しく増えた手順にステップ名の文字をARとして置きます"><input type="checkbox" id="eb-text" checked>新しい手順に文字を置く</label>
     <button class="hb" onclick="EB.sample()">サンプル</button>
-    <button class="hb" onclick="EB.close()">閉じる</button>
-    <button class="hb p" onclick="EB.apply()">✅ この内容で反映</button>
+    <button class="hb" onclick="EB.close()">取り消して閉じる</button>
+    <button class="hb p" onclick="EB.apply()">✓ 完了（写真の画面に反映）</button>
   </div>
   <div id="eb-tabs"><button id="eb-tab-list" class="on" onclick="EB.setTab('list')">手順</button><button id="eb-tab-flow" onclick="EB.setTab('flow')">流れの図</button></div>
   <div class="eb-main t-list" id="eb-main">
@@ -669,7 +669,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.32';
+const APP_VERSION = 'v4.33';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1272,7 +1272,11 @@ function toggleOutline(force){ const ed=document.getElementById('editor'); const
 function initOutline(){ let v=null; try{ v=localStorage.getItem('bc_outline_open'); }catch(_){}
   const on = v===null ? window.innerWidth>760 : v==='1'; document.getElementById('editor').classList.toggle('ol-on', on); }
 // ＋ステップ：分岐ありなら今の区間の最後に追加
-function addStepHere(){ const st=mkStep(); const sk=curSecKey();
+function addStepHere(){
+  if(isBuilderScenario()){ const cs=curStep(), nid=EB.edAdd(cs&&cs.bid);   // フロー図のデータに追加して両方を作り直す
+    if(nid) stepIdx=Math.max(0,ED.steps.findIndex(s=>s.bid===nid)); figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar();
+    const t=document.getElementById('step-title'); if(t){ t.focus(); t.select(); } return; }
+  const st=mkStep(); const sk=curSecKey();
   if(sk){ st.sec=sk; let last=-1; ED.steps.forEach((s,i)=>{ if(s.sec===sk) last=i; });
     const at=last<0?ED.steps.length:last+1; ED.steps.splice(at,0,st); stepIdx=at; }
   else { ED.steps.push(st); stepIdx=ED.steps.length-1; }
@@ -1307,8 +1311,8 @@ document.getElementById('step-photo-input').onchange=e=>{
     s.photo=cv.toDataURL('image/jpeg',0.82); updateStepPhotoBtn(s); };
     img.onerror=()=>{ s.photo=rd.result; updateStepPhotoBtn(s); }; img.src=rd.result; };
   rd.readAsDataURL(file); };
-document.getElementById('step-title').oninput=e=>{ const s=curStep(); if(s){ s.title=e.target.value; renderStepTabs(); } };
-document.getElementById('step-warn').onchange=e=>{ const s=curStep(); if(s) s.warn=e.target.value; };
+document.getElementById('step-title').oninput=e=>{ const s=curStep(); if(s){ s.title=e.target.value; if(s.bid) EB.edText(s.bid,{title:s.title}); renderStepTabs(); } };
+document.getElementById('step-warn').onchange=e=>{ const s=curStep(); if(s){ s.warn=e.target.value; if(s.bid) EB.edText(s.bid,{warn:s.warn}); } };
 // ステップを別の区間へ移す（移動先の区間の最後へ）
 document.getElementById('step-sec').onchange=e=>{ const s=curStep(); if(!s||!ED.flow) return;
   const from=s.sec; if(from===e.target.value) return;
@@ -1320,12 +1324,17 @@ document.getElementById('step-face').onchange=e=>{ const s=curStep(); if(!s) ret
   const fi=ED.faces.findIndex(x=>x.key===s.face); if(fi>=0){ saveFaceState(); loadFaceState(fi); } renderStepTabs(); };
 // タイトル先頭が「ステップN」形式のものだけ並び順に番号を振り直す
 function renumberStepTitles(){ ED.steps.forEach((s,i)=>{ if(/^ステップ\s*[0-9０-９]+/.test(s.title||'')) s.title=(s.title||'').replace(/^ステップ\s*[0-9０-９]+/,'ステップ'+(i+1)); }); }
-function moveStep(dir){ const ni=stepIdx+dir; if(ni<0||ni>=ED.steps.length) return;
+function moveStep(dir){
+  if(isBuilderScenario()){ const s=curStep(); if(!s||!EB.edMove(s.bid,dir)) return;
+    stepIdx=Math.max(0,ED.steps.indexOf(s)); figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); return; }
+  const ni=stepIdx+dir; if(ni<0||ni>=ED.steps.length) return;
   if(ED.flow && ED.steps[ni].sec!==ED.steps[stepIdx].sec) return;   // 区間をまたぐ移動は「区間」欄で行う
   const [s]=ED.steps.splice(stepIdx,1); ED.steps.splice(ni,0,s); stepIdx=ni; figIdx=-1;
   renumberStepTitles(); syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 function deleteStep(){ if(ED.steps.length<=1){ alert('最後のステップは削除できません'); return; }
   if(!confirm('このステップを削除しますか？')) return;
+  if(isBuilderScenario()){ const s=curStep(), p=_olOrder.indexOf(stepIdx), nb=ED.steps[_olOrder[p-1]!=null?_olOrder[p-1]:_olOrder[p+1]];
+    EB.edDel(s.bid); stepIdx=Math.max(0, nb?ED.steps.indexOf(nb):0); figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); return; }
   ED.steps.splice(stepIdx,1); stepIdx=Math.max(0,stepIdx-1); figIdx=-1; renumberStepTitles(); syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 
 // ══════════ 分岐（区間・選択肢・合流）／フロー図 ══════════
@@ -1647,12 +1656,19 @@ const EB=(()=>{
 
   // ── 開く：ED から作成用データを用意（エディタ側での変更を取り込む） ──
   function open(){
-    const real=ED.steps.filter(s=>!(ED.steps.length===1 && !(s.ar&&s.ar.length) && !s.photo && /^ステップ\s*1?$/.test(s.title||'')));
     if(ED.flow && !ED.builder){
       if(!confirm('このシナリオは以前の方法（区間の編集）で分岐を作っています。\nフロー図で開くと、手順は1本の並びとして読み込み、分岐はフロー図で作り直すことになります。\n（「反映」するまでシナリオは変わりません）\n\n開きますか？')) return;
     } else if(ED.flow && ED.builder && ED._ebSig!==ebSig()){
       if(!confirm('フロー図で反映した後に、「区間の編集」で分岐の設定が変更されています。\nフロー図で「反映」すると、その変更は置き換わります。\n\n開きますか？')) return;
     }
+    loadFromED();
+    dirty=false; $('easy').classList.add('on'); document.body.style.overflow='hidden';
+    setTab('list'); render();
+    hint(S.items.length ? '手順を押すと「＋ 次の手順」「🔀 ここで分かれる」が出ます。右（またはタブの「流れの図」）に流れが自動で描かれます。終わったら「✓ 完了」で、写真の画面にも反映されます。' : '');
+  }
+  // ED（写真の画面の内容）から作成用データを作る：無くなった手順は外し、文字はED側を正とし、bidの無いステップは近くに差し込む
+  function loadFromED(){
+    const real=ED.steps.filter(s=>!(ED.steps.length===1 && !(s.ar&&s.ar.length) && !s.photo && /^ステップ\s*1?$/.test(s.title||'')));
     S={ items: Array.isArray(ED.builder) ? JSON.parse(JSON.stringify(ED.builder)) : [], sel:null };
     // ED.steps と同期：無くなった手順は外し、内容は ED 側を正とする。bid の無いステップは近くに差し込む
     const byBid=new Map(real.filter(s=>s.bid).map(s=>[s.bid,s]));
@@ -1663,11 +1679,8 @@ const EB=(()=>{
       const st={ type:'step', id:(s.bid&&!known.has(s.bid))?s.bid:uid(), title:s.title||'', detail:s.detail||'', warn:s.warn||'normal' }; s.bid=st.id; known.add(st.id);
       let prev=null; for(let j=i-1;j>=0;j--){ if(real[j].sec===s.sec && real[j].bid && known.has(real[j].bid)){ prev=real[j].bid; break; } }
       const loc=prev&&findLoc(prev); if(loc) loc.arr.splice(loc.i+1,0,st); else S.items.push(st); });
-    dirty=false; $('easy').classList.add('on'); document.body.style.overflow='hidden';
-    setTab('list'); render();
-    hint(S.items.length ? '手順を押すと「＋ 次の手順」「🔀 ここで分かれる」が出ます。右（またはタブの「流れの図」）に流れが自動で描かれます。' : '');
   }
-  function close(){ if(dirty && !confirm('フロー図で変更した内容は反映されていません。閉じますか？')) return;
+  function close(){ if(dirty && !confirm('フロー図での変更を取り消して閉じますか？\n（「✓ 完了」を押すと、変更が写真の画面にも反映されます）')) return;
     $('easy').classList.remove('on'); document.body.style.overflow=''; }
 
   // ── 描画 ──
@@ -1858,16 +1871,12 @@ const EB=(()=>{
     return { e, w }; }
 
   // ── 反映：ED.steps / ED.flow を作る（bid が同じステップは写真・AR図形を引き継ぐ） ──
-  function apply(goBid){
-    if(!S.items.length){ toastE('先に手順を書いてください'); return; }
-    const c=toFlow(), A=flowAnalyze(c.flow,c.steps), P=problems(A);
-    if(P.e.length && !confirm(`直したほうがよい点が${P.e.length}件あります。\n・${P.e.slice(0,5).map(x=>x.m).join('\n・')}\n\nこのまま反映しますか？`)) return;
+  // 作成用データ → ED.steps / ED.flow / ED.builder（bid が同じステップは写真・AR図形を引き継ぐ）
+  function commit(withText){
+    const c=toFlow(); _conv=c;   // 問題点の判定で使う
     const old=new Map(ED.steps.filter(s=>s.bid).map(s=>[s.bid,s]));
-    const keep=new Set(c.steps.map(s=>s.bid));
-    const lost=ED.steps.filter(s=>(s.bid?!keep.has(s.bid):true) && ((s.ar&&s.ar.length)||s.photo));
-    if(lost.length && !confirm(`フロー図から消した手順のうち、${lost.length}件に写真やAR図形があります（${lost.slice(0,3).map(s=>'「'+(s.title||'')+'」').join('')}${lost.length>3?' ほか':''}）。\n反映するとこれらは削除されます。よろしいですか？`)) return;
     const fk=(curFaceE()&&curFaceE().key)||(ED.faces[0]&&ED.faces[0].key)||'';
-    const withText=$('eb-text').checked, hasBranch=S.items.some(x=>x.type==='branch');
+    const hasBranch=S.items.some(x=>x.type==='branch');
     const steps=c.steps.map(cs=>{ let s=old.get(cs.bid);
       if(s){ s.title=cs.title; s.detail=cs.detail; s.warn=cs.warn; }
       else { s={ title:cs.title, detail:cs.detail, warn:cs.warn, ar:[], photo:'', face:fk, bid:cs.bid };
@@ -1876,15 +1885,32 @@ const EB=(()=>{
     ED.steps.splice(0, ED.steps.length, ...steps);
     ED.flow = hasBranch ? JSON.parse(JSON.stringify(c.flow)) : null;
     ED.builder = JSON.parse(JSON.stringify(S.items));
-    stepIdx=0; figIdx=-1; _flowRoute=-1;
-    if(ED.flow) flowFix(); ED._ebSig=ebSig();
+    _flowRoute=-1; if(ED.flow) flowFix(); ED._ebSig=ebSig();
+    return { steps, hasBranch, errors:problems(flowAnalyze(c.flow,c.steps)).e.length };
+  }
+  // 「✓ 完了」：反映して閉じる（写真・AR図形のある手順を消すときだけ確認）
+  function apply(goBid){
+    if(!S.items.length){ toastE('先に手順を書いてください'); return; }
+    const c=toFlow(), keep=new Set(c.steps.map(s=>s.bid));
+    const lost=ED.steps.filter(s=>(s.bid?!keep.has(s.bid):true) && ((s.ar&&s.ar.length)||s.photo));
+    if(lost.length && !confirm(`フロー図から消した手順のうち、${lost.length}件に写真やAR図形があります（${lost.slice(0,3).map(s=>'「'+(s.title||'')+'」').join('')}${lost.length>3?' ほか':''}）。\n反映するとこれらは削除されます。よろしいですか？`)) return;
+    const r=commit($('eb-text').checked), steps=r.steps, hasBranch=r.hasBranch;
+    stepIdx=0; figIdx=-1;
     dirty=false; $('easy').classList.remove('on'); document.body.style.overflow='';
-    const msg=`✅ フロー図の内容を反映しました（${steps.length}ステップ${hasBranch?'・分かれ目あり':''}）`;
+    const msg=`✅ フロー図の内容を反映しました（${steps.length}ステップ${hasBranch?'・分かれ目あり':''}）`+(r.errors?`　⚠ 直したほうがよい点 ${r.errors}件（🔀 フロー図で確認）`:'');
     if(document.getElementById('editor').classList.contains('on')){ syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); setSub(msg);
       if(goBid){ const gi=ED.steps.findIndex(s=>s.bid===goBid); if(gi>=0) olGo(gi); } }
     else { setStatus(msg+'。写真を読み込んで「編集を開始」でAR図形の位置を調整してください。'); setBuildStatus(msg); if(isWizard()) wzMsg(msg); }
   }
-  return { open, close, apply, sample, startLines, useTpl, setTab, bind };
+  function edOp(fn){ loadFromED(); const r=fn(); if(r===false||r==null) return null; fixBranches(); commit(false); return r; }
+  // ＋ステップ：今の手順のすぐ後に（分かれ目の答えの中なら、その答えの中に）
+  function edAdd(afterBid){ return edOp(()=>{ const st=mkStep('新しい手順'); const loc=afterBid&&findLoc(afterBid); if(loc) loc.arr.splice(loc.i+1,0,st); else S.items.push(st); return st.id; }); }
+  function edDel(bid){ return edOp(()=>{ const loc=findLoc(bid); if(!loc) return false; loc.arr.splice(loc.i,1); return true; }); }
+  // ↑↓：同じ並びの中で入れ替え（フロー図の↑↓と同じ）
+  function edMove(bid,d){ return edOp(()=>{ const loc=findLoc(bid); if(!loc) return false; const j=loc.i+d; if(j<0||j>=loc.arr.length) return false; [loc.arr[loc.i],loc.arr[j]]=[loc.arr[j],loc.arr[loc.i]]; return true; }); }
+  // 名前・注意レベル：作成用データにも書き込む
+  function edText(bid,f){ if(!Array.isArray(ED.builder)) return; const walk=arr=>{ for(const it of arr){ if(it.type==='step'&&it.id===bid){ Object.assign(it,f); return true; } if(it.type==='branch') for(const a of it.answers) if(walk(a.items)) return true; } return false; }; walk(ED.builder); }
+  return { open, close, apply, sample, startLines, useTpl, setTab, bind, edAdd, edDel, edMove, edText };
 })();
 EB.bind();
 
