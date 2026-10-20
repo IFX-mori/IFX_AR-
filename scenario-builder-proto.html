@@ -49,7 +49,9 @@
   .ans input.al { flex:1; min-width:0; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; }
   .ans select { padding:6px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; }
   .sub { margin:6px 0 0 14px; padding-left:10px; border-left:2px dashed #cbd5e1; }
-  .sub .row { margin-bottom:6px; }
+  .sub .card { padding:7px 8px; margin-bottom:6px; }
+  .sub .det, .sub .acts { padding-left:0; }
+  .card.branch.nested { background:#fff7ed; border-color:#fdba74; }
   .sub .no { background:#ccfbf1; color:#0f766e; }
   .then { margin-top:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:13px; color:#475569; }
   .then input { padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; flex:1; min-width:140px; }
@@ -79,7 +81,7 @@
 </head>
 <body>
 <header>
-  <h1>シナリオかんたん作成<small>試作 v0.1</small></h1>
+  <h1>シナリオかんたん作成<small>試作 v0.2</small></h1>
   <button class="hb" onclick="openWizard()">＋ 新しく作る</button>
   <button class="hb" onclick="loadSample()">サンプル</button>
   <button class="hb p" onclick="openExport()">📤 出力</button>
@@ -127,58 +129,79 @@
 
 <script>
 // ══════ データ ══════
-// items：本流の並び。{type:'step',id,title,detail,warn} / {type:'branch',id,q,answers:[{id,label,tone,steps:[{id,title,detail,warn}],then:'next'|'jump'|'back'|'end',target,endLabel}]}
-const KEY='sb_proto_draft';
+// 手順の並び（本流・答えの中とも同じ形）：{type:'step',id,title,detail,warn} / {type:'branch',id,q,answers:[A]}
+// A＝答え：{id,label,tone,items:[手順の並び],then:'next'|'jump'|'back'|'end',target,endLabel}
+// 分かれ目の中にさらに分かれ目を入れられる（MAX_DEPTH段まで）
+const KEY='sb_proto_draft', MAX_DEPTH=2;
 let S={ name:'', device:'', items:[], sel:null };
 const uid=()=>Math.random().toString(36).slice(2,9);
 const escHtml=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(t){ const e=document.getElementById('toast'); e.textContent=t; e.style.opacity=1; clearTimeout(e._t); e._t=setTimeout(()=>e.style.opacity=0,2400); }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(_){} }
 function mkStep(title){ return { type:'step', id:uid(), title:title||'', detail:'', warn:'normal' }; }
-function mkSub(title){ return { id:uid(), title:title||'', detail:'', warn:'normal' }; }
-function mkAns(label,tone){ return { id:uid(), label:label||'', tone:tone||'', steps:[], then:'next', target:'', endLabel:'' }; }
-function findItem(id){ return S.items.find(x=>x.id===id); }
-function idxOf(id){ return S.items.findIndex(x=>x.id===id); }
+function mkAns(label,tone){ return { id:uid(), label:label||'', tone:tone||'', items:[], then:'next', target:'', endLabel:'' }; }
+// 旧形式（答えの steps）を items へ
+function migrate(items){ (items||[]).forEach(it=>{ if(it.type==='branch') it.answers.forEach(a=>{ if(!a.items){ a.items=(a.steps||[]).map(s=>({type:'step',id:s.id||uid(),title:s.title||'',detail:s.detail||'',warn:s.warn||'normal'})); delete a.steps; } migrate(a.items); }); }); }
+// 位置を探す：arr＝入っている並び、i＝位置、depth＝外側の分かれ目の数、top＝本流での祖先の位置、ans＝入っている答え
+function findLoc(id, arr, depth, top, ans){ arr=arr||S.items; depth=depth||0;
+  for(let i=0;i<arr.length;i++){ const it=arr[i], t=depth===0?i:top;
+    if(it.id===id) return { arr, i, it, depth, top:t, ans:ans||null };
+    if(it.type==='branch') for(const a of it.answers){ const r=findLoc(id, a.items, depth+1, t, a); if(r) return r; } }
+  return null; }
+function findItem(id){ const l=findLoc(id); return l&&l.it; }
 function mainNo(){ const m={}; let n=0; S.items.forEach(it=>{ if(it.type==='step') m[it.id]=++n; }); return m; }
-function stepsBefore(i){ return S.items.slice(0,i).filter(x=>x.type==='step'); }
-function stepsAfter(i){ return S.items.slice(i+1).filter(x=>x.type==='step'); }
+function eachBranch(fn, arr, depth, top){ (arr||S.items).forEach((it,i)=>{ const t=depth?top:i; if(it.type==='branch'){ fn(it, depth||0, t); it.answers.forEach(a=>eachBranch(fn, a.items, (depth||0)+1, t)); } }); }
 
 // ══════ 手順リストの描画 ══════
 function render(){
   document.getElementById('in-name').value=S.name; document.getElementById('in-dev').value=S.device;
-  const L=document.getElementById('list'), no=mainNo();
+  const L=document.getElementById('list');
   if(!S.items.length){ L.innerHTML=`<div class="empty">まだ手順がありません<br><br><button class="ab add" data-act="first">＋ 最初の手順を書く</button></div>`; renderFlow(); return; }
-  L.innerHTML=S.items.map((it,i)=> it.type==='step' ? stepCard(it,no[it.id],i) : branchCard(it,i,no)).join('');
+  L.innerHTML=renderSeq(S.items, { depth:0, prefix:'', no:mainNo() });
   renderFlow(); save();
 }
+function renderSeq(items, ctx){ let k=0;
+  return items.map((it,i)=> it.type==='step' ? stepCard(it, ctx.depth===0?ctx.no[it.id]:`${ctx.prefix}-${++k}`, ctx) : branchCard(it, i, ctx)).join(''); }
 function warnSel(v,attrs){ return `<select ${attrs} title="注意レベル"><option value="normal"${v==='normal'?' selected':''}>通常</option><option value="caution"${v==='caution'?' selected':''}>注意⚠️</option><option value="danger"${v==='danger'?' selected':''}>危険⛔</option></select>`; }
-function stepCard(it,n,i){ const sel=S.sel===it.id;
+function stepCard(it,n,ctx){ const sel=S.sel===it.id, canBr=ctx.depth<MAX_DEPTH;
   return `<div class="card${sel?' sel':''}" id="it-${it.id}" data-id="${it.id}">
-    <div class="row"><span class="no">${n}</span><input class="t" data-k="title" value="${escHtml(it.title)}" placeholder="手順の内容（例：電源ランプを確認）"></div>
+    <div class="row"><span class="no">${escHtml(n)}</span><input class="t" data-k="title" value="${escHtml(it.title)}" placeholder="${ctx.depth?'この答えのときの手順':'手順の内容（例：電源ランプを確認）'}"></div>
     ${sel?`<div class="det"><textarea data-k="detail" placeholder="作業者への説明（任意）">${escHtml(it.detail)}</textarea>${warnSel(it.warn,'data-k="warn"')}</div>
-    <div class="acts"><button class="ab add" data-act="addAfter">＋ 次の手順</button><button class="ab br" data-act="branch">🔀 ここで分かれる</button><button class="ab br" data-act="tpl">🔀 よく使う分かれ方</button>
-      <button class="ab sm" data-act="up" title="上へ">↑</button><button class="ab sm" data-act="down" title="下へ">↓</button><button class="ab sm del" data-act="del">削除</button></div>`:''}
+    <div class="acts"><button class="ab add" data-act="addAfter">＋ 次の手順</button>
+      ${canBr?`<button class="ab br" data-act="branch">🔀 ここで分かれる</button><button class="ab br" data-act="tpl">🔀 よく使う分かれ方</button>`:''}
+      <button class="ab sm" data-act="up" title="上へ">↑</button><button class="ab sm" data-act="down" title="下へ">↓</button><button class="ab sm del" data-act="del">削除</button></div>
+    ${!canBr?'<div class="acts" style="font-size:12px;color:#94a3b8">分かれ目は2段までです（この中にはこれ以上入れられません）</div>':''}`:''}
   </div>`; }
-function branchCard(b,i,no){ const sel=S.sel===b.id, before=stepsBefore(i), after=stepsAfter(i);
-  const nextTxt = after.length ? `次の手順へ進む（手順${no[after[0].id]}）` : '次の手順へ進む（この後に手順が無いので作業終了）';
+// 答えの「その後」を短い言葉で
+function thenDesc(a,no){ if(!a) return '次の手順へ'; if(a.then==='end') return '作業終了'; if((a.then==='jump'||a.then==='back')&&a.target) return `手順${no[a.target]}へ${a.then==='back'?'戻る':''}`; if(a.then==='next') return '分かれ目の後の手順へ'; return '行き先未設定'; }
+// 分かれ目の行き先候補（本流の手順）：飛ぶ＝本流での位置より後、戻る＝前
+function jumpList(b,ctx,top){ const after=S.items.slice(top+1).filter(x=>x.type==='step'); return ctx.depth===0?after.slice(1):after; }
+function backList(top){ return S.items.slice(0,top).filter(x=>x.type==='step'); }
+function branchCard(b,i,ctx){ const sel=S.sel===b.id, no=ctx.no, top=ctx.depth===0?i:ctx.top;
+  const after=S.items.slice(top+1).filter(x=>x.type==='step'), jl=jumpList(b,ctx,top), bl=backList(top);
+  const restInSeq=ctx.items?ctx.items.slice(i+1).some(x=>x.type==='step'):false;
+  const nextTxt = ctx.depth===0
+    ? (after.length ? `次の手順へ進む（手順${no[after[0].id]}）` : '次の手順へ進む（この後に手順が無いので作業終了）')
+    : (restInSeq ? 'この分かれ目の後の手順へ進む' : `「${escHtml(ctx.ansLabel||'元の答え')}」のその後と同じ（${thenDesc(ctx.ans,no)}）`);
   const ans=b.answers.map((a,ai)=>{
-    const tgtList = a.then==='jump'?after.slice(1):a.then==='back'?before:[];
+    const tgtList = a.then==='jump'?jl:a.then==='back'?bl:[];
     const tsel = (a.then==='jump'||a.then==='back') ? `<select data-ans="${a.id}" data-k="target"><option value="">（手順を選ぶ）</option>${tgtList.map(s=>`<option value="${s.id}"${s.id===a.target?' selected':''}>手順${no[s.id]} ${escHtml(s.title||'（未入力）')}</option>`).join('')}</select>` : '';
+    const lbl=(a.label||'答え'+(ai+1)).slice(0,4);
     return `<div class="ans ${a.tone||''}">
       <div class="row"><span class="lbl">答え${ai+1}</span><input class="al" data-ans="${a.id}" data-k="label" value="${escHtml(a.label)}" placeholder="例：異常あり">
         <select data-ans="${a.id}" data-k="tone" title="ボタンの色"><option value=""${!a.tone?' selected':''}>青</option><option value="warn"${a.tone==='warn'?' selected':''}>黄</option><option value="danger"${a.tone==='danger'?' selected':''}>赤</option></select>
         ${b.answers.length>2?`<button class="ic" data-act="ansDel" data-ans="${a.id}" title="この答えを削除">✕</button>`:''}</div>
-      ${a.steps.length?`<div class="sub">${a.steps.map((s,si)=>`<div class="row"><span class="no">${escHtml((a.label||'答え'+(ai+1)).slice(0,4))}-${si+1}</span><input class="t" data-ans="${a.id}" data-sub="${s.id}" data-k="title" value="${escHtml(s.title)}" placeholder="この答えのときの手順"><button class="ic" data-act="subDel" data-ans="${a.id}" data-sub="${s.id}" title="削除">✕</button></div>`).join('')}</div>`:''}
-      <div class="then">${a.steps.length?`<button class="ab sm add" data-act="subAdd" data-ans="${a.id}">＋ 手順を追加</button>`:`<button class="ab sm add" data-act="subAdd" data-ans="${a.id}">＋ この答えのときの手順を書く</button>`}</div>
-      <div class="then"><b>${a.steps.length?'その後：':'選んだら：'}</b>
+      ${a.items.length?`<div class="sub">${renderSeq(a.items,{ depth:ctx.depth+1, prefix:(ctx.prefix?ctx.prefix+'・':'')+lbl, no, top, items:a.items, ansLabel:a.label, ans:a })}</div>`:''}
+      <div class="then"><button class="ab sm add" data-act="subAdd" data-ans="${a.id}">＋ ${a.items.length?'手順を追加':'この答えのときの手順を書く'}</button></div>
+      <div class="then"><b>${a.items.length?'その後：':'選んだら：'}</b>
         <select data-ans="${a.id}" data-k="then"><option value="next"${a.then==='next'?' selected':''}>${nextTxt}</option>
-          ${after.length>1?`<option value="jump"${a.then==='jump'?' selected':''}>後の手順へ飛ぶ</option>`:''}
-          ${before.length?`<option value="back"${a.then==='back'?' selected':''}>前の手順に戻る（やり直し）</option>`:''}
+          ${jl.length?`<option value="jump"${a.then==='jump'?' selected':''}>後の手順へ飛ぶ</option>`:''}
+          ${bl.length?`<option value="back"${a.then==='back'?' selected':''}>前の手順に戻る（やり直し）</option>`:''}
           <option value="end"${a.then==='end'?' selected':''}>作業終了</option></select>
         ${tsel}${a.then==='end'?`<input data-ans="${a.id}" data-k="endLabel" value="${escHtml(a.endLabel)}" placeholder="終了の名前（任意）例：作業中止・指令へ連絡">`:''}</div>
     </div>`; }).join('');
-  return `<div class="card branch${sel?' sel':''}" id="it-${b.id}" data-id="${b.id}">
-    <div class="bh">🔀 分かれ目<span class="sp"></span><button class="ab sm del" data-act="del">分かれ目を削除</button></div>
+  return `<div class="card branch${sel?' sel':''}${ctx.depth?' nested':''}" id="it-${b.id}" data-id="${b.id}">
+    <div class="bh">🔀 分かれ目${ctx.depth?'（2段目）':''}<span class="sp"></span><button class="ab sm del" data-act="del">分かれ目を削除</button></div>
     <input class="q" data-k="q" value="${escHtml(b.q)}" placeholder="何を確認しますか？（例：異常はありましたか？）">
     ${ans}
     ${b.answers.length<4?`<button class="ab sm" data-act="ansAdd">＋ 答えを追加</button>`:''}
@@ -188,56 +211,56 @@ function branchCard(b,i,no){ const sel=S.sel===b.id, before=stepsBefore(i), afte
 const L=document.getElementById('list');
 function target(e){ const card=e.target.closest('[data-id]'); const it=card&&findItem(card.dataset.id); return {card,it}; }
 L.addEventListener('input',e=>{ const {it}=target(e); if(!it) return; const el=e.target, k=el.dataset.k; if(!k) return;
-  let o=it; if(el.dataset.ans){ o=it.answers.find(a=>a.id===el.dataset.ans); if(el.dataset.sub) o=o.steps.find(s=>s.id===el.dataset.sub); }
+  let o=it; if(el.dataset.ans) o=it.answers.find(a=>a.id===el.dataset.ans);
   o[k]=el.value; if(el.tagName==='SELECT') rerenderKeep(el); else { scheduleFlow(); save(); } });
 L.addEventListener('focusin',e=>{ const t=e.target.tagName; if(t!=='INPUT'&&t!=='TEXTAREA') return;   // ボタン・選択欄はクリック側で処理（描き直しで押下が消えないように）
   const {it}=target(e); if(it && S.sel!==it.id){ S.sel=it.id; rerenderKeep(e.target); } });
 L.addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); const {it}=target(e);
   if(!b){ if(it&&S.sel!==it.id){ S.sel=it.id; render(); } return; }
-  const act=b.dataset.act, i=it?idxOf(it.id):-1;
+  const act=b.dataset.act, loc=it?findLoc(it.id):null;
   if(act==='first'){ const s=mkStep(); S.items.push(s); S.sel=s.id; render(); focusItem(s.id); return; }
-  if(act==='addAfter'){ const s=mkStep(); S.items.splice(i+1,0,s); S.sel=s.id; render(); focusItem(s.id); return; }
-  if(act==='branch'){ insertBranch(i, { q:'', answers:[mkAns(''),mkAns('')] }); return; }
-  if(act==='tpl'){ openTpl(i); return; }
-  if(act==='up'||act==='down'){ const j=i+(act==='up'?-1:1); if(j<0||j>=S.items.length) return; [S.items[i],S.items[j]]=[S.items[j],S.items[i]]; fixBranches(); render(); return; }
+  if(act==='addAfter'){ const s=mkStep(); loc.arr.splice(loc.i+1,0,s); S.sel=s.id; render(); focusItem(s.id); return; }
+  if(act==='branch'){ insertBranch(loc, { q:'', answers:[mkAns(''),mkAns('')] }); return; }
+  if(act==='tpl'){ openTpl(loc); return; }
+  if(act==='up'||act==='down'){ const j=loc.i+(act==='up'?-1:1); if(j<0||j>=loc.arr.length) return; [loc.arr[loc.i],loc.arr[j]]=[loc.arr[j],loc.arr[loc.i]]; fixBranches(); render(); return; }
   if(act==='del'){ if(it.type==='step' && !confirm(`手順「${it.title||'（未入力）'}」を削除しますか？`)) return;
     if(it.type==='branch' && !confirm('この分かれ目を削除しますか？（答えのときの手順も消えます）')) return;
-    S.items.splice(i,1); S.sel=null; fixBranches(); render(); return; }
+    loc.arr.splice(loc.i,1); S.sel=null; fixBranches(); render(); return; }
   const a=it&&it.answers&&it.answers.find(x=>x.id===b.dataset.ans);
   if(act==='ansAdd'){ if(it.answers.length<4){ const n=mkAns(''); it.answers.push(n); render(); focusSel(`[data-ans="${n.id}"][data-k="label"]`); } return; }
   if(act==='ansDel'){ it.answers=it.answers.filter(x=>x!==a); render(); return; }
-  if(act==='subAdd'){ const s=mkSub(); a.steps.push(s); render(); focusSel(`[data-sub="${s.id}"]`); return; }
-  if(act==='subDel'){ a.steps=a.steps.filter(x=>x.id!==b.dataset.sub); render(); return; }
+  if(act==='subAdd'){ const s=mkStep(); a.items.push(s); S.sel=s.id; render(); focusItem(s.id); return; }
 });
-// Enterで次の手順を追加（本流の手順・答えの手順）
+// Enterで次の手順を追加（同じ並びの中）
 L.addEventListener('keydown',e=>{ if(e.key!=='Enter'||e.isComposing||e.target.tagName!=='INPUT'||e.target.dataset.k!=='title') return;
-  e.preventDefault(); const {it}=target(e); if(!it) return;
-  if(e.target.dataset.sub){ const a=it.answers.find(x=>x.id===e.target.dataset.ans); const k=a.steps.findIndex(x=>x.id===e.target.dataset.sub); const s=mkSub(); a.steps.splice(k+1,0,s); render(); focusSel(`[data-sub="${s.id}"]`); }
-  else if(it.type==='step'){ const s=mkStep(); S.items.splice(idxOf(it.id)+1,0,s); S.sel=s.id; render(); focusItem(s.id); } });
+  e.preventDefault(); const {it}=target(e); if(!it||it.type!=='step') return; const loc=findLoc(it.id);
+  const s=mkStep(); loc.arr.splice(loc.i+1,0,s); S.sel=s.id; render(); focusItem(s.id); });
 document.getElementById('in-name').oninput=e=>{ S.name=e.target.value; save(); };
 document.getElementById('in-dev').oninput=e=>{ S.device=e.target.value; save(); };
-function insertBranch(i,b){ const br={ type:'branch', id:uid(), q:b.q, answers:b.answers };
-  S.items.splice(i+1,0,br); S.sel=br.id; fixBranches(); render(); document.getElementById('it-'+br.id).scrollIntoView({block:'nearest',behavior:'smooth'});
+function insertBranch(loc,b){ if(loc.depth>=MAX_DEPTH){ toast('分かれ目は2段までです'); return; }
+  const br={ type:'branch', id:uid(), q:b.q, answers:b.answers };
+  loc.arr.splice(loc.i+1,0,br); S.sel=br.id; fixBranches(); render(); document.getElementById('it-'+br.id).scrollIntoView({block:'nearest',behavior:'smooth'});
   if(!b.q) focusSel(`#it-${br.id} .q`); hint(''); }
-// 移動・削除で行き先が無効になったら「次の手順へ」に戻す
-function fixBranches(){ S.items.forEach((it,i)=>{ if(it.type!=='branch') return; const bef=stepsBefore(i).map(s=>s.id), aft=stepsAfter(i).slice(1).map(s=>s.id);
-  it.answers.forEach(a=>{ if(a.then==='back'&&!bef.includes(a.target)) a.target=''; if(a.then==='jump'&&!aft.includes(a.target)) a.target=''; }); }); }
+// 移動・削除で行き先が無効になったら選び直しにする
+function fixBranches(){ eachBranch((b,depth,top)=>{ const bef=backList(top).map(s=>s.id), aft=jumpList(b,{depth},top).map(s=>s.id);
+  b.answers.forEach(a=>{ if(a.then==='back'&&!bef.includes(a.target)) a.target=''; if(a.then==='jump'&&!aft.includes(a.target)) a.target=''; }); }); }
 function rerenderKeep(el){ const sel=selectorOf(el); render(); if(sel) focusSel(sel); }
-function selectorOf(el){ const c=el.closest('[data-id]'); if(!c) return null; let s=`#it-${c.dataset.id} `; if(el.dataset.ans) s+=`[data-ans="${el.dataset.ans}"]`; if(el.dataset.sub) s+=`[data-sub="${el.dataset.sub}"]`; if(el.dataset.k) s+=`[data-k="${el.dataset.k}"]`; return s; }
+function selectorOf(el){ const c=el.closest('[data-id]'); if(!c) return null; let s=`#it-${c.dataset.id} `; if(el.dataset.ans) s+=`[data-ans="${el.dataset.ans}"]`; if(el.dataset.k) s+=`[data-k="${el.dataset.k}"]`; return s; }
 function focusSel(q){ const el=document.querySelector(q); if(el){ el.focus(); if(el.setSelectionRange&&el.type==='text'){ const n=el.value.length; try{ el.setSelectionRange(n,n); }catch(_){} } } }
-function focusItem(id){ focusSel(`#it-${id} input.t`); }
+function focusItem(id){ focusSel(`#it-${id} > .row input.t`); }
 let _ft=null; function scheduleFlow(){ clearTimeout(_ft); _ft=setTimeout(renderFlow,250); }
 function hint(t){ const h=document.getElementById('hintbar'); h.innerHTML=t; h.style.display=t?'block':'none'; }
 
 // ══════ よく使う分かれ方 ══════
 const TPLS=[
-  { name:'確認して、異常なら対応して戻ってくる', desc:'異常なし → そのまま次へ／異常あり → 対応の手順 → 次の手順で合流', make:()=>{ const a=mkAns('異常なし'), b=mkAns('異常あり','warn'); b.steps=[mkSub('異常箇所を記録する'),mkSub('応急処置をする')]; return { q:'異常はありましたか？', answers:[a,b] }; } },
-  { name:'続けられなければ中止する', desc:'続けられる → そのまま次へ／続けられない → 指令へ連絡 → 作業終了（作業中止）', make:()=>{ const a=mkAns('続けられる'), b=mkAns('続けられない','danger'); b.steps=[mkSub('指令へ連絡する')]; b.then='end'; b.endLabel='作業中止・指令へ連絡'; return { q:'作業を続けられますか？', answers:[a,b] }; } },
-  { name:'基準外なら調整してやり直す', desc:'基準内 → そのまま次へ／基準外 → 調整の手順 → この確認の手順に戻ってやり直し', make:i=>{ const a=mkAns('基準内'), b=mkAns('基準外','warn'); b.steps=[mkSub('調整する')]; b.then='back'; const prev=S.items[i]; b.target=(prev&&prev.type==='step')?prev.id:''; return { q:'測定値は基準内ですか？', answers:[a,b] }; } },
+  { name:'確認して、異常なら対応して戻ってくる', desc:'異常なし → そのまま次へ／異常あり → 対応の手順 → 次の手順で合流', make:()=>{ const a=mkAns('異常なし'), b=mkAns('異常あり','warn'); b.items=[mkStep('異常箇所を記録する'),mkStep('応急処置をする')]; return { q:'異常はありましたか？', answers:[a,b] }; } },
+  { name:'続けられなければ中止する', desc:'続けられる → そのまま次へ／続けられない → 指令へ連絡 → 作業終了（作業中止）', make:()=>{ const a=mkAns('続けられる'), b=mkAns('続けられない','danger'); b.items=[mkStep('指令へ連絡する')]; b.then='end'; b.endLabel='作業中止・指令へ連絡'; return { q:'作業を続けられますか？', answers:[a,b] }; } },
+  { name:'基準外なら調整してやり直す', desc:'基準内 → そのまま次へ／基準外 → 調整の手順 → この確認の手順に戻ってやり直し', make:loc=>{ const a=mkAns('基準内'), b=mkAns('基準外','warn'); b.items=[mkStep('調整する')]; b.then='back';
+      const prev=loc.depth===0?S.items[loc.i]:null; b.target=(prev&&prev.type==='step')?prev.id:''; return { q:'測定値は基準内ですか？', answers:[a,b] }; } },
   { name:'自分で作る（空の分かれ目）', desc:'質問と答えを自由に書きます', make:()=>({ q:'', answers:[mkAns(''),mkAns('')] }) },
 ];
-let _tplAt=-1;
-function openTpl(i){ _tplAt=i; document.getElementById('tpl-list').innerHTML=TPLS.map((t,k)=>`<button class="tpl" onclick="useTpl(${k})"><b>🔀 ${escHtml(t.name)}</b><span>${escHtml(t.desc)}</span></button>`).join(''); document.getElementById('tplm').classList.add('on'); }
+let _tplAt=null;
+function openTpl(loc){ _tplAt=loc; document.getElementById('tpl-list').innerHTML=TPLS.map((t,k)=>`<button class="tpl" onclick="useTpl(${k})"><b>🔀 ${escHtml(t.name)}</b><span>${escHtml(t.desc)}</span></button>`).join(''); document.getElementById('tplm').classList.add('on'); }
 function useTpl(k){ closeM('tplm'); insertBranch(_tplAt, TPLS[k].make(_tplAt)); toast('分かれ目を入れました。文字は自由に書き換えられます'); }
 function closeM(id){ document.getElementById(id).classList.remove('on'); }
 
@@ -270,51 +293,57 @@ function loadSample(){ if(S.items.length && !confirm('今の内容を消して�
   const s1=mkStep('外観を確認する'), s2=mkStep('表示ランプを確認する'), s3=mkStep('通常の操作をする'), s4=mkStep('後片付けをする'), s5=mkStep('終了報告をする');
   s2.warn='caution'; s2.detail='運転ランプが緑で点灯していること';
   const a=mkAns('異常なし'), b=mkAns('異常あり','warn'), c=mkAns('判断できない','danger');
-  b.steps=[mkSub('異常箇所を記録する'),mkSub('応急処置をする')]; b.then='jump'; b.target=s4.id;
-  c.steps=[mkSub('指令へ連絡する')]; c.then='end'; c.endLabel='作業中止・指令へ連絡';
+  // 2段目の分かれ目：応急処置で直ったか
+  const b1=mkAns('直った'), b2=mkAns('直らない','danger'); b2.items=[mkStep('指令へ連絡する')]; b2.then='end'; b2.endLabel='作業中止・指令へ連絡';
+  b.items=[mkStep('異常箇所を記録する'),mkStep('応急処置をする'),{ type:'branch', id:uid(), q:'応急処置で直りましたか？', answers:[b1,b2] }];
+  b.then='jump'; b.target=s4.id;
+  c.items=[mkStep('指令へ連絡する')]; c.then='end'; c.endLabel='作業中止・指令へ連絡';
   S={ name:'分岐サンプル（かんたん作成）', device:'テスト機器', sel:null, items:[s1,s2,{type:'branch',id:uid(),q:'異常はありましたか？',answers:[a,b,c]},s3,s4,s5] };
-  render(); hint('サンプルを読み込みました。手順や答えを押して、書き換え・追加を試してください。'); }
+  render(); hint('サンプルを読み込みました。「異常あり」の中に2段目の分かれ目（応急処置で直ったか）が入っています。手順や答えを押して、書き換え・追加を試してください。'); }
 
-// ══════ 区間(flow)へ変換：本流を分かれ目・飛び先で区切り、答えの手順は分岐側の区間にする ══════
+// ══════ 区間(flow)へ変換 ══════
+// 並び(本流・答えの中)を「手順のかたまり＋最後の分かれ目」に区切って区間にする。
+// 続き(cont)＝その並びが終わった後の行き先。答えの「次へ」＝分かれ目の後の続き（並びの最後なら外側の続き）。
 function toFlow(){
-  const items=S.items, no=mainNo(); const targets=new Set();
-  items.forEach(it=>{ if(it.type==='branch') it.answers.forEach(a=>{ if((a.then==='jump'||a.then==='back')&&a.target) targets.add(a.target); }); });
-  const sections=[], steps=[], firstItem={}; let cur=null, n=0;
-  const newSec=(label,branch,item)=>{ const s={ key:'s'+(++n), label, ...(branch?{branch:true}:{}), next:null, _main:!branch, _no:[] }; sections.push(s); if(item) firstItem[s.key]=item; return s; };
-  const startOf={}, afterBranch={};
-  items.forEach((it,i)=>{
-    if(it.type==='step'){
-      if(!cur || cur.next || targets.has(it.id) || (i>0&&items[i-1].type==='branch')){
-        const s=newSec('',false,it.id); if(cur&&!cur.next) cur.next={type:'goto',to:s.key}; cur=s; }
-      startOf[it.id]=startOf[it.id]||cur.key; cur._no.push(no[it.id]);
-      steps.push({ sec:cur.key, title:it.title||'（未入力）', detail:it.detail||'', warn:it.warn||'normal' });
-    } else {
-      if(!cur || cur.next){ const s=newSec('分かれ目',false,it.id); if(cur&&!cur.next) cur.next={type:'goto',to:s.key}; cur=s; }
-      cur.next={ type:'choice', _branch:it }; cur._bid=it.id;
-      if(!firstItem[cur.key]) firstItem[cur.key]=it.id;
+  const no=mainNo(), targets=new Set();
+  eachBranch(b=>b.answers.forEach(a=>{ if((a.then==='jump'||a.then==='back')&&a.target) targets.add(a.target); }));
+  const sections=[], firstItem={}, secOfItem={}, startOf={}; let n=0;
+  const newSec=(label,branch)=>{ const s={ key:'s'+(++n), label, branch:!!branch, next:null, steps:[], _no:[] }; sections.push(s); return s; };
+  const endSecs={}; const endSec=lbl=>{ const k=lbl||''; if(!endSecs[k]){ const s=newSec(lbl||'作業終了',true); s.next={type:'end',...(lbl?{label:lbl}:{})}; endSecs[k]=s; } return endSecs[k].key; };
+  // 行き先の指定 → 区間key（T:手順id は最後に解決）
+  const keyOf=spec=> spec.type==='goto' ? spec.to : endSec(spec.label||'');
+  function seq(items, isMain, label, cont, tone){
+    // かたまりに区切る
+    const segs=[]; let cur=null;
+    items.forEach(it=>{
+      if(it.type==='step'){ if(!cur || cur.branch || (isMain&&targets.has(it.id))){ cur={ steps:[], branch:null }; segs.push(cur); } cur.steps.push(it); }
+      else { if(!cur || cur.branch){ cur={ steps:[], branch:null }; segs.push(cur); } cur.branch=it; }
+    });
+    if(!segs.length) return keyOf(cont);
+    segs.forEach((g,gi)=>{ g.sec=newSec(isMain?'':(label+(gi?'（続き）':'')), !isMain);
+      g.steps.forEach(st=>{ secOfItem[st.id]=g.sec.key; startOf[st.id]=startOf[st.id]||g.sec.key; if(isMain) g.sec._no.push(no[st.id]);
+        g.sec.steps.push({ title:st.title||'（未入力）', detail:st.detail||'', warn:(st.warn&&st.warn!=='normal')?st.warn:(!isMain&&tone==='danger'?'danger':!isMain&&tone==='warn'?'caution':'normal') }); });
+      firstItem[g.sec.key]=(g.steps[0]||g.branch).id; if(g.branch) secOfItem[g.branch.id]=g.sec.key;
+      if(isMain) g.sec.label = !g.sec._no.length ? '分かれ目' : g.sec._no.length>1 ? `手順${g.sec._no[0]}〜${g.sec._no[g.sec._no.length-1]}` : `手順${g.sec._no[0]}`; });
+    for(let gi=segs.length-1; gi>=0; gi--){ const g=segs[gi];
+      const after = gi<segs.length-1 ? {type:'goto', to:segs[gi+1].sec.key} : cont;
+      if(!g.branch){ g.sec.next=after; continue; }
+      const opts=g.branch.answers.map((a,ai)=>{
+        const aCont = a.then==='next' ? after : (a.then==='jump'||a.then==='back') ? {type:'goto', to:a.target?'T:'+a.target:''} : {type:'end', label:a.endLabel||''};
+        const to = a.items.length ? seq(a.items, false, `「${a.label||('答え'+(ai+1))}」のとき`, aCont, a.tone) : keyOf(aCont);
+        return { label:a.label||'', to, ...(a.tone?{tone:a.tone}:{}) }; });
+      g.sec.next={ type:'choice', prompt:g.branch.q||'', options:opts };
     }
-  });
-  if(cur && !cur.next) cur.next={type:'end'};
-  // 本流区間の名前：「手順1〜2」
-  sections.forEach(s=>{ if(s._main && s._no.length) s.label = s._no.length>1 ? `手順${s._no[0]}〜${s._no[s._no.length-1]}` : `手順${s._no[0]}`; });
-  const endSecs={};
-  const endSec=lbl=>{ const k=lbl||''; if(!endSecs[k]){ const s=newSec(lbl||'作業終了',true,null); s.next={type:'end',...(lbl?{label:lbl}:{})}; endSecs[k]=s; } return endSecs[k].key; };
-  // 分かれ目の次（本流で次に来る区間）
-  const nextMainAfter=bid=>{ const i=items.findIndex(x=>x.id===bid); const nx=items.slice(i+1).find(x=>x.type==='step'); return nx?startOf[nx.id]:null; };
-  sections.slice().forEach(s=>{ if(!s.next||s.next.type!=='choice') return; const br=s.next._branch;
-    const opts=br.answers.map((a,ai)=>{
-      const thenKey = a.then==='next' ? (nextMainAfter(br.id)||null) : (a.then==='jump'||a.then==='back') ? (a.target?startOf[a.target]:'') : null;
-      let to;
-      if(a.steps.length){ const as=newSec(`「${a.label||('答え'+(ai+1))}」のとき`,true,br.id);
-        a.steps.forEach(st=>steps.push({ sec:as.key, title:st.title||'（未入力）', detail:st.detail||'', warn:(st.warn&&st.warn!=='normal')?st.warn:(a.tone==='danger'?'danger':a.tone==='warn'?'caution':'normal') }));
-        as.next = a.then==='end' || (a.then==='next'&&!thenKey) ? {type:'end', ...(a.then==='end'&&a.endLabel?{label:a.endLabel}:{})} : {type:'goto', to:thenKey||''};
-        to=as.key; }
-      else to = a.then==='end' ? endSec(a.endLabel||'') : (a.then==='next'&&!thenKey) ? endSec('') : (thenKey||'');
-      return { label:a.label||'', to, ...(a.tone?{tone:a.tone}:{}) }; });
-    s.next={ type:'choice', prompt:br.q||'', options:opts }; });
+    return segs[0].sec.key;
+  }
+  seq(S.items, true, '', {type:'end'});
+  const res=k=> (typeof k==='string'&&k.startsWith('T:')) ? (startOf[k.slice(2)]||'') : k;
+  sections.forEach(s=>{ const nx=s.next; if(!nx) { s.next={type:'end'}; return; }
+    if(nx.type==='goto') nx.to=res(nx.to); if(nx.type==='choice') nx.options.forEach(o=>o.to=res(o.to));
+    if(nx.type==='end'&&!nx.label) delete nx.label; });
+  const steps=[]; sections.forEach(s=>s.steps.forEach(st=>steps.push({ sec:s.key, ...st })));
   const clean=sections.map(s=>({ key:s.key, label:s.label, ...(s.branch?{branch:true}:{}), next:s.next }));
-  const order=new Map(clean.map((s,i)=>[s.key,i])); steps.sort((a,b)=>order.get(a.sec)-order.get(b.sec));
-  return { flow:{ start:clean.length?clean[0].key:'s1', sections:clean }, steps, firstItem };
+  return { flow:{ start:clean.length?clean[0].key:'s1', sections:clean }, steps, firstItem, secOfItem };
 }
 
 // ══════ 解析とフロー図（エディタ v4.23 と同じ考え方） ══════
@@ -367,34 +396,32 @@ function flowSVG(A,F,cur){
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${VW}" height="${VH}" viewBox="0 0 ${VW} ${VH}" font-family="-apple-system,'Hiragino Sans','Yu Gothic UI',sans-serif"><defs>${['#475569','#94a3b8','#dc2626','#d97706'].map(c=>`<marker id="${mk(c)}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="${c}"/></marker>`).join('')}</defs>${g}</svg>`;
 }
 let _conv=null;
+function goItem(id){ if(!id) return; S.sel=id; setTab('list'); render(); const el=document.getElementById('it-'+id); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); }
 function renderFlow(){
   const wrap=document.getElementById('svgwrap'), chk=document.getElementById('checks'), rt=document.getElementById('routes');
   if(!S.items.length){ wrap.innerHTML='<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">手順を書くと、ここに流れが描かれます</div>'; chk.innerHTML=''; rt.innerHTML=''; return; }
   _conv=toFlow(); const F=_conv.flow, A=analyze(F,_conv.steps);
-  let curKey=null; Object.entries(_conv.firstItem).forEach(([k,id])=>{ if(id===S.sel&&!curKey) curKey=k; });
-  if(!curKey&&S.sel){ const st=S.items.find(x=>x.id===S.sel); if(st&&st.type==='step'){ const i=S.items.indexOf(st); for(let j=i;j>=0;j--){ const k=Object.keys(_conv.firstItem).find(k=>_conv.firstItem[k]===S.items[j].id && !(F.sections.find(s=>s.key===k)||{}).branch); if(k){ curKey=k; break; } } } }
-  wrap.innerHTML=flowSVG(A,F,curKey);
-  wrap.onclick=e=>{ const g=e.target.closest('.fn'); if(!g) return; const id=_conv.firstItem[g.getAttribute('data-k')]; if(!id) return; S.sel=id; setTab('list'); render(); const el=document.getElementById('it-'+id); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); };
+  wrap.innerHTML=flowSVG(A,F,S.sel?_conv.secOfItem[S.sel]:null);
+  wrap.onclick=e=>{ const g=e.target.closest('.fn'); if(g) goItem(_conv.firstItem[g.getAttribute('data-k')]); };
   const P=problems(A); let h='';
   if(!P.e.length&&!P.w.length) h='<div class="ok">✓ 問題は見つかりませんでした</div>';
   P.e.forEach(x=>h+=`<div class="e" data-go="${x.id||''}">✕ ${escHtml(x.m)}</div>`); P.w.forEach(x=>h+=`<div class="w" data-go="${x.id||''}">⚠ ${escHtml(x.m)}</div>`);
-  chk.innerHTML=h; chk.querySelectorAll('[data-go]').forEach(d=>d.onclick=()=>{ const id=d.dataset.go; if(!id) return; S.sel=id; setTab('list'); render(); const el=document.getElementById('it-'+id); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); });
+  chk.innerHTML=h; chk.querySelectorAll('[data-go]').forEach(d=>d.onclick=()=>goItem(d.dataset.go));
   rt.innerHTML = A.routes.length>1 ? '<b>流れの種類</b><br>'+A.routes.map((r,i)=>`${i+1}. ${r.path.map(k=>escHtml(A.by.get(k).label)).join(' → ')} → ${escHtml(r.end)}（${r.steps}手順）`).join('<br>') : '';
 }
 // 書き手に分かる言葉での問題点
 function problems(A){ const e=[], w=[], no=mainNo();
-  S.items.forEach((it,i)=>{
-    if(it.type==='step' && !it.title.trim()) w.push({id:it.id, m:`手順${no[it.id]}の内容が空欄です`});
-    if(it.type!=='branch') return;
-    if(i===0) e.push({id:it.id, m:'最初の手順より前に分かれ目があります（分かれ目は手順の後に置きます）'});
-    if(!it.q.trim()) w.push({id:it.id, m:'分かれ目の質問が空欄です'});
-    if(it.answers.length<2) e.push({id:it.id, m:'分かれ目の答えが2つ未満です'});
-    it.answers.forEach((a,ai)=>{ const n=`「${it.q||'分かれ目'}」の答え${ai+1}`;
-      if(!a.label.trim()) e.push({id:it.id, m:`${n}が空欄です`});
-      if((a.then==='jump'||a.then==='back')&&!a.target) e.push({id:it.id, m:`${n}の行き先の手順を選んでください`});
-      a.steps.forEach((s,si)=>{ if(!s.title.trim()) w.push({id:it.id, m:`${n}の手順${si+1}が空欄です`}); }); });
-  });
-  A.by.forEach((s,k)=>{ if(!A.canEnd.has(k)){ const id=_conv.firstItem[k]; e.push({id, m:`「${s.label}」から作業終了にたどり着けません（やり直しがループしています）`}); } });
+  const walkSteps=(arr,prefix)=>arr.forEach((it,i)=>{ if(it.type==='step'&&!it.title.trim()) w.push({id:it.id, m:prefix?`「${prefix}」のときの手順が空欄です`:`手順${no[it.id]}の内容が空欄です`});
+    if(it.type==='branch') it.answers.forEach(a=>walkSteps(a.items, a.label||'答え')); });
+  walkSteps(S.items,'');
+  if(S.items[0]&&S.items[0].type==='branch') e.push({id:S.items[0].id, m:'最初の手順より前に分かれ目があります（分かれ目は手順の後に置きます）'});
+  eachBranch(b=>{
+    if(!b.q.trim()) w.push({id:b.id, m:'分かれ目の質問が空欄です'});
+    if(b.answers.length<2) e.push({id:b.id, m:'分かれ目の答えが2つ未満です'});
+    b.answers.forEach((a,ai)=>{ const n=`「${b.q||'分かれ目'}」の答え${ai+1}`;
+      if(!a.label.trim()) e.push({id:b.id, m:`${n}が空欄です`});
+      if((a.then==='jump'||a.then==='back')&&!a.target) e.push({id:b.id, m:`${n}の行き先の手順を選んでください`}); }); });
+  A.by.forEach((s,k)=>{ if(!A.canEnd.has(k)) e.push({id:_conv.firstItem[k], m:`「${s.label}」から作業終了にたどり着けません（やり直しがループしています）`}); });
   return { e, w }; }
 function setTab(t){ document.getElementById('main').className='t-'+t; document.getElementById('tab-list').classList.toggle('on',t==='list'); document.getElementById('tab-flow').classList.toggle('on',t==='flow'); if(t==='flow') renderFlow(); }
 
@@ -415,7 +442,7 @@ function copyExport(){ const ta=document.getElementById('exp-ta'); ta.select();
 
 // ══════ 起動 ══════
 (function(){ let d=null; try{ d=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(_){}
-  if(d&&Array.isArray(d.items)){ S=d; render(); if(!S.items.length) openWizard(); } else { render(); openWizard(); } })();
+  if(d&&Array.isArray(d.items)){ S=d; migrate(S.items); render(); if(!S.items.length) openWizard(); } else { render(); openWizard(); } })();
 </script>
 </body>
 </html>
