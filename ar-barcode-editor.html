@@ -632,7 +632,7 @@
 <!-- 分岐・フロー図モーダル -->
 <div class="modal" id="flow-modal">
   <div class="box">
-    <h3>🔀 分岐・フロー図</h3>
+    <h3>🔀 フロー図（流れの確認）</h3>
     <div id="flow-intro"></div>
     <div id="flow-body"></div>
     <div class="mact"><button class="btn d" onclick="closeFlow()">閉じる</button></div>
@@ -666,7 +666,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.30';
+const APP_VERSION = 'v4.31';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1206,8 +1206,8 @@ function renderStepTabs(){
   add.onclick=addStepHere;
   box.appendChild(add);
   const eb=document.createElement('button'); eb.className='easybtn'; eb.textContent='🧩 かんたん作成'; eb.title='手順と分かれ目を一覧で作る・直す'; eb.onclick=()=>EB.open(); box.appendChild(eb);
-  if(!ED.flow || ED.builder){ const fb=document.createElement('button'); fb.className='flowbtn'; fb.textContent=ED.flow?'🔀 フロー図':'🔀 分岐';
-    fb.title=ED.flow?'流れをフロー図で確認':'区間と選択肢で分岐するシナリオにする／フロー図で確認'; fb.onclick=openFlow; box.appendChild(fb); }
+  if(ED.flow && isBuilderScenario()){ const fb=document.createElement('button'); fb.className='flowbtn'; const ne=flowCheck().errors.length; fb.textContent='🔀 フロー図'+(ne?` ⚠${ne}`:'');
+    fb.title='流れをフロー図で確かめる（直すのは かんたん作成）'; fb.onclick=openFlow; box.appendChild(fb); }
   renderOutline(); updateBottomToggle();
 }
 // ══════════ 手順一覧（かんたん作成と同じ並び・番号）と現在地 ══════════
@@ -1536,24 +1536,37 @@ function flowSVG(A, F, opt){
 }
 function openFlow(){ _flowRoute=-1; renderFlowModal(); document.getElementById('flow-modal').classList.add('on'); }
 function closeFlow(){ closeModal('flow-modal'); if(ED.steps.length){ syncStepMeta(); renderStepTabs(); } }
+// 🔀 フロー図＝流れを「確かめる」画面。作る・直すのは 🧩 かんたん作成。
+// 以前の方法（区間を直接編集）で作ったシナリオだけ、区間の編集を折りたたんで残す。
+function isBuilderScenario(){ return Array.isArray(ED.builder) && ED.steps.some(s=>s.bid); }
+function flowToEasy(){ closeFlow(); EB.open(); }
 function renderFlowModal(){
   const intro=document.getElementById('flow-intro'), body=document.getElementById('flow-body');
+  const view=`<div><div class="fl-h">フロー図（区間を押すと、その手順のAR図形の編集へ移ります）</div><div id="flow-svgwrap"></div><div id="flow-check"></div></div>`;
   if(!ED.flow){
-    intro.innerHTML=`<div style="font-size:13px;line-height:1.8;color:#334155">シナリオを<b>区間</b>に分け、区間の最後に<b>選択肢</b>を出して分岐できます。<br>
-      例：A1 点検準備 →「異常なし」A2 通常手順 ／「異常あり」B 異常時対応 → A3 後片付け で合流<br>
-      今のステップは、すべて最初の区間に入ります。<br>
-      <span style="color:#b45309">⚠ 分岐したシナリオは Webプレイヤー v4.17 以降で再生してください（古い版では全ステップが1本道で再生されます）。</span></div>
-      <div class="mact" style="justify-content:flex-start"><button class="btn" onclick="enableFlow()">🔀 分岐を使い始める</button></div>`;
+    intro.innerHTML=`<div style="font-size:13px;line-height:1.8;color:#334155">このシナリオには分岐がありません。<br>分岐（判断が分かれる所）は「<b>🧩 かんたん作成</b>」で作ります。作ると、ここで流れを確かめられます。</div>
+      <div class="mact" style="justify-content:flex-start"><button class="btn g" onclick="flowToEasy()">🧩 かんたん作成で分岐を作る</button></div>`;
     body.innerHTML=''; body.style.display='none'; return; }
   body.style.display='';
-  intro.innerHTML=`<div style="font-size:12px;color:#475569;line-height:1.6;margin-bottom:8px">区間ごとに「終わったら どうするか」（次の区間へ／選択肢で分ける／作業終了）を設定します。一番上の区間（▶開始）から始まります。
-    ${ED.flow.sections.length<=1?'<button class="fsb" style="margin-left:6px" onclick="disableFlow()">分岐をやめる</button>':''}</div>`;
+  if(isBuilderScenario()){
+    intro.innerHTML=`<div style="font-size:12.5px;color:#475569;line-height:1.7;margin-bottom:8px">流れを<b>確かめる</b>画面です。経路を押すと、その流れだけを強調します。<br>手順や分かれ目を直すときは「🧩 かんたん作成で直す」から行います。
+      <button class="btn g" style="margin-left:6px;padding:6px 12px" onclick="flowToEasy()">🧩 かんたん作成で直す</button></div>`;
+    body.style.gridTemplateColumns='minmax(0,1fr)'; body.innerHTML=view; renderFlowView(); return; }
+  // 以前の方法で作ったシナリオ：かんたん作成への移行を案内し、区間の直接編集は折りたたんで残す
+  intro.innerHTML=`<div style="font-size:12.5px;color:#475569;line-height:1.7;margin-bottom:8px;padding:8px 10px;background:#fffbeb;border:1px solid #fde68a;border-radius:9px">
+      このシナリオは<b>以前の方法（区間）</b>で分岐を作っています。「🧩 かんたん作成で開く」で作り直すと、手順一覧と同じ形で編集できるようになります（写真・AR図形はそのまま）。
+      <button class="btn g" style="margin-left:6px;padding:6px 12px" onclick="flowToEasy()">🧩 かんたん作成で開く</button></div>`;
+  body.style.gridTemplateColumns='';
   const A=flowCheck();
-  body.innerHTML=`<div><div class="fl-h">区間の設定</div><div id="flow-secs">${ED.flow.sections.map((s,i)=>flowSecHtml(s,i,A)).join('')}</div>
-      <button class="btn" style="margin-top:2px" onclick="addSection()">＋ 区間を追加</button></div>
-    <div><div class="fl-h">フロー図（区間をクリックすると、その区間の編集へ移ります）</div><div id="flow-svgwrap"></div><div id="flow-check"></div></div>`;
+  body.innerHTML=`<div><details id="flow-legacy"${_flowLegacyOpen?' open':''}><summary class="fl-h" style="cursor:pointer">区間を直接編集する（以前の方法）</summary>
+      <div style="font-size:12px;color:#64748b;line-height:1.6;margin:4px 0 8px">区間ごとに「終わったら どうするか」を設定します。一番上の区間（▶開始）から始まります。
+        ${ED.flow.sections.length<=1?'<button class="fsb" style="margin-left:6px" onclick="disableFlow()">分岐をやめる</button>':''}</div>
+      <div id="flow-secs">${ED.flow.sections.map((s,i)=>flowSecHtml(s,i,A)).join('')}</div>
+      <button class="btn" style="margin-top:2px" onclick="addSection()">＋ 区間を追加</button></details></div>${view}`;
+  const d=document.getElementById('flow-legacy'); if(d) d.ontoggle=()=>{ _flowLegacyOpen=d.open; };
   renderFlowView();
 }
+let _flowLegacyOpen=false;
 function flowSecHtml(s,i,A){
   const F=ED.flow, k=s.key, nx=s.next||{type:'end'}, n=A.cnt(k);
   const opts=(sel,exSelf)=>`<option value="">（行き先を選択）</option>`+F.sections.filter(x=>!(exSelf&&x.key===k))
