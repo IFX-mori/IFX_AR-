@@ -310,6 +310,7 @@
       <div class="hint" style="font-size:11px;color:#64748b;margin-top:6px;line-height:1.6">保存先：ご自身の OneDrive 直下の <b>ARNavi</b> フォルダ。下書き／公開を選んで保存できます。</div>
     </div>
     <button class="btn full d" onclick="openRemotePicker()">📥 既存シナリオを読込</button>
+    <button class="btn full d" style="margin-top:8px" onclick="openPasteJSON()">📋 JSONを貼り付けて読込</button>
     <details id="gh-settings" style="margin-top:12px">
       <summary style="font-size:12px;font-weight:700;color:#475569;cursor:pointer">🔑 GitHub設定（リポジトリ・トークン）<span id="gh-set-state" style="font-weight:600;color:#94a3b8"></span></summary>
       <div style="margin-top:8px">
@@ -483,6 +484,20 @@
   </div>
 </div>
 
+<!-- JSON貼り付け読込モーダル -->
+<div class="modal" id="paste-modal">
+  <div class="box">
+    <h3>📋 JSONを貼り付けて読込</h3>
+    <div style="font-size:12px;color:#475569;line-height:1.6;margin-bottom:8px">シナリオのJSON（テキスト）を貼り付けて「読込」を押します。読み込んだ後は通常どおり編集・保存できます（バーコード番号が空なら保存時に自動採番）。</div>
+    <textarea id="paste-ta" placeholder='{ "id": "...", "name": "...", "steps": [ ... ] }'></textarea>
+    <div id="paste-status" style="font-size:12px;margin-top:8px"></div>
+    <div class="mact">
+      <button class="btn d" onclick="closeModal('paste-modal')">閉じる</button>
+      <button class="btn g" onclick="loadPastedJSON()">📥 読込</button>
+    </div>
+  </div>
+</div>
+
 <!-- 分岐・フロー図モーダル -->
 <div class="modal" id="flow-modal">
   <div class="box">
@@ -520,7 +535,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.23';
+const APP_VERSION = 'v4.24';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -2099,6 +2114,15 @@ function printBarcode(){
   window.addEventListener('afterprint',done);
   setTimeout(()=>{ window.print(); }, 60);
 }
+
+// ══════════ 貼り付けたJSONから読込（テスト用シナリオ等） ══════════
+function openPasteJSON(){ document.getElementById('paste-ta').value=''; document.getElementById('paste-status').textContent='';
+  document.getElementById('paste-modal').classList.add('on'); setTimeout(()=>document.getElementById('paste-ta').focus(),50); }
+function loadPastedJSON(){ const st=document.getElementById('paste-status'); const err=t=>{ st.textContent='❌ '+t; st.style.color='#dc2626'; };
+  let d; try{ d=JSON.parse(document.getElementById('paste-ta').value.trim()); }catch(e){ err('JSONとして読めません：'+e.message); return; }
+  if(!d||typeof d!=='object'||!Array.isArray(d.steps)||!d.steps.length){ err('steps（ステップ一覧）がありません'); return; }
+  if(!d.id) d.id=genId(d.name||'bc');
+  closeModal('paste-modal'); ED.status=''; loadScenario(d,'','',p=>''); }
 
 // ══════════ GitHubから既存シナリオを読込 ══════════
 async function openRemotePicker(){
