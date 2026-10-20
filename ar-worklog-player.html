@@ -88,7 +88,7 @@
   #finmodal .fm-box { background:#fff; border-radius:16px; padding:20px 18px 16px; width:100%; max-width:360px; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,.35); }
   #finmodal .fm-icon { font-size:34px; line-height:1; }
   #finmodal .fm-head { font-size:16px; font-weight:800; color:#15803d; margin-top:8px; }
-  #finmodal .fm-name { font-size:12px; color:#64748b; margin:4px 0 14px; }
+  #finmodal .fm-name { font-size:12px; color:#64748b; margin:4px 0 14px; white-space:pre-line; }
   #finmodal .fm-btn { display:block; width:100%; padding:13px; border-radius:12px; font-size:14px; font-weight:800; cursor:pointer; margin-top:8px; }
   #finmodal .fm-resume { border:2px solid #15803d; background:#f0fdf4; color:#15803d; }
   #finmodal .fm-home { border:none; background:#1d4ed8; color:#fff; }
@@ -153,7 +153,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.18</div>
+    <div id="ver">Worklog v4.19</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -682,6 +682,8 @@ let curKey=null, idx=0, cur=null, curMid=null;
 let checkedSteps=new Set();
 // ── 分岐（区間・選択肢・合流）：cur.flow があれば区間単位で進む。trail＝通ってきた区間の順番（形式は BRANCH_SPEC.md） ──
 let trail=[], _pendingChoice=null;
+// 終了の指示（終わり方に名前があるとき、ステップのカードに出して確認してから終了）。_pendingUndo/_choiceCtx＝「戻る」で直前の操作へ戻すための状態
+let _endCard=null, _choiceCtx=null, _pendingUndo=null;
 function hasFlow(){ return !!(cur&&cur.flow); }
 function secOf(k){ return cur&&cur.flow ? cur.flow.by.get(k) : null; }
 function secLabel(k){ return (secOf(k)||{}).label||k; }
@@ -689,11 +691,11 @@ function secIdxs(sc,k){ const a=[]; (sc.steps||[]).forEach((s,i)=>{ if(s.sec===k
 function firstStepIdx(sc){ if(!sc||!sc.flow) return 0; const a=secIdxs(sc,sc.flow.start); return a.length?a[0]:0; }
 // 区間kを終えた後の行き先。ステップの無い区間は通り抜ける（via＝通り抜けた区間）
 function resolveNext(k,guard){ guard=guard||0; const s=secOf(k), nx=(s&&s.next)||{type:'end'};
-  if(nx.type==='goto'){ if(!secOf(nx.to)) return {type:'end',label:'',via:[]};
+  if(nx.type==='goto'){ if(!secOf(nx.to)) return {type:'end',label:'',tone:'',via:[]};
     if(!secIdxs(cur,nx.to).length && guard<20){ const r=resolveNext(nx.to,guard+1); r.via=[nx.to,...r.via]; return r; }
     return {type:'goto',to:nx.to,via:[]}; }
   if(nx.type==='choice') return {type:'choice',sec:k,via:[]};
-  return {type:'end',label:nx.label||'',via:[]}; }
+  return {type:'end',label:nx.label||'',tone:nx.tone||'',via:[]}; }
 // 表示用のステップ番号（通ってきた順の通し番号）
 function stepNo(){ if(!hasFlow()) return idx+1; let n=0; trail.slice(0,-1).forEach(k=>{ n+=secIdxs(cur,k).length; });
   return n+secIdxs(cur,cur.steps[idx].sec).indexOf(idx)+1; }
@@ -703,33 +705,42 @@ function minAfter(k,seen){ const s=secOf(k), nx=(s&&s.next)||{type:'end'};
   const v=tg.map(t=>minFrom(t,new Set(seen))).filter(x=>isFinite(x)); return v.length?Math.min(...v):0; }
 function minFrom(k,seen){ if(!secOf(k)||seen.has(k)) return Infinity; seen.add(k); return secIdxs(cur,k).length+minAfter(k,seen); }
 // 進み具合：「A1 ✓ → B 2/4 → A3 → ■終了」
-function trailText(){ const k=cur.steps[idx].sec, ids=secIdxs(cur,k), pos=ids.indexOf(idx);
+function trailText(){
+  if(_endCard){ let past=trail.filter(x=>secIdxs(cur,x).length).map(x=>secLabel(x)+' ✓'); if(past.length>3) past=['…',...past.slice(-3)]; return [...past,'■ '+_endCard.label].join(' → '); }
+  const k=cur.steps[idx].sec, ids=secIdxs(cur,k), pos=ids.indexOf(idx);
   let past=trail.slice(0,-1).map(x=>secLabel(x)+' ✓'); if(past.length>2) past=['…',...past.slice(-2)];
   const parts=[...past, `${secLabel(k)} ${pos+1}/${ids.length}`];
   let r=resolveNext(k), g=0;
   while(g++<4){ if(r.type==='goto'){ parts.push(secLabel(r.to)); r=resolveNext(r.to); } else { parts.push(r.type==='choice'?'◆分岐':('■'+(r.label||'終了'))); break; } }
   return parts.join(' → '); }
-function canPrev(){ if(!hasFlow()) return idx>0; const ids=secIdxs(cur,cur.steps[idx].sec); if(ids.indexOf(idx)>0) return true;
+function canPrev(){ if(_endCard) return true; if(!hasFlow()) return idx>0; const ids=secIdxs(cur,cur.steps[idx].sec); if(ids.indexOf(idx)>0) return true;
   return trail.slice(0,-1).some(k=>secIdxs(cur,k).length>0); }
-function flowPrev(){ const k=cur.steps[idx].sec, ids=secIdxs(cur,k), pos=ids.indexOf(idx);
+function flowPrev(){ if(_endCard){ backFromEnd(); return; }
+  const k=cur.steps[idx].sec, ids=secIdxs(cur,k), pos=ids.indexOf(idx);
   if(pos>0){ idx=ids[pos-1]; renderStep(); return; }
   const t=trail.slice(0,-1); while(t.length && !secIdxs(cur,t[t.length-1]).length) t.pop();   // 経路をさかのぼる
   if(!t.length) return; trail=t; const p=secIdxs(cur,t[t.length-1]); idx=p[p.length-1]; renderStep(); }
 function flowNext(){ const k=cur.steps[idx].sec, ids=secIdxs(cur,k), pos=ids.indexOf(idx);
   if(pos<ids.length-1){ idx=ids[pos+1]; renderStep(); return; }
   const r=resolveNext(k);
-  if(r.type==='goto'){ trail.push(...r.via); enterSection(r.to); }
+  if(r.type==='goto'){ _pendingUndo={ trailLen:trail.length, reopen:null }; trail.push(...r.via); enterSection(r.to); }
   else if(r.type==='choice') showChoice(r);
+  else if(r.label) showEndCard(r,{ trailLen:trail.length, reopen:null });
   else finishScenario(); }
 function enterSection(t){ trail.push(t);
   const ids=secIdxs(cur,t);
   if(trail.filter(x=>x===t).length>1) ids.forEach(i=>checkedSteps.delete(i));   // やり直し：もう一度確認させる
-  if(ids.length){ idx=ids[0]; renderStep(); return; }
+  if(ids.length){ _pendingUndo=null; idx=ids[0]; renderStep(); return; }
   const r=resolveNext(t);   // ステップの無い区間（すぐに選択 等）
   if(r.type==='goto'){ trail.push(...r.via); enterSection(r.to); }
   else if(r.type==='choice'){ r.undo=true; showChoice(r); }
-  else { trail.push(...r.via); finishScenario(); } }
-function showChoice(r){ const s=secOf(r.sec); if(!s||!s.next||s.next.type!=='choice') return; _pendingChoice=r;
+  else { const u=_pendingUndo||{ trailLen:trail.length-1, reopen:null }; trail.push(...r.via); if(r.label) showEndCard(r,u); else finishScenario(); } }
+// 終了の指示をカードに表示（戻ると直前のステップ、または選択画面へ）
+function showEndCard(r,undo){ _pendingUndo=null; _endCard={ label:r.label, tone:r.tone||'', undo, acked:false, sec:trail[trail.length-1] }; renderStep(); }
+function backFromEnd(){ const e=_endCard; if(!e) return; _endCard=null;
+  if(trail.length>e.undo.trailLen) trail.length=e.undo.trailLen;
+  renderStep(); if(e.undo.reopen) showChoice(e.undo.reopen); }
+function showChoice(r){ const s=secOf(r.sec); if(!s||!s.next||s.next.type!=='choice') return; _pendingChoice=r; _choiceCtx={ r, trailLen:trail.length };
   document.getElementById('cm-from').textContent='分岐：'+(s.label||'');
   document.getElementById('cm-q').textContent=s.next.prompt||'次に行う作業を選んでください';
   const box=document.getElementById('cm-list'); box.innerHTML='';
@@ -741,6 +752,7 @@ function showChoice(r){ const s=secOf(r.sec); if(!s||!s.next||s.next.type!=='cho
 function chooseOption(i){ const r=_pendingChoice; if(!r||!cur) return; const s=secOf(r.sec); const o=s&&s.next.options[i];
   if(!o||!secOf(o.to)){ toast('この選択肢の行き先が設定されていません'); return; }
   _pendingChoice=null; document.getElementById('choicemodal').style.display='none';
+  _pendingUndo={ trailLen:(_choiceCtx&&_choiceCtx.r===r)?_choiceCtx.trailLen:trail.length, reopen:r };   // 終了の指示から「戻る」で、この選択画面に戻せるように
   if(!r.undo) trail.push(...r.via);
   logEvent('branch',{fromSec:r.sec, fromLabel:s.label||'', choice:o.label||'', toSec:o.to, toLabel:secLabel(o.to)});
   enterSection(o.to); }
@@ -789,21 +801,22 @@ function applyCal(){ if(!cur) return; const f=curFace(); const c=f.calib;
   const g=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
   g('cal-target', cur.name+(isMultiFace()?(' ／ '+(f.label||'')):'')); g('cal-s',c.scale.toFixed(2)); g('cal-x',c.ox.toFixed(2)); g('cal-y',c.oy.toFixed(2)); g('cal-r',c.rot);
 }
-function renderStep(){ const sc=cur; if(!sc) return; const step=sc.steps[idx]; const w=WARN[step.warn]||WARN.normal; const col=w.c;
+function renderStep(){ const sc=cur; if(!sc) return; if(_endCard){ renderEndCard(); return; }
+  const step=sc.steps[idx]; const w=WARN[step.warn]||WARN.normal; const col=w.c;
   document.getElementById('stitle').textContent=(w.sym?w.sym+' ':'')+step.title;
   document.getElementById('sdetail').textContent=(w.sym?w.sym+' ':'')+(step.detail||'');
   const b=document.getElementById('badge'); b.textContent=`STEP ${stepNo()}`; b.style.background=col;
   document.getElementById('btn-next').style.background=col;
   let isLast, nextLbl='次へ ›';
   if(hasFlow()){ const ids=secIdxs(sc,step.sec), secLast=ids.indexOf(idx)===ids.length-1, r=resolveNext(step.sec);
-    isLast = secLast && r.type==='end';
-    if(secLast && r.type==='choice') nextLbl='分岐を選ぶ ›'; else if(secLast && r.type==='goto') nextLbl='次の区間へ ›';
+    isLast = secLast && r.type==='end' && !r.label;   // 名前のある終わり方は「終了の指示」のカードへ進む
+    if(secLast && r.type==='choice') nextLbl='分岐を選ぶ ›'; else if(secLast && r.type==='goto') nextLbl='次の区間へ ›'; else if(secLast && r.type==='end') nextLbl='終了の指示へ ›';
     document.getElementById('counter').textContent=trailText(); }
   else { isLast = idx>=sc.steps.length-1; document.getElementById('counter').textContent=`${idx+1} / ${sc.steps.length}`; }
   document.getElementById('btn-prev').style.visibility=canPrev()?'visible':'hidden';
   document.getElementById('btn-next').textContent=nextLbl;
   document.getElementById('btn-next').style.display=isLast?'none':'';
-  document.getElementById('btn-finish').style.display=isLast?'':'none';
+  document.getElementById('btn-finish').style.display=isLast?'':'none'; document.getElementById('btn-finish').style.background='';
   // ① チェック確認：確認済みでないと次へ／終了に進めない
   const checked=checkedSteps.has(idx);
   const bc=document.getElementById('btn-check');
@@ -820,8 +833,24 @@ function renderStep(){ const sc=cur; if(!sc) return; const step=sc.steps[idx]; c
   updatePhotoBtn();                  // このステップの参考写真ボタンの表示と、開いていれば内容を更新
   applyOrientFix();                  // 向き別の表示位置補正（面のマーカー寸法で換算）
 }
+// 終了の指示：ステップと同じカードに、終わり方の色（通常／注意／危険）で表示。確認してから「終了」
+function renderEndCard(){ const e=_endCard, w=e.tone==='danger'?WARN.danger:e.tone==='warn'?WARN.caution:WARN.normal, col=w.c;
+  document.getElementById('stitle').textContent=(w.sym?w.sym+' ':'')+e.label;
+  document.getElementById('sdetail').textContent='この指示を確認してから、作業を終了します。';
+  const b=document.getElementById('badge'); b.textContent='終了'; b.style.background=col;
+  document.getElementById('counter').textContent=trailText();
+  document.getElementById('btn-prev').style.visibility='visible';
+  document.getElementById('btn-next').style.display='none';
+  const bf=document.getElementById('btn-finish'); bf.style.display=''; bf.disabled=!e.acked; bf.style.background=col;
+  const bc=document.getElementById('btn-check'); bc.disabled=false;
+  bc.textContent=e.acked?'✓ 確認済み':'☑ この指示を確認しました'; bc.classList.toggle('checked', e.acked);
+  while(content.firstChild) content.removeChild(content.firstChild);   // 前のステップの図形は消す
+  const face=curFace(); applyCal(); followMarker('m'+face.barcode); updateWanted(); updatePhotoBtn(); applyOrientFix(); }
 document.getElementById('btn-check').onclick=()=>{
   if(!cur) return;
+  if(_endCard){ if(!_endCard.acked){ _endCard.acked=true;   // 終了の指示を確認した時刻を記録
+      logEvent('endAck',{ endLabel:_endCard.label, endTone:_endCard.tone, sec:_endCard.sec, secLabel:secLabel(_endCard.sec), path:trail.map(secLabel).join(' → ') }); }
+    renderStep(); return; }
   // 認識ゲート：未認識では「済」にできない（ボタンも無効化しているが、安全のため二重チェック）
   if(CHECK_GATE && !checkedSteps.has(idx) && !_visible.has(String(curFace().barcode))){ toast('バーコードを認識してから確認してください'); return; }
   if(!checkedSteps.has(idx)){ checkedSteps.add(idx);
@@ -833,7 +862,7 @@ function followMarker(markerId){ if(curMid===markerId) return; curMid=markerId;
   anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: ${FOLLOW_MC}; beta: ${FOLLOW_BETA}`); }
 function setScenario(scenario,key,markerId){ if(cur===scenario) return;
   if(scenario.tooNew){ toast('このシナリオは新しい版のアプリが必要です。プレイヤーを更新してください'); return; }
-  curKey=key; cur=scenario; idx=firstStepIdx(scenario); trail=scenario.flow?[scenario.flow.start]:[]; hideChoice();
+  curKey=key; cur=scenario; idx=firstStepIdx(scenario); trail=scenario.flow?[scenario.flow.start]:[]; hideChoice(); _endCard=null; _pendingUndo=null;
   checkedSteps=new Set(); sessionId=newSessionId();
   document.getElementById('scname').textContent=scenario.name;
   document.getElementById('scsub').textContent=scenario.subtitle||'';
@@ -975,7 +1004,7 @@ async function renderPdfWith(pdfjsLib, url, container){
 function closeDoc(){ document.getElementById('doc-viewer-body').innerHTML=''; document.getElementById('doc-viewer').style.display='none'; }
 
 // ══════ ステップ参考写真フロート表示（端末保存済みならblobで表示＝オフライン可） ══════
-function stepPhoto(){ return (cur&&cur.steps&&cur.steps[idx])?cur.steps[idx].photo:null; }
+function stepPhoto(){ if(_endCard) return null; return (cur&&cur.steps&&cur.steps[idx])?cur.steps[idx].photo:null; }
 function updatePhotoBtn(){
   const btn=document.getElementById('btn-photo'); if(!btn) return;
   const p=stepPhoto();
@@ -1035,13 +1064,13 @@ function showPicker(key,markerId){
 function hidePicker(){ document.getElementById('scenpick').style.display='none'; }
 document.getElementById('btn-menu').onclick=()=>{ if(curKey) showPicker(curKey, curMid); };
 function finishScenario(){
-  let endLabel='';
-  if(hasFlow()){ const r=resolveNext(trail[trail.length-1]); endLabel=r.label||'';
-    logEvent('finish',{checked:checkedSteps.size, path:[...trail,...(r.via||[])].map(secLabel).join(' → '), endLabel}); }
+  let endLabel='', endTone='';
+  if(hasFlow()){ const r=_endCard?{label:_endCard.label,tone:_endCard.tone,via:[]}:resolveNext(trail[trail.length-1]); endLabel=r.label||''; endTone=r.tone||'';
+    logEvent('finish',{checked:checkedSteps.size, path:[...trail,...(r.via||[])].map(secLabel).join(' → '), endLabel, endTone}); }
   else logEvent('finish',{checked:checkedSteps.size, totalSteps:(cur&&cur.steps.length)||0});
   hideChoice(); closeDoc(); closePhoto(); const key=curKey, mid=curMid, finName=(cur&&cur.name)||'';
-  _finSnap={ sc:cur, idx, checked:new Set(checkedSteps), key, mid, sessionId, trail:trail.slice() };   // 「元の作業に戻る」用に退避
-  cur=null; idx=0; trail=[]; checkedSteps=new Set();
+  _finSnap={ sc:cur, idx, checked:new Set(checkedSteps), key, mid, sessionId, trail:trail.slice(), endCard:_endCard?{..._endCard}:null };   // 「元の作業に戻る」用に退避
+  cur=null; idx=0; trail=[]; _endCard=null; checkedSteps=new Set();
   content.setAttribute('visible', false);
   _lockOrient=null; _updateOrientLock();   // 作業終了で向きロック解除
   showFinish(key, mid, finName, endLabel);
@@ -1052,11 +1081,11 @@ const HOME_REARM_MS=1500;
 const _homeSup=new Map();   // key → 見えなくなった時刻（0＝まだ見えている）
 let _finOpen=false;
 function showFinish(key, mid, name, endLabel){
-  const fe=document.getElementById('fm-end'); fe.textContent=endLabel?('⚠ '+endLabel):''; fe.style.display=endLabel?'block':'none';
-  document.getElementById('fm-icon').textContent=endLabel?'⚠️':'✅';
+  // 記録と画面移動のダイアログ。終わり方の指示はカードで確認済みなので、ここでは小さく添えるだけ
+  document.getElementById('fm-end').style.display='none'; document.getElementById('fm-icon').textContent='✅';
   _finOpen=true; curKey=null; stxt.textContent='作業終了'; dot.classList.remove('on'); setFrameRecognized(false);
   _visible.forEach(k=>_homeSup.set(k,0));
-  document.getElementById('fm-name').textContent=name||'';
+  document.getElementById('fm-name').textContent=(name||'')+(endLabel?`\n終了：${endLabel}`:'');
   const again=document.getElementById('fm-again'); const list=entryScenarios(key);
   if(list.length>1){ again.textContent='≡ 続けて別の操作を選ぶ'; again.style.display=''; again.onclick=()=>{ hideFinish(); curKey=key; showPicker(key,mid); }; }
   else if(list.length===1){ again.textContent='↻ もう一度最初から'; again.style.display=''; again.onclick=()=>{ hideFinish(); _homeSup.clear(); setScenario(list[0],key,mid); }; }
@@ -1069,7 +1098,7 @@ let _finSnap=null;
 function resumeFinished(){
   const sn=_finSnap; if(!sn||!sn.sc){ resetToIdle(); return; }
   hideFinish(); _homeSup.clear();
-  cur=sn.sc; idx=sn.idx; trail=(sn.trail||[]).slice(); checkedSteps=new Set(sn.checked); curKey=sn.key; sessionId=sn.sessionId;
+  cur=sn.sc; idx=sn.idx; trail=(sn.trail||[]).slice(); _endCard=sn.endCard?{...sn.endCard}:null; checkedSteps=new Set(sn.checked); curKey=sn.key; sessionId=sn.sessionId;
   document.getElementById('scname').textContent=cur.name;
   document.getElementById('scsub').textContent=cur.subtitle||'';
   renderStep(); updateDocButtons();
@@ -1089,7 +1118,7 @@ function resetToIdle(){
   _finSnap=null;
   closeDoc(); closePhoto(); hidePicker(); hideFinish();
   clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
-  hideChoice(); cur=null; idx=0; trail=[]; checkedSteps=new Set(); curKey=null;
+  hideChoice(); cur=null; idx=0; trail=[]; _endCard=null; _pendingUndo=null; checkedSteps=new Set(); curKey=null;
   content.setAttribute('visible', false); while(content.firstChild) content.removeChild(content.firstChild);
   _lockOrient=null; _updateOrientLock();
   _visible.forEach(k=>_homeSup.set(k,0));   // 今写っているバーコードでは即再開しない
@@ -1121,6 +1150,7 @@ let lostTimer=null;
 // 確認ゲート：バーコード認識中だけ「このステップを確認しました」を押せる（現場不在での一括“済”化を防止）。?checkgate=off で解除。
 const CHECK_GATE = (new URLSearchParams(location.search).get('checkgate')!=='off');
 function updateCheckGate(vis){ const bc=document.getElementById('btn-check'); if(!bc) return;
+  if(_endCard){ bc.disabled=false; bc.textContent=_endCard.acked?'✓ 確認済み':'☑ この指示を確認しました'; return; }
   if(!cur){ bc.disabled=true; return; }
   if(checkedSteps.has(idx)){ bc.disabled=false; bc.textContent='✓ 確認済み'; }
   else if(CHECK_GATE){ bc.disabled=!vis; bc.textContent = vis ? '☑ このステップを確認しました' : '🔒 バーコード認識中のみ確認できます'; }
@@ -1376,10 +1406,10 @@ function fmtTs(ts){ const d=new Date(ts); return `${d.getFullYear()}-${pad2(d.ge
 function logsToCsv(logs){
   const cols=['日時','セッション','バーコード','機器','操作','イベント','ステップ番号','ステップ名','総ステップ','区間','選択','経路'];
   const esc=v=>{ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
-  const rows=logs.slice().sort((a,b)=>a.ts-b.ts).map(l=>[fmtTs(l.ts), l.sessionId, l.barcode||'', l.device||'', l.scenarioName||'', l.event, l.step||'', l.stepTitle||'', l.totalSteps||'',
+  const rows=logs.slice().sort((a,b)=>a.ts-b.ts).map(l=>[fmtTs(l.ts), l.sessionId, l.barcode||'', l.device||'', l.scenarioName||'', l.event, l.step||'', (l.event==='endAck'?('終了の指示：'+(l.endLabel||'')):(l.stepTitle||'')), l.totalSteps||'',
     l.event==='branch' ? (l.fromLabel||'') : (l.secLabel ? l.secLabel+((l.pass||1)>1?`（${l.pass}回目）`:'') : ''),
     l.event==='branch' ? `${l.choice||''} → ${l.toLabel||''}` : '',
-    l.path ? l.path+(l.endLabel?`（${l.endLabel}）`:'') : ''].map(esc).join(','));
+    l.path ? l.path+((l.endLabel&&!String(l.path).endsWith(l.endLabel))?`（${l.endLabel}）`:'') : ''].map(esc).join(','));
   return '﻿'+cols.join(',')+'\n'+rows.join('\n');
 }
 async function openLog(){
@@ -1405,6 +1435,14 @@ document.getElementById('lm-close').onclick=()=>{ document.getElementById('logmo
 function openProg(){
   const list=document.getElementById('pg-list'), sum=document.getElementById('pg-sum'), bar=document.querySelector('#pg-bar > i');
   if(!cur){ sum.textContent='シナリオを開始すると、ここに各ステップの未・済が表示されます'; bar.style.width='0%'; list.innerHTML=''; }
+  else if(hasFlow() && _endCard){
+    const e=_endCard; let done=0, h='';
+    trail.forEach(t=>{ const sids=secIdxs(cur,t); if(!sids.length) return; done+=sids.length;
+      h+=`<div class="pg-sec">✓ ${escHtml(secLabel(t))}</div>`+sids.map((i,n)=>`<div class="pg-row past"><span class="pg-num">${n+1}</span><span class="pg-title">${escHtml(cur.steps[i].title||'')}</span><span class="pg-badge done">済</span></div>`).join(''); });
+    h+=`<div class="pg-sec">▶ ■ ${escHtml(e.label)}</div><div class="pg-row cur"><span class="pg-num">!</span><span class="pg-title">終了の指示を確認</span><span class="pg-badge ${e.acked?'done':'todo'}">${e.acked?'済':'未'}</span></div>`;
+    sum.textContent=`${cur.name}　確認済み ${done} ステップ／${e.acked?'終了の指示も確認済み':'あと：終了の指示の確認'}`;
+    bar.style.width=(e.acked?100:Math.round(done/(done+1)*100))+'%'; list.innerHTML=h;
+  }
   else if(hasFlow()){
     // 分岐あり：通ってきた区間ごとに表示。今の区間だけ押して移動できる。この先の決まっている区間も表示
     const k=cur.steps[idx].sec, ids=secIdxs(cur,k);

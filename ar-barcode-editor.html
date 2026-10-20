@@ -631,7 +631,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.28';
+const APP_VERSION = 'v4.29';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1280,6 +1280,7 @@ function flSet(k,field,val){ const s=secByKey(k); if(!s) return; s.next=s.next||
   if(field==='to'){ s.next.to=val; afterFlowChange(false); return; }
   if(field==='prompt'){ s.next.prompt=val; renderFlowView(); return; }
   if(field==='endLabel'){ s.next.label=val; renderFlowView(); return; }
+  if(field==='endTone'){ if(val) s.next.tone=val; else delete s.next.tone; afterFlowChange(false); return; }
 }
 function flOpt(k,i,field,val){ const s=secByKey(k); const o=s&&s.next&&s.next.options&&s.next.options[i]; if(!o) return;
   if(val===''&&(field==='tone'||field==='note')) delete o[field]; else o[field]=val;
@@ -1306,11 +1307,11 @@ function renderSecBar(){ const bar=document.getElementById('secbar'); if(!bar) r
 function flowAnalyze(F, steps){
   const secs=F.sections, by=new Map(secs.map(s=>[s.key,s]));
   const cntMap=new Map(); steps.forEach(s=>cntMap.set(s.sec,(cntMap.get(s.sec)||0)+1)); const cnt=k=>cntMap.get(k)||0;
-  const edges=[], ends=new Map();
+  const edges=[], ends=new Map(), endTone=new Map();
   secs.forEach(s=>{ const nx=s.next||{type:'end'};
     if(nx.type==='goto') edges.push({from:s.key,to:nx.to||'',kind:'goto',label:''});
     else if(nx.type==='choice') (nx.options||[]).forEach((o,oi)=>edges.push({from:s.key,to:o.to||'',kind:'choice',label:o.label||'',tone:o.tone||'',oi}));
-    else { const lb=(nx.label||'').trim()||'終了'; const ek='END:'+lb; ends.set(ek,lb); edges.push({from:s.key,to:ek,kind:'end',label:''}); } });
+    else { const lb=(nx.label||'').trim()||'終了', tn=nx.tone||''; const ek='END:'+lb+'|'+tn; ends.set(ek,lb); endTone.set(ek,tn); edges.push({from:s.key,to:ek,kind:'end',label:''}); } });
   const valid=edges.filter(e=>by.has(e.to)||ends.has(e.to));
   const out=k=>valid.filter(e=>e.from===k);
   const reach=new Set(), st=[F.start];
@@ -1343,7 +1344,7 @@ function flowAnalyze(F, steps){
   if(secs.length>20) warns.push('区間が20個を超えています');
   const lbls=secs.map(s=>(s.label||'').trim()); if(new Set(lbls).size!==lbls.length) warns.push('同じ名前の区間があります');
   const indeg=new Map(); valid.forEach(e=>{ if(!back.has(e)) indeg.set(e.to,(indeg.get(e.to)||0)+1); });
-  return { by, edges:valid, ends, reach, back, errors:[...new Set(errors)], warns, bad, routes, cnt, indeg };
+  return { by, edges:valid, ends, endTone, reach, back, errors:[...new Set(errors)], warns, bad, routes, cnt, indeg };
 }
 function flowCheck(){ return ED.flow ? flowAnalyze(ED.flow, ED.steps) : { errors:[], warns:[], bad:new Set(), routes:[] }; }
 function routeText(A,r){ return r.path.map(k=>A.by.get(k).label||k).join(' → ')+' → '+r.end; }
@@ -1418,8 +1419,9 @@ function flowSVG(A, F, opt){
     g+=`<g${dim(on)}><path d="M${sx} ${sy} H${lx} V${ty} H${b.x+W/2+3}" fill="none" stroke="#d97706" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#fad97706)"/>`
       +`<text x="${lx+5}" y="${(sy+ty)/2}" font-size="11" font-weight="700" fill="#b45309" stroke="#f8fafc" stroke-width="4" paint-order="stroke">↩ ${escHtml(tr(e.label||'戻る',8))}</text></g>`; });
   nodes.forEach(k=>{ const p=pos.get(k); const on=onN.has(k);
-    if(isEnd(k)){ const w=120; g+=`<g${dim(on)}><rect x="${p.x-w/2}" y="${p.y}" width="${w}" height="32" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1"/>`
-      +`<text x="${p.x}" y="${p.y+20}" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">■ ${escHtml(tr(A.ends.get(k),9))}</text></g>`; return; }
+    if(isEnd(k)){ const w=120, tn=(A.endTone&&A.endTone.get(k))||'', cf=tn==='danger'?['#fef2f2','#dc2626','#991b1b']:tn==='warn'?['#fffbeb','#d97706','#92400e']:['#f1f5f9','#64748b','#334155'];
+      g+=`<g${dim(on)}><rect x="${p.x-w/2}" y="${p.y}" width="${w}" height="32" rx="16" fill="${cf[0]}" stroke="${cf[1]}" stroke-width="${tn?1.6:1}"/>`
+      +`<text x="${p.x}" y="${p.y+20}" text-anchor="middle" font-size="12" font-weight="700" fill="${cf[2]}">■ ${escHtml(tr(A.ends.get(k),9))}</text></g>`; return; }
     const s=A.by.get(k), nx=s.next||{}, isC=nx.type==='choice', h=nh(k), bad=A.bad.has(k), isCur=k===opt.cur;
     const fill=bad?'#fef2f2':s.branch?'#f0fdfa':'#ffffff', stroke=bad?'#dc2626':isCur?'#1d4ed8':s.branch?'#0d9488':'#64748b';
     const merge=(A.indeg.get(k)||0)>=2;
@@ -1461,7 +1463,8 @@ function flowSecHtml(s,i,A){
   const sel=t=>nx.type===t?' selected':'';
   let b=`<div class="row">終わったら <select onchange="flSet('${k}','type',this.value)"><option value="goto"${sel('goto')}>次の区間へ進む</option><option value="choice"${sel('choice')}>選択肢で分ける</option><option value="end"${sel('end')}>作業終了</option></select>`;
   if(nx.type==='goto') b+=` → <select onchange="flSet('${k}','to',this.value)">${opts(nx.to,true)}</select>`;
-  if(nx.type==='end') b+=` <input class="wide" placeholder="終了の名前（任意）例：作業中止・指令へ連絡" value="${escAttr(nx.label||'')}" oninput="flSet('${k}','endLabel',this.value)">`;
+  if(nx.type==='end') b+=` <input class="wide" placeholder="終了の名前（任意）例：作業中止・指令へ連絡" value="${escAttr(nx.label||'')}" oninput="flSet('${k}','endLabel',this.value)">`
+    +` <select title="終わり方の色（プレイヤーの終了の指示）" onchange="flSet('${k}','endTone',this.value)"><option value=""${!nx.tone?' selected':''}>通常</option><option value="warn"${nx.tone==='warn'?' selected':''}>注意</option><option value="danger"${nx.tone==='danger'?' selected':''}>危険</option></select>`;
   b+='</div>';
   if(nx.type==='choice'){
     b+=`<div class="row"><input class="wide" placeholder="質問文　例：異常はありましたか？" value="${escAttr(nx.prompt||'')}" oninput="flSet('${k}','prompt',this.value)"></div>`;
@@ -1504,7 +1507,7 @@ function cleanFlow(){ const F=ED.flow; flowFix();
   return { start:F.sections[0].key, sections:F.sections.map(s=>{ const nx=s.next||{type:'end'}; let n;
     if(nx.type==='goto') n={type:'goto', to:nx.to||''};
     else if(nx.type==='choice') n={type:'choice', prompt:nx.prompt||'', options:(nx.options||[]).map(o=>({ label:o.label||'', to:o.to||'', ...(o.tone?{tone:o.tone}:{}), ...(o.note?{note:o.note}:{}) }))};
-    else n={type:'end', ...((nx.label||'').trim()?{label:nx.label.trim()}:{})};
+    else n={type:'end', ...((nx.label||'').trim()?{label:nx.label.trim()}:{}), ...(nx.tone?{tone:nx.tone}:{})};
     return { key:s.key, label:s.label||'', ...(s.branch?{branch:true}:{}), next:n }; }) }; }
 
 // ══════════ 🧩 かんたん作成（いつもの手順を書いて、分かれ目を足していく） ══════════
@@ -1517,7 +1520,7 @@ const EB=(()=>{
   let S={ items:[], sel:null }, dirty=false;
   const uid=()=>'b'+Math.random().toString(36).slice(2,9);
   const mkStep=t=>({ type:'step', id:uid(), title:t||'', detail:'', warn:'normal' });
-  const mkAns=(l,tone)=>({ id:uid(), label:l||'', tone:tone||'', items:[], then:'next', target:'', endLabel:'' });
+  const mkAns=(l,tone)=>({ id:uid(), label:l||'', tone:tone||'', items:[], then:'next', target:'', endLabel:'', endTone:'' });
   const $=id=>document.getElementById(id);
   function toastE(t){ const el=$('eb-toast'); el.textContent=t; el.style.opacity=1; clearTimeout(el._t); el._t=setTimeout(()=>el.style.opacity=0,2600); }
   function findLoc(id, arr, depth, top, ans){ arr=arr||S.items; depth=depth||0;
@@ -1598,7 +1601,7 @@ const EB=(()=>{
             ${jl.length?`<option value="jump"${a.then==='jump'?' selected':''}>後の手順へ飛ぶ</option>`:''}
             ${bl.length?`<option value="back"${a.then==='back'?' selected':''}>前の手順に戻る（やり直し）</option>`:''}
             <option value="end"${a.then==='end'?' selected':''}>作業終了</option></select>
-          ${tsel}${a.then==='end'?`<input data-ans="${a.id}" data-k="endLabel" value="${escAttr(a.endLabel)}" placeholder="終了の名前（任意）例：作業中止・指令へ連絡">`:''}</div>
+          ${tsel}${a.then==='end'?`<input data-ans="${a.id}" data-k="endLabel" value="${escAttr(a.endLabel)}" placeholder="終了の名前（任意）例：作業中止・指令へ連絡"><select title="終わり方の色（プレイヤーの終了の指示）" data-ans="${a.id}" data-k="endTone"><option value=""${!a.endTone?' selected':''}>通常</option><option value="warn"${a.endTone==='warn'?' selected':''}>注意</option><option value="danger"${a.endTone==='danger'?' selected':''}>危険</option></select>`:''}</div>
       </div>`; }).join('');
     return `<div class="ecard branch${sel?' sel':''}${ctx.depth?' nested':''}" id="eb-it-${b.id}" data-id="${b.id}">
       <div class="bh">🔀 分かれ目${ctx.depth?'（2段目）':''}<span class="sp"></span><button class="ab sm del" data-act="del">分かれ目を削除</button></div>
@@ -1657,7 +1660,7 @@ const EB=(()=>{
   // ── よく使う分かれ方 ──
   const TPLS=[
     { name:'確認して、異常なら対応して戻ってくる', desc:'異常なし → そのまま次へ／異常あり → 対応の手順 → 次の手順で合流', make:()=>{ const a=mkAns('異常なし'), b=mkAns('異常あり','warn'); b.items=[mkStep('異常箇所を記録する'),mkStep('応急処置をする')]; return { q:'異常はありましたか？', answers:[a,b] }; } },
-    { name:'続けられなければ中止する', desc:'続けられる → そのまま次へ／続けられない → 指令へ連絡 → 作業終了（作業中止）', make:()=>{ const a=mkAns('続けられる'), b=mkAns('続けられない','danger'); b.items=[mkStep('指令へ連絡する')]; b.then='end'; b.endLabel='作業中止・指令へ連絡'; return { q:'作業を続けられますか？', answers:[a,b] }; } },
+    { name:'続けられなければ中止する', desc:'続けられる → そのまま次へ／続けられない → 指令へ連絡 → 作業終了（作業中止）', make:()=>{ const a=mkAns('続けられる'), b=mkAns('続けられない','danger'); b.items=[mkStep('指令へ連絡する')]; b.then='end'; b.endLabel='作業中止・指令へ連絡'; b.endTone='danger'; return { q:'作業を続けられますか？', answers:[a,b] }; } },
     { name:'基準外なら調整してやり直す', desc:'基準内 → そのまま次へ／基準外 → 調整の手順 → この確認の手順に戻ってやり直し', make:loc=>{ const a=mkAns('基準内'), b=mkAns('基準外','warn'); b.items=[mkStep('調整する')]; b.then='back';
         const prev=loc.depth===0?S.items[loc.i]:null; b.target=(prev&&prev.type==='step')?prev.id:''; return { q:'測定値は基準内ですか？', answers:[a,b] }; } },
     { name:'自分で作る（空の分かれ目）', desc:'質問と答えを自由に書きます', make:()=>({ q:'', answers:[mkAns(''),mkAns('')] }) },
@@ -1671,10 +1674,10 @@ const EB=(()=>{
     const s1=mkStep('外観を確認する'), s2=mkStep('表示ランプを確認する'), s3=mkStep('通常の操作をする'), s4=mkStep('後片付けをする'), s5=mkStep('終了報告をする');
     s2.warn='caution'; s2.detail='運転ランプが緑で点灯していること';
     const a=mkAns('異常なし'), b=mkAns('異常あり','warn'), c=mkAns('判断できない','danger');
-    const b1=mkAns('直った'), b2=mkAns('直らない','danger'); b2.items=[mkStep('指令へ連絡する')]; b2.then='end'; b2.endLabel='作業中止・指令へ連絡';
+    const b1=mkAns('直った'), b2=mkAns('直らない','danger'); b2.items=[mkStep('指令へ連絡する')]; b2.then='end'; b2.endLabel='作業中止・指令へ連絡'; b2.endTone='danger';
     b.items=[mkStep('異常箇所を記録する'),mkStep('応急処置をする'),{ type:'branch', id:uid(), q:'応急処置で直りましたか？', answers:[b1,b2] }];
     b.then='jump'; b.target=s4.id;
-    c.items=[mkStep('指令へ連絡する')]; c.then='end'; c.endLabel='作業中止・指令へ連絡';
+    c.items=[mkStep('指令へ連絡する')]; c.then='end'; c.endLabel='作業中止・指令へ連絡'; c.endTone='danger';
     S={ items:[s1,s2,{type:'branch',id:uid(),q:'異常はありましたか？',answers:[a,b,c]},s3,s4,s5], sel:null }; dirty=true;
     render(); hint('サンプルを読み込みました。「異常あり」の中に2段目の分かれ目（応急処置で直ったか）が入っています。'); }
 
@@ -1684,8 +1687,8 @@ const EB=(()=>{
     eachBranch(b=>b.answers.forEach(a=>{ if((a.then==='jump'||a.then==='back')&&a.target) targets.add(a.target); }));
     const sections=[], firstItem={}, secOfItem={}, startOf={}; let n=0;
     const newSec=(label,branch)=>{ const s={ key:'s'+(++n), label, branch:!!branch, next:null, steps:[], _no:[] }; sections.push(s); return s; };
-    const endSecs={}; const endSec=lbl=>{ const k=lbl||''; if(!endSecs[k]){ const s=newSec(lbl||'作業終了',true); s.next={type:'end',...(lbl?{label:lbl}:{})}; endSecs[k]=s; } return endSecs[k].key; };
-    const keyOf=spec=> spec.type==='goto' ? spec.to : endSec(spec.label||'');
+    const endSecs={}; const endSec=(lbl,tone)=>{ const k=(lbl||'')+'|'+(tone||''); if(!endSecs[k]){ const s=newSec(lbl||'作業終了',true); s.next={type:'end',...(lbl?{label:lbl}:{}),...(tone?{tone}:{})}; endSecs[k]=s; } return endSecs[k].key; };
+    const keyOf=spec=> spec.type==='goto' ? spec.to : endSec(spec.label||'', spec.tone||'');
     function seq(items, isMain, label, cont, tone){
       const segs=[]; let cur=null;
       items.forEach(it=>{ if(it.type==='step'){ if(!cur || cur.branch || (isMain&&targets.has(it.id))){ cur={ steps:[], branch:null }; segs.push(cur); } cur.steps.push(it); }
@@ -1700,7 +1703,7 @@ const EB=(()=>{
         const after = gi<segs.length-1 ? {type:'goto', to:segs[gi+1].sec.key} : cont;
         if(!g.branch){ g.sec.next=after; continue; }
         const opts=g.branch.answers.map((a,ai)=>{
-          const aCont = a.then==='next' ? after : (a.then==='jump'||a.then==='back') ? {type:'goto', to:a.target?'T:'+a.target:''} : {type:'end', label:a.endLabel||''};
+          const aCont = a.then==='next' ? after : (a.then==='jump'||a.then==='back') ? {type:'goto', to:a.target?'T:'+a.target:''} : {type:'end', label:a.endLabel||'', tone:a.endTone||''};
           const to = a.items.length ? seq(a.items, false, `「${a.label||('答え'+(ai+1))}」のとき`, aCont, a.tone) : keyOf(aCont);
           return { label:a.label||'', to, ...(a.tone?{tone:a.tone}:{}) }; });
         g.sec.next={ type:'choice', prompt:g.branch.q||'', options:opts }; }
@@ -1708,7 +1711,7 @@ const EB=(()=>{
     seq(S.items, true, '', {type:'end'});
     const res=k=> (typeof k==='string'&&k.startsWith('T:')) ? (startOf[k.slice(2)]||'') : k;
     sections.forEach(s=>{ const nx=s.next; if(!nx){ s.next={type:'end'}; return; }
-      if(nx.type==='goto') nx.to=res(nx.to); if(nx.type==='choice') nx.options.forEach(o=>o.to=res(o.to)); if(nx.type==='end'&&!nx.label) delete nx.label; });
+      if(nx.type==='goto') nx.to=res(nx.to); if(nx.type==='choice') nx.options.forEach(o=>o.to=res(o.to)); if(nx.type==='end'){ if(!nx.label) delete nx.label; if(!nx.tone) delete nx.tone; } });
     const steps=[]; sections.forEach(s=>s.steps.forEach(st=>steps.push({ sec:s.key, ...st })));
     const clean=sections.map(s=>({ key:s.key, label:s.label, ...(s.branch?{branch:true}:{}), next:s.next }));
     return { flow:{ start:clean.length?clean[0].key:'s1', sections:clean }, steps, firstItem, secOfItem };
