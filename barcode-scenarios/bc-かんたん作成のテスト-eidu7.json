@@ -42,11 +42,13 @@
             },
             {
               "label": "黄",
-              "to": "s3"
+              "to": "s3",
+              "tone": "warn"
             },
             {
               "label": "赤",
-              "to": "s5"
+              "to": "s5",
+              "tone": "danger"
             }
           ]
         }
@@ -72,11 +74,13 @@
             },
             {
               "label": "黄",
-              "to": "s4"
+              "to": "s4",
+              "tone": "warn"
             },
             {
               "label": "赤",
-              "to": "s4"
+              "to": "s4",
+              "tone": "danger"
             }
           ]
         }
@@ -104,11 +108,13 @@
             },
             {
               "label": "黄",
-              "to": "s4"
+              "to": "s4",
+              "tone": "warn"
             },
             {
               "label": "赤",
-              "to": "s4"
+              "to": "s4",
+              "tone": "danger"
             }
           ]
         }
@@ -147,7 +153,7 @@
         {
           "id": "boqwbde8",
           "label": "黄",
-          "tone": "",
+          "tone": "warn",
           "items": [
             {
               "type": "step",
@@ -173,7 +179,7 @@
                 {
                   "id": "b8mne39i",
                   "label": "黄",
-                  "tone": "",
+                  "tone": "warn",
                   "items": [],
                   "then": "end",
                   "target": "bcac09m8",
@@ -182,7 +188,7 @@
                 {
                   "id": "b5lr9dho",
                   "label": "赤",
-                  "tone": "",
+                  "tone": "danger",
                   "items": [],
                   "then": "end",
                   "target": "",
@@ -198,7 +204,7 @@
         {
           "id": "bbt3o58o",
           "label": "赤",
-          "tone": "",
+          "tone": "danger",
           "items": [
             {
               "type": "step",
@@ -224,7 +230,7 @@
                 {
                   "id": "bvcjwkx3",
                   "label": "黄",
-                  "tone": "",
+                  "tone": "warn",
                   "items": [],
                   "then": "end",
                   "target": "",
@@ -233,7 +239,7 @@
                 {
                   "id": "bidp9kj3",
                   "label": "赤",
-                  "tone": "",
+                  "tone": "danger",
                   "items": [],
                   "then": "end",
                   "target": "",
@@ -263,7 +269,7 @@
       "warn": "normal"
     }
   ],
-  "builderSig": "fdua1dd",
+  "builderSig": "f72xzi8",
   "steps": [
     {
       "title": "盤面の前に立つ",
@@ -382,45 +388,9 @@
       "sec": "s2"
     },
     {
-      "title": "トグルスイッチを操作する",
-      "detail": "",
-      "warn": "normal",
-      "ar": [
-        {
-          "type": "text",
-          "pos": [
-            -0.042,
-            -0.125,
-            0
-          ],
-          "color": "#60a5fa",
-          "label": "トグルスイッチを操作する",
-          "fontScale": 1
-        },
-        {
-          "type": "box",
-          "pos": [
-            -0.067,
-            -0.305,
-            0
-          ],
-          "color": "#60a5fa",
-          "lineThick": 0.015,
-          "label": "確認",
-          "labelBelow": true,
-          "sizeW": 0.6995,
-          "sizeH": 0.238
-        }
-      ],
-      "photo": "",
-      "face": "fmvgeidu71c",
-      "bid": "bznvf1fj",
-      "sec": "s2"
-    },
-    {
       "title": "ダイヤルスイッチを回す",
       "detail": "左ダイヤル：20\n右ダイヤル：80",
-      "warn": "normal",
+      "warn": "caution",
       "ar": [
         {
           "type": "text",
@@ -452,6 +422,42 @@
       "face": "fmvgeidu71c",
       "bid": "bbn69f6g",
       "sec": "s3"
+    },
+    {
+      "title": "トグルスイッチを操作する",
+      "detail": "",
+      "warn": "danger",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            -0.042,
+            -0.125,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "トグルスイッチを操作する",
+          "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            -0.067,
+            -0.305,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "sizeW": 0.6995,
+          "sizeH": 0.238
+        }
+      ],
+      "photo": "",
+      "face": "fmvgeidu71c",
+      "bid": "bznvf1fj",
+      "sec": "s5"
     }
   ]
 }
