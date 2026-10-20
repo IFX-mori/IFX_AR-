@@ -209,6 +209,8 @@
   #eb-checks { margin-top:8px; font-size:13px; line-height:1.7; }
   #eb-checks .e { color:#b91c1c; cursor:pointer; } #eb-checks .w { color:#b45309; cursor:pointer; } #eb-checks .ok { color:#15803d; font-weight:800; }
   #eb-routes { margin-top:6px; font-size:12px; color:#475569; line-height:1.7; }
+  #eb-routes .eroute { display:block; width:100%; text-align:left; padding:5px 8px; margin-top:4px; border:1px solid #e2e8f0; border-radius:8px; background:#fff; font-size:12px; color:#334155; cursor:pointer; }
+  #eb-routes .eroute.on { border-color:#1d4ed8; background:#eff6ff; color:#1d4ed8; font-weight:700; }
   .etpl { display:block; width:100%; text-align:left; padding:12px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; margin-bottom:8px; cursor:pointer; }
   .etpl b { display:block; font-size:15px; color:#0f172a; margin-bottom:3px; } .etpl span { font-size:12.5px; color:#475569; line-height:1.6; }
   #eb-toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0f172a; color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:90; }
@@ -221,7 +223,8 @@
   #editor.ol-on #stage-wrap { left:250px; }
   @media (max-width:760px){ #editor.ol-on #stage-wrap { left:0; } #outline { width:80vw; max-width:320px; box-shadow:4px 0 18px rgba(0,0,0,.25); } }
   #outline .olh { display:flex; align-items:center; gap:6px; padding:8px 10px; border-bottom:1px solid #e2e8f0; font-size:13px; font-weight:800; color:#1e3a5f; }
-  #outline .olh button { margin-left:auto; border:1px solid #cbd5e1; background:#fff; border-radius:8px; padding:3px 8px; font-weight:800; color:#64748b; }
+  #outline .olh button { margin-left:auto; border:1px solid #cbd5e1; background:#fff; border-radius:8px; padding:3px 8px; font-weight:800; color:#64748b; cursor:pointer; }
+  #outline .olh button.olflow { border-color:#16a34a; background:#f0fdf4; color:#15803d; }
   #ol-list { flex:1; overflow:auto; padding:6px 8px 10px; -webkit-overflow-scrolling:touch; }
   #ol-list .ol-step { display:flex; align-items:center; gap:6px; padding:6px 7px; border-radius:8px; border:1px solid transparent; cursor:pointer; font-size:12.5px; color:#1e293b; margin:2px 0; }
   #ol-list .ol-step:hover { background:#f1f5f9; }
@@ -419,9 +422,9 @@
 
   <div class="card" data-wz="4">
     <h2><span class="num">⑤ </span>手順の作成（任意）</h2>
-    <div class="easy-entry"><b>🧩 かんたん作成（おすすめ）</b>
-      <p>いつもの手順を1行ずつ書いて、判断が分かれる所（異常のとき・やり直し・中止など）を足していく作り方です。流れはフロー図で確認できます。編集画面の下部からも開けます。</p>
-      <button class="btn full g" onclick="EB.open()">🧩 かんたん作成で手順を作る</button></div>
+    <div class="easy-entry"><b>🔀 フロー図（おすすめ）</b>
+      <p>いつもの手順を1行ずつ書いて、判断が分かれる所（異常のとき・やり直し・中止など）を足していく作り方です。右側に流れの図が自動で描かれるので、確かめながら作れます。編集画面の手順一覧からも開けます。</p>
+      <button class="btn full g" onclick="EB.open()">🔀 フロー図で手順を作る</button></div>
     <div style="font-size:12px;font-weight:800;color:#475569;margin:4px 0 6px">ほかの作り方：テキスト／動画から自動作成</div>
     <div class="hint" style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">
       下の欄に<b>手順文を直接入力</b>するか、<b>動画から文字起こし</b>して、<b>ステップ分割</b>と<b>AR図形の下書き</b>を自動生成します。<br>
@@ -471,7 +474,7 @@
 <!-- ══════════ エディタ ══════════ -->
 <div id="editor">
   <div id="outline">
-    <div class="olh">☰ 手順一覧<button onclick="toggleOutline(false)" title="一覧を閉じる">✕</button></div>
+    <div class="olh">☰ 手順一覧<button class="olflow" onclick="EB.open()" title="手順と分かれ目を作る・直す／流れを確かめる">🔀 フロー図</button><button onclick="toggleOutline(false)" title="一覧を閉じる" style="margin-left:0">✕</button></div>
     <div id="ol-list"></div>
     <div class="olf"><span style="color:#dc2626">●</span> AR図形が未配置／押すとその手順へ</div>
   </div>
@@ -607,16 +610,16 @@
 <!-- 🧩 かんたん作成 -->
 <div id="easy">
   <div class="eh">
-    <h2>🧩 かんたん作成<small>いつもの手順を書いて、判断が分かれる所を足していきます</small></h2>
+    <h2>🔀 フロー図<small>手順と分かれ目を作る・直す（左）／流れを確かめる（右）</small></h2>
     <label title="反映するとき、新しく増えた手順にステップ名の文字をARとして置きます"><input type="checkbox" id="eb-text" checked>新しい手順に文字を置く</label>
     <button class="hb" onclick="EB.sample()">サンプル</button>
     <button class="hb" onclick="EB.close()">閉じる</button>
     <button class="hb p" onclick="EB.apply()">✅ この内容で反映</button>
   </div>
-  <div id="eb-tabs"><button id="eb-tab-list" class="on" onclick="EB.setTab('list')">手順</button><button id="eb-tab-flow" onclick="EB.setTab('flow')">フロー図</button></div>
+  <div id="eb-tabs"><button id="eb-tab-list" class="on" onclick="EB.setTab('list')">手順</button><button id="eb-tab-flow" onclick="EB.setTab('flow')">流れの図</button></div>
   <div class="eb-main t-list" id="eb-main">
     <section id="eb-pane-list"><div id="eb-hint"></div><div class="pane-h">手順</div><div id="eb-list"></div></section>
-    <section id="eb-pane-flow"><div class="pane-h">フロー図（自動で描きます。押すとその手順へ移動）</div><div id="eb-svg"></div><div id="eb-checks"></div><div id="eb-routes"></div></section>
+    <section id="eb-pane-flow"><div class="pane-h">流れの図（自動で描きます。箱を押すとその手順へ、下の「流れの種類」を押すとその流れを強調）</div><div id="eb-svg"></div><div id="eb-checks"></div><div id="eb-routes"></div></section>
   </div>
   <div id="eb-toast"></div>
 </div>
@@ -632,7 +635,7 @@
 <!-- 分岐・フロー図モーダル -->
 <div class="modal" id="flow-modal">
   <div class="box">
-    <h3>🔀 フロー図（流れの確認）</h3>
+    <h3>区間の編集（以前の方法）</h3>
     <div id="flow-intro"></div>
     <div id="flow-body"></div>
     <div class="mact"><button class="btn d" onclick="closeFlow()">閉じる</button></div>
@@ -666,7 +669,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.31';
+const APP_VERSION = 'v4.32';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1205,9 +1208,7 @@ function renderStepTabs(){
   const add=document.createElement('button'); add.className='addstep'; add.textContent='＋ステップ';
   add.onclick=addStepHere;
   box.appendChild(add);
-  const eb=document.createElement('button'); eb.className='easybtn'; eb.textContent='🧩 かんたん作成'; eb.title='手順と分かれ目を一覧で作る・直す'; eb.onclick=()=>EB.open(); box.appendChild(eb);
-  if(ED.flow && isBuilderScenario()){ const fb=document.createElement('button'); fb.className='flowbtn'; const ne=flowCheck().errors.length; fb.textContent='🔀 フロー図'+(ne?` ⚠${ne}`:'');
-    fb.title='流れをフロー図で確かめる（直すのは かんたん作成）'; fb.onclick=openFlow; box.appendChild(fb); }
+  const eb=document.createElement('button'); eb.className='easybtn'; eb.textContent='🔀 フロー図'; eb.title='手順と分かれ目を作る・直す／流れを確かめる'; eb.onclick=()=>EB.open(); box.appendChild(eb);
   renderOutline(); updateBottomToggle();
 }
 // ══════════ 手順一覧（かんたん作成と同じ並び・番号）と現在地 ══════════
@@ -1398,7 +1399,7 @@ function renderSecBar(){ const bar=document.getElementById('secbar'); if(!bar) r
     b.innerHTML=(i===0?'▶ ':'')+escHtml(sec.label||sec.key)+`<small>${n}</small>`; b.title='この区間のステップを編集';
     b.onclick=()=>selectSection(sec.key); bar.appendChild(b); });
   const fb=document.createElement('button'); fb.className='flowbtn';
-  fb.textContent='🔀 フロー図'+(A.errors.length?` ⚠${A.errors.length}`:''); fb.onclick=openFlow; bar.appendChild(fb);
+  fb.textContent='区間の編集'+(A.errors.length?` ⚠${A.errors.length}`:''); fb.onclick=openFlow; bar.appendChild(fb);
 }
 
 // ── 解析：到達性・終了への到達・戻り(ループ)・経路一覧・設定ミスの検出 ──
@@ -1544,18 +1545,18 @@ function renderFlowModal(){
   const intro=document.getElementById('flow-intro'), body=document.getElementById('flow-body');
   const view=`<div><div class="fl-h">フロー図（区間を押すと、その手順のAR図形の編集へ移ります）</div><div id="flow-svgwrap"></div><div id="flow-check"></div></div>`;
   if(!ED.flow){
-    intro.innerHTML=`<div style="font-size:13px;line-height:1.8;color:#334155">このシナリオには分岐がありません。<br>分岐（判断が分かれる所）は「<b>🧩 かんたん作成</b>」で作ります。作ると、ここで流れを確かめられます。</div>
-      <div class="mact" style="justify-content:flex-start"><button class="btn g" onclick="flowToEasy()">🧩 かんたん作成で分岐を作る</button></div>`;
+    intro.innerHTML=`<div style="font-size:13px;line-height:1.8;color:#334155">このシナリオには分岐がありません。<br>分岐（判断が分かれる所）は「<b>🔀 フロー図</b>」で作ります。作ると、ここで流れを確かめられます。</div>
+      <div class="mact" style="justify-content:flex-start"><button class="btn g" onclick="flowToEasy()">🔀 フロー図で分岐を作る</button></div>`;
     body.innerHTML=''; body.style.display='none'; return; }
   body.style.display='';
   if(isBuilderScenario()){
-    intro.innerHTML=`<div style="font-size:12.5px;color:#475569;line-height:1.7;margin-bottom:8px">流れを<b>確かめる</b>画面です。経路を押すと、その流れだけを強調します。<br>手順や分かれ目を直すときは「🧩 かんたん作成で直す」から行います。
-      <button class="btn g" style="margin-left:6px;padding:6px 12px" onclick="flowToEasy()">🧩 かんたん作成で直す</button></div>`;
+    intro.innerHTML=`<div style="font-size:12.5px;color:#475569;line-height:1.7;margin-bottom:8px">流れを<b>確かめる</b>画面です。経路を押すと、その流れだけを強調します。<br>手順や分かれ目を直すときは「🔀 フロー図で直す」から行います。
+      <button class="btn g" style="margin-left:6px;padding:6px 12px" onclick="flowToEasy()">🔀 フロー図で直す</button></div>`;
     body.style.gridTemplateColumns='minmax(0,1fr)'; body.innerHTML=view; renderFlowView(); return; }
   // 以前の方法で作ったシナリオ：かんたん作成への移行を案内し、区間の直接編集は折りたたんで残す
   intro.innerHTML=`<div style="font-size:12.5px;color:#475569;line-height:1.7;margin-bottom:8px;padding:8px 10px;background:#fffbeb;border:1px solid #fde68a;border-radius:9px">
-      このシナリオは<b>以前の方法（区間）</b>で分岐を作っています。「🧩 かんたん作成で開く」で作り直すと、手順一覧と同じ形で編集できるようになります（写真・AR図形はそのまま）。
-      <button class="btn g" style="margin-left:6px;padding:6px 12px" onclick="flowToEasy()">🧩 かんたん作成で開く</button></div>`;
+      このシナリオは<b>以前の方法（区間）</b>で分岐を作っています。「🔀 フロー図で開く」で作り直すと、手順一覧と同じ形で編集できるようになります（写真・AR図形はそのまま）。
+      <button class="btn g" style="margin-left:6px;padding:6px 12px" onclick="flowToEasy()">🔀 フロー図で開く</button></div>`;
   body.style.gridTemplateColumns='';
   const A=flowCheck();
   body.innerHTML=`<div><details id="flow-legacy"${_flowLegacyOpen?' open':''}><summary class="fl-h" style="cursor:pointer">区間を直接編集する（以前の方法）</summary>
@@ -1566,7 +1567,7 @@ function renderFlowModal(){
   const d=document.getElementById('flow-legacy'); if(d) d.ontoggle=()=>{ _flowLegacyOpen=d.open; };
   renderFlowView();
 }
-let _flowLegacyOpen=false;
+let _flowLegacyOpen=true;
 function flowSecHtml(s,i,A){
   const F=ED.flow, k=s.key, nx=s.next||{type:'end'}, n=A.cnt(k);
   const opts=(sel,exSelf)=>`<option value="">（行き先を選択）</option>`+F.sections.filter(x=>!(exSelf&&x.key===k))
@@ -1648,9 +1649,9 @@ const EB=(()=>{
   function open(){
     const real=ED.steps.filter(s=>!(ED.steps.length===1 && !(s.ar&&s.ar.length) && !s.photo && /^ステップ\s*1?$/.test(s.title||'')));
     if(ED.flow && !ED.builder){
-      if(!confirm('このシナリオは「🔀 フロー図」で分岐を作っています。\nかんたん作成で開くと、手順は1本の並びとして読み込み、分岐はかんたん作成で作り直すことになります。\n（「反映」するまでシナリオは変わりません）\n\n開きますか？')) return;
+      if(!confirm('このシナリオは以前の方法（区間の編集）で分岐を作っています。\nフロー図で開くと、手順は1本の並びとして読み込み、分岐はフロー図で作り直すことになります。\n（「反映」するまでシナリオは変わりません）\n\n開きますか？')) return;
     } else if(ED.flow && ED.builder && ED._ebSig!==ebSig()){
-      if(!confirm('かんたん作成で反映した後に、「🔀 フロー図」で分岐の設定が変更されています。\nかんたん作成で「反映」すると、その変更は置き換わります。\n\n開きますか？')) return;
+      if(!confirm('フロー図で反映した後に、「区間の編集」で分岐の設定が変更されています。\nフロー図で「反映」すると、その変更は置き換わります。\n\n開きますか？')) return;
     }
     S={ items: Array.isArray(ED.builder) ? JSON.parse(JSON.stringify(ED.builder)) : [], sel:null };
     // ED.steps と同期：無くなった手順は外し、内容は ED 側を正とする。bid の無いステップは近くに差し込む
@@ -1664,9 +1665,9 @@ const EB=(()=>{
       const loc=prev&&findLoc(prev); if(loc) loc.arr.splice(loc.i+1,0,st); else S.items.push(st); });
     dirty=false; $('easy').classList.add('on'); document.body.style.overflow='hidden';
     setTab('list'); render();
-    hint(S.items.length ? '手順を押すと「＋ 次の手順」「🔀 ここで分かれる」が出ます。右（またはタブの「フロー図」）に流れが自動で描かれます。' : '');
+    hint(S.items.length ? '手順を押すと「＋ 次の手順」「🔀 ここで分かれる」が出ます。右（またはタブの「流れの図」）に流れが自動で描かれます。' : '');
   }
-  function close(){ if(dirty && !confirm('かんたん作成で変更した内容は反映されていません。閉じますか？')) return;
+  function close(){ if(dirty && !confirm('フロー図で変更した内容は反映されていません。閉じますか？')) return;
     $('easy').classList.remove('on'); document.body.style.overflow=''; }
 
   // ── 描画 ──
@@ -1685,7 +1686,8 @@ const EB=(()=>{
       ${sel?`<div class="det"><textarea data-k="detail" placeholder="作業者への説明（任意）">${escHtml(it.detail)}</textarea>${warnSel(it.warn,'data-k="warn"')}</div>
       <div class="acts"><button class="ab add" data-act="addAfter">＋ 次の手順</button>
         ${canBr?`<button class="ab br" data-act="branch">🔀 ここで分かれる</button><button class="ab br" data-act="tpl">🔀 よく使う分かれ方</button>`:''}
-        <button class="ab sm" data-act="up" title="上へ">↑</button><button class="ab sm" data-act="down" title="下へ">↓</button><button class="ab sm del" data-act="del">削除</button></div>
+        <button class="ab sm" data-act="up" title="上へ">↑</button><button class="ab sm" data-act="down" title="下へ">↓</button><button class="ab sm del" data-act="del">削除</button>
+        ${document.getElementById('editor').classList.contains('on')?'<button class="ab sm add" data-act="ar" title="この内容を反映して、編集画面でこの手順のAR図形を置く">📷 AR図形を編集</button>':''}</div>
       ${!canBr?'<div class="acts" style="font-size:12px;color:#94a3b8">分かれ目は2段までです（この中にはこれ以上入れられません）</div>':''}`:''}
     </div>`; }
   const jumpList=(ctx,top)=>{ const after=S.items.slice(top+1).filter(x=>x.type==='step'); return ctx.depth===0?after.slice(1):after; };
@@ -1732,6 +1734,7 @@ const EB=(()=>{
     L.addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); const {it}=target(e);
       if(!b){ if(it&&S.sel!==it.id){ S.sel=it.id; render(); } return; }
       const act=b.dataset.act, loc=it?findLoc(it.id):null; dirty=true;
+      if(act==='ar'){ apply(it.id); return; }
       if(act==='addAfter'){ const s=mkStep(); loc.arr.splice(loc.i+1,0,s); S.sel=s.id; render(); focusItem(s.id); return; }
       if(act==='branch'){ insertBranch(loc,{ q:'', answers:[mkAns(''),mkAns('')] }); return; }
       if(act==='tpl'){ openTpl(loc); return; }
@@ -1829,16 +1832,18 @@ const EB=(()=>{
   }
 
   // ── フロー図と問題点（エディタの解析・描画を利用） ──
-  let _conv=null;
+  let _conv=null, _route=-1;
   function renderFlow(){ const wrap=$('eb-svg'), chk=$('eb-checks'), rt=$('eb-routes');
     if(!S.items.length){ wrap.innerHTML='<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">手順を書くと、ここに流れが描かれます</div>'; chk.innerHTML=''; rt.innerHTML=''; return; }
     _conv=toFlow(); const F=_conv.flow, A=flowAnalyze(F,_conv.steps);
-    wrap.innerHTML=flowSVG(A,F,{ cur:S.sel?_conv.secOfItem[S.sel]:null, route:null });
+    if(_route>=A.routes.length) _route=-1;
+    wrap.innerHTML=flowSVG(A,F,{ cur:S.sel?_conv.secOfItem[S.sel]:null, route:_route>=0?A.routes[_route]:null });
     const P=problems(A); let h='';
     if(!P.e.length&&!P.w.length) h='<div class="ok">✓ 問題は見つかりませんでした</div>';
     P.e.forEach(x=>h+=`<div class="e" data-go="${x.id||''}">✕ ${escHtml(x.m)}</div>`); P.w.forEach(x=>h+=`<div class="w" data-go="${x.id||''}">⚠ ${escHtml(x.m)}</div>`);
     chk.innerHTML=h; chk.querySelectorAll('[data-go]').forEach(d=>d.onclick=()=>goItem(d.dataset.go));
-    rt.innerHTML = A.routes.length>1 ? '<b>流れの種類</b><br>'+A.routes.map((r,i)=>`${i+1}. ${escHtml(routeText(A,r))}（${r.steps}手順）`).join('<br>') : ''; }
+    rt.innerHTML = A.routes.length>1 ? '<b>流れの種類</b>（押すと図で強調）'+A.routes.map((r,i)=>`<button class="eroute${i===_route?' on':''}" data-r="${i}">${i+1}. ${escHtml(routeText(A,r))}（${r.steps}手順）</button>`).join('') : '';
+    rt.querySelectorAll('.eroute').forEach(b=>b.onclick=()=>{ const i=+b.dataset.r; _route=(_route===i?-1:i); renderFlow(); }); }
   function problems(A){ const e=[], w=[], no=mainNo();
     const walk=(arr,prefix)=>arr.forEach(it=>{ if(it.type==='step'&&!it.title.trim()) w.push({id:it.id, m:prefix?`「${prefix}」のときの手順が空欄です`:`手順${no[it.id]}の内容が空欄です`});
       if(it.type==='branch') it.answers.forEach(a=>walk(a.items, a.label||'答え')); });
@@ -1853,14 +1858,14 @@ const EB=(()=>{
     return { e, w }; }
 
   // ── 反映：ED.steps / ED.flow を作る（bid が同じステップは写真・AR図形を引き継ぐ） ──
-  function apply(){
+  function apply(goBid){
     if(!S.items.length){ toastE('先に手順を書いてください'); return; }
     const c=toFlow(), A=flowAnalyze(c.flow,c.steps), P=problems(A);
     if(P.e.length && !confirm(`直したほうがよい点が${P.e.length}件あります。\n・${P.e.slice(0,5).map(x=>x.m).join('\n・')}\n\nこのまま反映しますか？`)) return;
     const old=new Map(ED.steps.filter(s=>s.bid).map(s=>[s.bid,s]));
     const keep=new Set(c.steps.map(s=>s.bid));
     const lost=ED.steps.filter(s=>(s.bid?!keep.has(s.bid):true) && ((s.ar&&s.ar.length)||s.photo));
-    if(lost.length && !confirm(`かんたん作成から消した手順のうち、${lost.length}件に写真やAR図形があります（${lost.slice(0,3).map(s=>'「'+(s.title||'')+'」').join('')}${lost.length>3?' ほか':''}）。\n反映するとこれらは削除されます。よろしいですか？`)) return;
+    if(lost.length && !confirm(`フロー図から消した手順のうち、${lost.length}件に写真やAR図形があります（${lost.slice(0,3).map(s=>'「'+(s.title||'')+'」').join('')}${lost.length>3?' ほか':''}）。\n反映するとこれらは削除されます。よろしいですか？`)) return;
     const fk=(curFaceE()&&curFaceE().key)||(ED.faces[0]&&ED.faces[0].key)||'';
     const withText=$('eb-text').checked, hasBranch=S.items.some(x=>x.type==='branch');
     const steps=c.steps.map(cs=>{ let s=old.get(cs.bid);
@@ -1874,8 +1879,9 @@ const EB=(()=>{
     stepIdx=0; figIdx=-1; _flowRoute=-1;
     if(ED.flow) flowFix(); ED._ebSig=ebSig();
     dirty=false; $('easy').classList.remove('on'); document.body.style.overflow='';
-    const msg=`✅ かんたん作成を反映しました（${steps.length}ステップ${hasBranch?'・分かれ目あり':''}）`;
-    if(document.getElementById('editor').classList.contains('on')){ syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); setSub(msg); }
+    const msg=`✅ フロー図の内容を反映しました（${steps.length}ステップ${hasBranch?'・分かれ目あり':''}）`;
+    if(document.getElementById('editor').classList.contains('on')){ syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); setSub(msg);
+      if(goBid){ const gi=ED.steps.findIndex(s=>s.bid===goBid); if(gi>=0) olGo(gi); } }
     else { setStatus(msg+'。写真を読み込んで「編集を開始」でAR図形の位置を調整してください。'); setBuildStatus(msg); if(isWizard()) wzMsg(msg); }
   }
   return { open, close, apply, sample, startLines, useTpl, setTab, bind };
