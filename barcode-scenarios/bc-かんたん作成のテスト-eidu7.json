@@ -432,6 +432,15 @@
       "sec": "s4"
     },
     {
+      "title": "作業中止！指令へ連絡！",
+      "detail": "",
+      "warn": "normal",
+      "ar": [],
+      "photo": "",
+      "face": "fmvgeidu71c",
+      "sec": "s5"
+    },
+    {
       "title": "トグルスイッチを操作する",
       "detail": "",
       "warn": "danger",
