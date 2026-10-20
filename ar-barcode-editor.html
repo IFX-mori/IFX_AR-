@@ -144,7 +144,7 @@
   #steptabs { display:flex; gap:6px; padding:8px 10px 4px; overflow-x:auto; align-items:center; }
   #steptabs .stab { flex:0 0 auto; padding:6px 12px; border-radius:9px; border:1px solid #cbd5e1; background:#f8fafc; font-size:12px; font-weight:700; color:#475569; white-space:nowrap; }
   #steptabs .stab.on { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
-  #steptabs .addstep { padding:6px 10px; border-radius:9px; border:1px dashed #94a3b8; background:#fff; color:#64748b; font-weight:700; }
+  #steptabs .addstep { flex:0 0 auto; white-space:nowrap; padding:6px 10px; border-radius:9px; border:1px dashed #94a3b8; background:#fff; color:#64748b; font-weight:700; }
   #stepmeta { padding:2px 10px 8px; display:flex; gap:8px; align-items:center; }
   #stepmeta input.title { flex:1; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; }
   #stepmeta select { padding:7px 8px; border:1px solid #cbd5e1; border-radius:8px; }
@@ -215,6 +215,35 @@
   .easy-entry { border:2px solid #16a34a; background:#f0fdf4; border-radius:12px; padding:12px; margin-bottom:12px; }
   .easy-entry b { color:#15803d; } .easy-entry p { font-size:12px; color:#475569; line-height:1.6; margin:4px 0 8px; }
   .easybtn { flex:0 0 auto; padding:6px 10px; border-radius:9px; border:1px solid #16a34a; background:#f0fdf4; color:#15803d; font-weight:700; font-size:12px; white-space:nowrap; cursor:pointer; }
+  /* ── 手順一覧パネル＋現在地（かんたん作成と同じ並び・番号） ── */
+  #outline { position:absolute; left:0; top:0; bottom:148px; width:250px; background:#fff; border-right:1px solid #e2e8f0; display:none; flex-direction:column; z-index:12; }
+  #editor.ol-on #outline { display:flex; }
+  #editor.ol-on #stage-wrap { left:250px; }
+  @media (max-width:760px){ #editor.ol-on #stage-wrap { left:0; } #outline { width:80vw; max-width:320px; box-shadow:4px 0 18px rgba(0,0,0,.25); } }
+  #outline .olh { display:flex; align-items:center; gap:6px; padding:8px 10px; border-bottom:1px solid #e2e8f0; font-size:13px; font-weight:800; color:#1e3a5f; }
+  #outline .olh button { margin-left:auto; border:1px solid #cbd5e1; background:#fff; border-radius:8px; padding:3px 8px; font-weight:800; color:#64748b; }
+  #ol-list { flex:1; overflow:auto; padding:6px 8px 10px; -webkit-overflow-scrolling:touch; }
+  #ol-list .ol-step { display:flex; align-items:center; gap:6px; padding:6px 7px; border-radius:8px; border:1px solid transparent; cursor:pointer; font-size:12.5px; color:#1e293b; margin:2px 0; }
+  #ol-list .ol-step:hover { background:#f1f5f9; }
+  #ol-list .ol-step.cur { background:#eff6ff; border-color:#1d4ed8; font-weight:800; }
+  #ol-list .ol-no { flex:0 0 auto; min-width:22px; padding:1px 6px; border-radius:999px; background:#e2e8f0; color:#334155; font-size:11px; font-weight:800; text-align:center; }
+  #ol-list .ol-step.br .ol-no { background:#ccfbf1; color:#0f766e; }
+  #ol-list .ol-t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #ol-list .ol-dot { color:#dc2626; font-size:10px; flex:0 0 auto; }
+  #ol-list .ol-br { font-size:12px; font-weight:800; color:#92400e; background:#fef3c7; border-radius:8px; padding:5px 7px; margin:4px 0 2px; }
+  #ol-list .ol-ans { font-size:12px; font-weight:800; color:#1d4ed8; margin:5px 0 1px; }
+  #ol-list .ol-ans.warn { color:#b45309; } #ol-list .ol-ans.danger { color:#b91c1c; }
+  #ol-list .ol-ans small, #ol-list .ol-then { font-weight:600; color:#64748b; font-size:11.5px; }
+  #ol-list .ol-then.warn { color:#b45309; } #ol-list .ol-then.danger { color:#b91c1c; }
+  #ol-list .ol-sec { font-size:12px; font-weight:800; color:#0f172a; margin:8px 0 2px; padding-bottom:2px; border-bottom:1px solid #e2e8f0; }
+  #ol-list .ol-sec.br { color:#0f766e; }
+  #ol-list .ol-in { border-left:2px dashed #cbd5e1; padding-left:7px; }
+  #outline .olf { font-size:11px; color:#94a3b8; padding:6px 10px; border-top:1px solid #e2e8f0; }
+  #crumb { position:absolute; top:8px; left:62px; right:132px; display:flex; align-items:center; gap:4px; z-index:11; background:rgba(15,23,42,.78); color:#fff; border-radius:10px; padding:4px; font-size:12px; }
+  #crumb button { border:none; border-radius:8px; background:rgba(255,255,255,.14); color:#fff; font-weight:800; padding:5px 8px; font-size:12px; white-space:nowrap; }
+  #crumb #crumb-t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 4px; }
+  #steptabs .stab.br { border-color:#5eead4; background:#f0fdfa; color:#0f766e; }
+  #steptabs .stab.br.on { background:#0f766e; border-color:#0f766e; color:#fff; }
   /* 分岐（区間） */
   #secbar { display:none; gap:6px; padding:8px 10px 0; overflow-x:auto; align-items:center; }
   #secbar.on { display:flex; }
@@ -441,7 +470,13 @@
 
 <!-- ══════════ エディタ ══════════ -->
 <div id="editor">
+  <div id="outline">
+    <div class="olh">☰ 手順一覧<button onclick="toggleOutline(false)" title="一覧を閉じる">✕</button></div>
+    <div id="ol-list"></div>
+    <div class="olf"><span style="color:#dc2626">●</span> AR図形が未配置／押すとその手順へ</div>
+  </div>
   <div id="stage-wrap">
+    <div id="crumb"><button onclick="toggleOutline()" title="手順一覧を開く／閉じる">☰ 一覧</button><button onclick="bottomStepNav(-1)" title="一覧の前の手順">◀</button><span id="crumb-t"></span><button onclick="bottomStepNav(1)" title="一覧の次の手順">▶</button></div>
     <div id="tools">
       <button data-add="marker" class="mk">▦<br>位置</button>
       <button id="btn-autodetect" class="mk" title="写真に写っているバーコードを自動検出して基準枠を合わせる">🎯<br>自動</button>
@@ -631,7 +666,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.29';
+const APP_VERSION = 'v4.30';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1148,30 +1183,93 @@ function updateBottomToggle(){
   const b=document.getElementById('bottom'); if(!b) return; const c=b.classList.contains('collapsed');
   const s=curStep(), f=curFaceE();
   const sec=ED.flow&&s ? ED.flow.sections.find(x=>x.key===s.sec) : null;
+  const oe=_ol.find(e=>e.kind==='step'&&e.i===stepIdx);
   document.getElementById('bt-info').textContent = c
-    ? `${sec?'['+(sec.label||'')+'] ':''}${stepIdx+1}/${ED.steps.length}. ${(s&&s.title)||''}${f?`　（${f.label||''} #${f.barcode??'?'}）`:''}`
+    ? `${oe?oe.label:(stepIdx+1)}. ${(s&&s.title)||''}${f?`　（${f.label||''} #${f.barcode??'?'}）`:''}`
     : '編集パネル';
   document.getElementById('bt-arrow').textContent = c?'▲ 開く':'▼ たたむ';
 }
 // たたんだ状態でもステップを切り替えられるように
-function bottomStepNav(d){ const n=stepIdx+d; if(n<0||n>=ED.steps.length) return;
-  stepIdx=n; figIdx=-1; syncStepMeta(); renderOverlay(); renderPropbar(); renderStepTabs(); }
+// ◀▶：手順一覧の並び（かんたん作成と同じ順）で移動
+function bottomStepNav(d){ const ord=_olOrder.length?_olOrder:ED.steps.map((_,i)=>i); const p=ord.indexOf(stepIdx), n=ord[p<0?0:p+d];
+  if(n==null) return; stepIdx=n; figIdx=-1; syncStepMeta(); renderOverlay(); renderPropbar(); renderStepTabs(); }
 function renderStepTabs(){
-  flowFix(); renderSecBar();
+  flowFix(); computeOutline(); renderSecBar();
   const box=document.getElementById('steptabs'); box.innerHTML='';
-  const sk=curSecKey(); let n=0;   // 分岐ありの時は、今の区間のステップだけを並べる（番号も区間内）
-  ED.steps.forEach((s,i)=>{ if(sk && s.sec!==sk) return; n++;
-    const b=document.createElement('button'); b.className='stab'+(i===stepIdx?' on':'');
-    b.textContent=(sk?n:(i+1))+'. '+(s.title||''); b.onclick=()=>{ stepIdx=i; figIdx=-1; syncStepMeta(); renderOverlay(); renderPropbar(); renderStepTabs(); };
+  // 全ステップを手順一覧と同じ並び・番号で並べる（分岐側は色を変える）
+  _ol.filter(e=>e.kind==='step').forEach(e=>{ const s=ED.steps[e.i]; if(!s) return;
+    const b=document.createElement('button'); b.className='stab'+(e.branch?' br':'')+(e.i===stepIdx?' on':'');
+    b.textContent=e.label+'. '+(s.title||''); b.onclick=()=>olGo(e.i);
     box.appendChild(b); });
+  const ct=box.querySelector('.stab.on'); if(ct) ct.scrollIntoView({block:'nearest',inline:'nearest'});
   const add=document.createElement('button'); add.className='addstep'; add.textContent='＋ステップ';
   add.onclick=addStepHere;
   box.appendChild(add);
   const eb=document.createElement('button'); eb.className='easybtn'; eb.textContent='🧩 かんたん作成'; eb.title='手順と分かれ目を一覧で作る・直す'; eb.onclick=()=>EB.open(); box.appendChild(eb);
-  if(!ED.flow){ const fb=document.createElement('button'); fb.className='flowbtn'; fb.textContent='🔀 分岐';
-    fb.title='区間と選択肢で分岐するシナリオにする／フロー図で確認'; fb.onclick=openFlow; box.appendChild(fb); }
-  updateBottomToggle();
+  if(!ED.flow || ED.builder){ const fb=document.createElement('button'); fb.className='flowbtn'; fb.textContent=ED.flow?'🔀 フロー図':'🔀 分岐';
+    fb.title=ED.flow?'流れをフロー図で確認':'区間と選択肢で分岐するシナリオにする／フロー図で確認'; fb.onclick=openFlow; box.appendChild(fb); }
+  renderOutline(); updateBottomToggle();
 }
+// ══════════ 手順一覧（かんたん作成と同じ並び・番号）と現在地 ══════════
+let _ol=[], _olOrder=[];
+function computeOutline(){ const E=[], n=ED.steps.length;
+  const byBid=new Map(); ED.steps.forEach((s,i)=>{ if(s.bid) byBid.set(s.bid,i); });
+  const useB=Array.isArray(ED.builder) && ED.steps.some(s=>s.bid);
+  const used=new Set();
+  if(useB){
+    const no={}; let m=0; ED.builder.forEach(it=>{ if(it.type==='step'&&byBid.has(it.id)) no[it.id]=++m; });
+    const thenTxt=(a,depth)=> a.then==='end' ? '■ '+(a.endLabel||'作業終了') : (a.then==='jump'||a.then==='back') ? (a.target&&no[a.target]?`→ 手順${no[a.target]}${a.then==='back'?'に戻る':'へ'}`:'→ （行き先未設定）') : (depth>0?'→ 分かれ目の後へ':'→ 次の手順へ');
+    const walk=(items,depth,prefix,base)=>{ let k=0, last=''; const cnt=items.filter(x=>x.type==='step'&&byBid.has(x.id)).length;
+      items.forEach(it=>{
+        if(it.type==='step'){ const i=byBid.get(it.id); if(i==null) return; used.add(i);
+          const lbl=depth===0?String(no[it.id]):`${prefix}-${++k}`; last=depth===0?`手順${lbl}`:lbl;
+          E.push({ kind:'step', i, label:lbl, depth, branch:depth>0, crumb: depth===0?`手順${lbl}（本流 ${m}手順中）`:`${base} ▸ ${k}/${cnt}` }); }
+        else { E.push({ kind:'branch', q:it.q||'（質問が未入力）', depth });
+          it.answers.forEach((a,ai)=>{ const al=a.label||('答え'+(ai+1));
+            const cb=(base&&depth?base+' ▸ ':'')+(last?last+' ▸ ':'')+`🔀 ${it.q||'分かれ目'} ▸ ${al}`;
+            E.push({ kind:'ans', label:al, tone:a.tone||'', depth:depth+1, then:a.items.length?'':thenTxt(a,depth), thenTone:a.then==='end'?(a.endTone||''):'' });
+            walk(a.items, depth+1, (prefix?prefix+'・':'')+al.slice(0,4), cb);
+            if(a.items.length) E.push({ kind:'then', text:thenTxt(a,depth), tone:a.then==='end'?(a.endTone||''):'', depth:depth+1 }); }); } }); };
+    walk(ED.builder,0,'','');
+    // かんたん作成の後に編集画面で足したステップ：同じ区間の前のステップの直後へ
+    ED.steps.forEach((s,i)=>{ if(used.has(i)) return; let at=-1;
+      for(let j=i-1;j>=0;j--){ if(used.has(j)&&ED.steps[j].sec===s.sec){ at=E.findIndex(e=>e.kind==='step'&&e.i===j); break; } }
+      const d=at>=0?E[at].depth:0, e={ kind:'step', i, label:'＋', depth:d, branch:d>0, crumb:'編集画面で追加した手順' };
+      if(at>=0) E.splice(at+1,0,e); else E.push(e); used.add(i); });
+  } else if(ED.flow){
+    ED.flow.sections.forEach((sec,si)=>{ E.push({ kind:'sec', label:sec.label||sec.key, branch:!!sec.branch, depth:0 });
+      const ids=[]; ED.steps.forEach((s,i)=>{ if(s.sec===sec.key) ids.push(i); });
+      ids.forEach((i,k)=>E.push({ kind:'step', i, label:`${si+1}-${k+1}`, depth:1, branch:!!sec.branch, crumb:`${sec.label||sec.key} ▸ ${k+1}/${ids.length}` }));
+      const nx=sec.next||{type:'end'}, L=key=>(secByKey(key)||{}).label||'（未設定）';
+      if(nx.type==='goto') E.push({ kind:'then', text:'→ '+L(nx.to), depth:1 });
+      else if(nx.type==='choice'){ E.push({ kind:'branch', q:nx.prompt||'（質問が未入力）', depth:1 }); (nx.options||[]).forEach(o=>E.push({ kind:'ans', label:o.label||'', tone:o.tone||'', depth:2, then:'→ '+L(o.to) })); }
+      else E.push({ kind:'then', text:'■ '+(nx.label||'作業終了'), tone:nx.tone||'', depth:1 }); });
+  } else ED.steps.forEach((s,i)=>E.push({ kind:'step', i, label:String(i+1), depth:0, branch:false, crumb:`手順${i+1}（${n}手順中）` }));
+  _ol=E; _olOrder=E.filter(e=>e.kind==='step').map(e=>e.i);
+}
+function renderOutline(){ const L=document.getElementById('ol-list'); if(!L) return; computeOutline();   // 常に今のデータから作り直す
+  const pad=d=>d?` style="margin-left:${(d-1)*10}px"`:'';
+  let h='', open=0;
+  _ol.forEach(e=>{ const wrap=c=>(e.depth?`<div class="ol-in"${pad(e.depth)}>${c}</div>`:c);
+    if(e.kind==='step'){ const s=ED.steps[e.i]; if(!s) return; const noAr=!(s.ar&&s.ar.length);
+      h+=wrap(`<div class="ol-step${e.branch?' br':''}${e.i===stepIdx?' cur':''}" data-i="${e.i}"><span class="ol-no">${escHtml(e.label)}</span><span class="ol-t">${escHtml(s.title||'（未入力）')}</span>${noAr?'<span class="ol-dot" title="AR図形が未配置">●</span>':''}</div>`); }
+    else if(e.kind==='branch') h+=wrap(`<div class="ol-br">🔀 ${escHtml(e.q)}</div>`);
+    else if(e.kind==='ans') h+=wrap(`<div class="ol-ans ${e.tone||''}">${escHtml(e.label)}${e.then?` <small class="${e.thenTone||''}">${escHtml(e.then)}</small>`:''}</div>`);
+    else if(e.kind==='then') h+=wrap(`<div class="ol-then ${e.tone||''}">${escHtml(e.text)}</div>`);
+    else if(e.kind==='sec') h+=`<div class="ol-sec${e.branch?' br':''}">${escHtml(e.label)}</div>`; });
+  L.innerHTML=h;
+  L.querySelectorAll('.ol-step').forEach(el=>el.onclick=()=>olGo(+el.dataset.i));
+  const cur=L.querySelector('.ol-step.cur'); if(cur) cur.scrollIntoView({block:'nearest'});
+  const ce=_ol.find(e=>e.kind==='step'&&e.i===stepIdx), ct=document.getElementById('crumb-t');
+  if(ct){ const s=curStep(); ct.textContent=ce?`${ce.crumb}　${(s&&s.title)||''}`:''; ct.title=ct.textContent; }
+}
+function olGo(i){ stepIdx=i; figIdx=-1; syncStepMeta(); renderOverlay(); renderPropbar(); renderStepTabs();
+  if(window.innerWidth<=760) toggleOutline(false); }   // 狭い画面では選んだら閉じる
+function toggleOutline(force){ const ed=document.getElementById('editor'); const on=(typeof force==='boolean')?force:!ed.classList.contains('ol-on');
+  ed.classList.toggle('ol-on', on); try{ localStorage.setItem('bc_outline_open', on?'1':'0'); }catch(_){}
+  syncBottomHeight(); renderOverlay(); }
+function initOutline(){ let v=null; try{ v=localStorage.getItem('bc_outline_open'); }catch(_){}
+  const on = v===null ? window.innerWidth>760 : v==='1'; document.getElementById('editor').classList.toggle('ol-on', on); }
 // ＋ステップ：分岐ありなら今の区間の最後に追加
 function addStepHere(){ const st=mkStep(); const sk=curSecKey();
   if(sk){ st.sec=sk; let last=-1; ED.steps.forEach((s,i)=>{ if(s.sec===sk) last=i; });
@@ -1185,7 +1283,7 @@ function syncStepMeta(){ const s=curStep(); if(!s)return;
   document.getElementById('step-title').value=s.title||'';
   document.getElementById('step-warn').value=s.warn||'normal';
   const ss=document.getElementById('step-sec');
-  if(ED.flow){ ss.style.display=''; ss.innerHTML=ED.flow.sections.map(x=>`<option value="${x.key}">${escHtml(x.label||x.key)}</option>`).join('');
+  if(ED.flow && !(Array.isArray(ED.builder)&&ED.steps.some(x=>x.bid))){ ss.style.display=''; ss.innerHTML=ED.flow.sections.map(x=>`<option value="${x.key}">${escHtml(x.label||x.key)}</option>`).join('');
     ss.value=s.sec||ED.flow.sections[0].key; }
   else ss.style.display='none';
   renderStepFaceSelect(s);
@@ -1293,7 +1391,7 @@ function selectSection(k){ if(!secByKey(k)) return; let i=ED.steps.findIndex(s=>
   stepIdx=i; figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 function jumpToSection(k){ closeFlow(); selectSection(k); }
 function renderSecBar(){ const bar=document.getElementById('secbar'); if(!bar) return;
-  if(!ED.flow){ bar.classList.remove('on'); bar.innerHTML=''; return; }
+  if(!ED.flow || (Array.isArray(ED.builder)&&ED.steps.some(s=>s.bid))){ bar.classList.remove('on'); bar.innerHTML=''; return; }
   bar.classList.add('on'); bar.innerHTML=''; const sk=curSecKey(); const A=flowCheck();
   ED.flow.sections.forEach((sec,i)=>{ const n=ED.steps.filter(s=>s.sec===sec.key).length; const b=document.createElement('button');
     b.className='sec'+(sec.branch?' br':'')+(sec.key===sk?' on':'')+(A.bad.has(sec.key)?' ng':'');
@@ -1775,9 +1873,10 @@ EB.bind();
 function selectFig(i){ figIdx=i; renderPropbar(); renderOverlay(); }
 function updatePosLabel(){ const el=document.getElementById('pp-pos'); const f=curFig(); if(el&&f) el.textContent=posCmLabel(f); }
 // 下段(#bottom)の高さに合わせてステージ下端を調整（ラベル欄の全幅折返しで高さが変わるため）
-function syncBottomHeight(){ const b=document.getElementById('bottom'), w=document.getElementById('stage-wrap');
-  if(b&&w) w.style.bottom=b.offsetHeight+'px'; }
+function syncBottomHeight(){ const b=document.getElementById('bottom'), w=document.getElementById('stage-wrap'), o=document.getElementById('outline');
+  if(b&&w) w.style.bottom=b.offsetHeight+'px'; if(b&&o) o.style.bottom=b.offsetHeight+'px'; }
 function renderPropbar(){
+  renderOutline();   // 図形の追加・削除で「未配置」の印を更新
   const bar=document.querySelector('#propbar .inner'); const f=curFig();
   if(!f){ bar.innerHTML='<span class="none">図形を選択、または左のツールから追加してください</span>'; syncBottomHeight(); return; }
   const isText=f.type==='text';
@@ -2010,7 +2109,7 @@ function startEditor(){
   ED.steps.forEach(s=>{ if(!fkeys.includes(s.face)) s.face=fkeys[0]; });
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').classList.add('on');
-  stepIdx=0; figIdx=-1; addType=null;
+  stepIdx=0; figIdx=-1; addType=null; initOutline();
   loadFaceState(0);   // 背景・校正・面バー
   resetZoom();
   syncStepMeta(); renderStepTabs(); renderPropbar(); syncCalib(); setSub('');
