@@ -1,6 +1,6 @@
 {
   "id": "bc-branch-test",
-  "barcode": 0,
+  "barcode": 1,
   "name": "分岐テスト（確認用）",
   "subtitle": "分岐・合流・やり直し・中止の動作確認",
   "device": "テスト機器",
@@ -9,7 +9,7 @@
     {
       "key": "f1",
       "label": "前面",
-      "barcode": 0,
+      "barcode": 1,
       "calib": {
         "scale": 6.67,
         "ox": 0,
