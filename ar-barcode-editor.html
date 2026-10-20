@@ -148,6 +148,45 @@
   #stepmeta select { padding:7px 8px; border:1px solid #cbd5e1; border-radius:8px; }
   #stepmeta .del { padding:7px 9px; border:1px solid #fecaca; color:#dc2626; background:#fff; border-radius:8px; font-weight:700; font-size:12px; }
   #stepmeta .mv { width:32px; padding:7px 0; border:1px solid #cbd5e1; background:#fff; border-radius:8px; font-weight:800; color:#334155; font-size:13px; }
+  /* 分岐（区間） */
+  #secbar { display:none; gap:6px; padding:8px 10px 0; overflow-x:auto; align-items:center; }
+  #secbar.on { display:flex; }
+  #secbar .sec { flex:0 0 auto; padding:5px 11px; border-radius:999px; border:1px solid #94a3b8; background:#fff; font-size:12px; font-weight:700; color:#334155; white-space:nowrap; cursor:pointer; }
+  #secbar .sec.br { border-color:#0d9488; color:#0f766e; background:#f0fdfa; }
+  #secbar .sec.on { background:#0f172a; color:#fff; border-color:#0f172a; }
+  #secbar .sec small { font-weight:500; opacity:.8; margin-left:4px; }
+  #secbar .sec.ng { border-color:#dc2626; border-style:dashed; }
+  .flowbtn { flex:0 0 auto; padding:6px 10px; border-radius:9px; border:1px solid #7c3aed; background:#f5f3ff; color:#6d28d9; font-weight:700; font-size:12px; white-space:nowrap; cursor:pointer; }
+  #stepmeta #step-sec { padding:7px 6px; border:1px solid #0f172a; border-radius:8px; font-weight:700; max-width:130px; }
+  #flow-modal .box { max-width:1100px; max-height:90vh; }
+  #flow-body { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.15fr); gap:14px; align-items:start; }
+  @media (max-width:820px){ #flow-body { grid-template-columns:minmax(0,1fr); } }
+  .fl-h { font-size:12px; font-weight:800; color:#334155; margin:2px 0 6px; }
+  .fsec { border:1px solid #cbd5e1; border-radius:10px; padding:8px; margin-bottom:8px; background:#fff; }
+  .fsec.br { border-color:#5eead4; background:#f0fdfa; }
+  .fsec.cur { box-shadow:0 0 0 2px #1d4ed8; }
+  .fsec-h { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+  .fsec-h input.fl { flex:1; min-width:110px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; font-weight:700; font-size:13px; }
+  .fsec-h .fcnt { font-size:11px; color:#64748b; white-space:nowrap; }
+  .fsec-h label { font-size:11px; color:#0f766e; white-space:nowrap; display:flex; align-items:center; gap:3px; }
+  .fsb { padding:5px 8px; border:1px solid #cbd5e1; background:#fff; border-radius:7px; font-size:12px; font-weight:700; color:#334155; cursor:pointer; }
+  .fsb.del { border-color:#fecaca; color:#dc2626; }
+  .fsb.go { border-color:#1d4ed8; color:#1d4ed8; }
+  .fstart { font-size:10.5px; font-weight:800; color:#fff; background:#1d4ed8; border-radius:999px; padding:2px 7px; }
+  .fsec-n { margin-top:6px; font-size:12px; color:#475569; display:flex; flex-direction:column; gap:5px; }
+  .fsec-n .row { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+  .fsec-n select, .fsec-n input { padding:5px 6px; border:1px solid #cbd5e1; border-radius:7px; font-size:12px; }
+  .fsec-n input.wide { flex:1; min-width:140px; }
+  .fopt { display:flex; gap:4px; align-items:center; flex-wrap:wrap; padding:5px; border-radius:8px; background:#fffbeb; border:1px solid #fde68a; }
+  .fopt input.ol { width:110px; font-weight:700; }
+  .fopt input.on { flex:1; min-width:90px; }
+  #flow-svgwrap { border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; overflow:auto; max-height:56vh; }
+  #flow-svgwrap svg { display:block; }
+  #flow-svgwrap .fn { cursor:pointer; }
+  #flow-check { margin-top:8px; font-size:12px; line-height:1.6; }
+  #flow-check .e { color:#b91c1c; } #flow-check .w { color:#b45309; } #flow-check .ok { color:#15803d; font-weight:700; }
+  .froute { display:block; width:100%; text-align:left; padding:5px 8px; margin-top:4px; border:1px solid #e2e8f0; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; color:#334155; }
+  .froute.on { border-color:#1d4ed8; background:#eff6ff; color:#1d4ed8; font-weight:700; }
   #propbar { padding:0 10px 8px; overflow-x:auto; }
   #propbar .inner { display:flex; flex-wrap:wrap; gap:8px 8px; align-items:center; min-height:36px; }
   #propbar .none { font-size:12px; color:#94a3b8; }
@@ -257,7 +296,19 @@
   </div>
 
   <div class="card" data-wz="0">
-    <h2><span class="num">④ </span>既存シナリオ読込</h2>
+    <h2><span class="num">④ </span>保存先・既存シナリオ読込</h2>
+    <div id="store-mode" style="display:flex;gap:0;background:#e2e8f0;border-radius:10px;padding:3px;margin-bottom:10px">
+      <label style="flex:1;text-align:center;font-size:13px;font-weight:700;padding:7px 4px;border-radius:8px;cursor:pointer" id="st-od-lb"><input type="radio" name="store" id="st-od" value="od" style="display:none" onchange="applyStoreMode();syncStoreTabs()">☁️ OneDrive</label>
+      <label style="flex:1;text-align:center;font-size:13px;font-weight:700;padding:7px 4px;border-radius:8px;cursor:pointer" id="st-gh-lb"><input type="radio" name="store" id="st-gh" value="gh" style="display:none" onchange="applyStoreMode();syncStoreTabs()">GitHub</label>
+    </div>
+    <div id="od-panel" style="margin-bottom:10px;padding:10px;border:1px solid #bae6fd;background:#f0f9ff;border-radius:10px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="od-signin" onclick="odSignIn()" style="padding:8px 12px;font-size:13px">Microsoftアカウントでサインイン</button>
+        <button class="btn d" id="od-signout" onclick="odSignOut()" style="padding:8px 12px;font-size:13px;display:none">サインアウト</button>
+        <span id="od-state" style="font-size:12px;font-weight:700"></span>
+      </div>
+      <div class="hint" style="font-size:11px;color:#64748b;margin-top:6px;line-height:1.6">保存先：ご自身の OneDrive 直下の <b>ARNavi</b> フォルダ。下書き／公開を選んで保存できます。</div>
+    </div>
     <button class="btn full d" onclick="openRemotePicker()">📥 既存シナリオを読込</button>
     <details id="gh-settings" style="margin-top:12px">
       <summary style="font-size:12px;font-weight:700;color:#475569;cursor:pointer">🔑 GitHub設定（リポジトリ・トークン）<span id="gh-set-state" style="font-weight:600;color:#94a3b8"></span></summary>
@@ -377,11 +428,13 @@
       <span class="bt-r"><button class="bt-nav" id="bt-prev" onclick="event.stopPropagation();bottomStepNav(-1)" title="前のステップ">◀</button><button class="bt-nav" id="bt-next" onclick="event.stopPropagation();bottomStepNav(1)" title="次のステップ">▶</button><b id="bt-arrow">▼ たたむ</b></span>
     </div>
     <div id="facebar"></div>
+    <div id="secbar"></div>
     <div id="steptabs"></div>
     <div id="stepmeta">
       <button class="mv" onclick="moveStep(-1)" title="前へ">↑</button>
       <button class="mv" onclick="moveStep(1)" title="後へ">↓</button>
       <input class="title" id="step-title" placeholder="ステップ名">
+      <select id="step-sec" title="このステップの区間（別の区間へ移動）" style="display:none"></select>
       <select id="step-face" title="このステップの面（マーカー）"></select>
       <select id="step-warn">
         <option value="normal">通常</option>
@@ -413,7 +466,7 @@
   <div class="box">
     <h3 id="json-title">📤 保存 / エクスポート</h3>
     <textarea id="json-ta"></textarea>
-    <div style="margin-top:10px;padding:10px;background:#f8fafc;border-radius:9px;font-size:12px;color:#475569;line-height:1.6">
+    <div id="json-hint" style="margin-top:10px;padding:10px;background:#f8fafc;border-radius:9px;font-size:12px;color:#475569;line-height:1.6">
       <b>GitHubへ保存</b>：barcode-scenarios/&lt;id&gt;.json にアップロードします。バーコード番号が空なら自動採番します。
     </div>
     <div id="json-status" style="font-size:12px;white-space:pre-line;margin-top:8px;color:#64748b"></div>
@@ -423,6 +476,20 @@
       <button class="btn" onclick="copyJSON()">📋 コピー</button>
       <button class="btn g" id="btn-upload" onclick="githubUpload()">☁️ GitHubへ保存</button>
     </div>
+    <div class="mact" id="save-od" style="display:none">
+      <button class="btn" style="background:#d97706" onclick="odUpload('draft')">📝 下書きとして保存</button>
+      <button class="btn g" onclick="odUpload('published')">✅ 公開して保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 分岐・フロー図モーダル -->
+<div class="modal" id="flow-modal">
+  <div class="box">
+    <h3>🔀 分岐・フロー図</h3>
+    <div id="flow-intro"></div>
+    <div id="flow-body"></div>
+    <div class="mact"><button class="btn d" onclick="closeFlow()">閉じる</button></div>
   </div>
 </div>
 
@@ -453,7 +520,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.21';
+const APP_VERSION = 'v4.23';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -969,8 +1036,9 @@ function toggleBottom(force){
 function updateBottomToggle(){
   const b=document.getElementById('bottom'); if(!b) return; const c=b.classList.contains('collapsed');
   const s=curStep(), f=curFaceE();
+  const sec=ED.flow&&s ? ED.flow.sections.find(x=>x.key===s.sec) : null;
   document.getElementById('bt-info').textContent = c
-    ? `${stepIdx+1}/${ED.steps.length}. ${(s&&s.title)||''}${f?`　（${f.label||''} #${f.barcode??'?'}）`:''}`
+    ? `${sec?'['+(sec.label||'')+'] ':''}${stepIdx+1}/${ED.steps.length}. ${(s&&s.title)||''}${f?`　（${f.label||''} #${f.barcode??'?'}）`:''}`
     : '編集パネル';
   document.getElementById('bt-arrow').textContent = c?'▲ 開く':'▼ たたむ';
 }
@@ -978,21 +1046,36 @@ function updateBottomToggle(){
 function bottomStepNav(d){ const n=stepIdx+d; if(n<0||n>=ED.steps.length) return;
   stepIdx=n; figIdx=-1; syncStepMeta(); renderOverlay(); renderPropbar(); renderStepTabs(); }
 function renderStepTabs(){
+  flowFix(); renderSecBar();
   const box=document.getElementById('steptabs'); box.innerHTML='';
-  ED.steps.forEach((s,i)=>{ const b=document.createElement('button'); b.className='stab'+(i===stepIdx?' on':'');
-    b.textContent=(i+1)+'. '+(s.title||''); b.onclick=()=>{ stepIdx=i; figIdx=-1; syncStepMeta(); renderOverlay(); renderPropbar(); renderStepTabs(); };
+  const sk=curSecKey(); let n=0;   // 分岐ありの時は、今の区間のステップだけを並べる（番号も区間内）
+  ED.steps.forEach((s,i)=>{ if(sk && s.sec!==sk) return; n++;
+    const b=document.createElement('button'); b.className='stab'+(i===stepIdx?' on':'');
+    b.textContent=(sk?n:(i+1))+'. '+(s.title||''); b.onclick=()=>{ stepIdx=i; figIdx=-1; syncStepMeta(); renderOverlay(); renderPropbar(); renderStepTabs(); };
     box.appendChild(b); });
   const add=document.createElement('button'); add.className='addstep'; add.textContent='＋ステップ';
-  add.onclick=()=>{ ED.steps.push(mkStep()); stepIdx=ED.steps.length-1; figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); };
+  add.onclick=addStepHere;
   box.appendChild(add);
+  if(!ED.flow){ const fb=document.createElement('button'); fb.className='flowbtn'; fb.textContent='🔀 分岐';
+    fb.title='区間と選択肢で分岐するシナリオにする／フロー図で確認'; fb.onclick=openFlow; box.appendChild(fb); }
   updateBottomToggle();
 }
+// ＋ステップ：分岐ありなら今の区間の最後に追加
+function addStepHere(){ const st=mkStep(); const sk=curSecKey();
+  if(sk){ st.sec=sk; let last=-1; ED.steps.forEach((s,i)=>{ if(s.sec===sk) last=i; });
+    const at=last<0?ED.steps.length:last+1; ED.steps.splice(at,0,st); stepIdx=at; }
+  else { ED.steps.push(st); stepIdx=ED.steps.length-1; }
+  figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 function renderStepFaceSelect(s){ const sel=document.getElementById('step-face'); if(!sel) return;
   sel.innerHTML=ED.faces.map((f,i)=>`<option value="${f.key}">${escHtml(f.label||('面'+(i+1)))}</option>`).join('');
   sel.value=(s&&s.face)||(ED.faces[0]&&ED.faces[0].key)||''; }
 function syncStepMeta(){ const s=curStep(); if(!s)return;
   document.getElementById('step-title').value=s.title||'';
   document.getElementById('step-warn').value=s.warn||'normal';
+  const ss=document.getElementById('step-sec');
+  if(ED.flow){ ss.style.display=''; ss.innerHTML=ED.flow.sections.map(x=>`<option value="${x.key}">${escHtml(x.label||x.key)}</option>`).join('');
+    ss.value=s.sec||ED.flow.sections[0].key; }
+  else ss.style.display='none';
   renderStepFaceSelect(s);
   updateStepPhotoBtn(s);
   // 選択したステップの面へエディタ背景を自動で切替
@@ -1015,16 +1098,269 @@ document.getElementById('step-photo-input').onchange=e=>{
   rd.readAsDataURL(file); };
 document.getElementById('step-title').oninput=e=>{ const s=curStep(); if(s){ s.title=e.target.value; renderStepTabs(); } };
 document.getElementById('step-warn').onchange=e=>{ const s=curStep(); if(s) s.warn=e.target.value; };
+// ステップを別の区間へ移す（移動先の区間の最後へ）
+document.getElementById('step-sec').onchange=e=>{ const s=curStep(); if(!s||!ED.flow) return;
+  const from=s.sec; if(from===e.target.value) return;
+  ED.steps.splice(stepIdx,1); s.sec=e.target.value;
+  let last=-1; ED.steps.forEach((x,i)=>{ if(x.sec===s.sec) last=i; });
+  const at=last<0?ED.steps.length:last+1; ED.steps.splice(at,0,s); stepIdx=at; figIdx=-1;
+  syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); };
 document.getElementById('step-face').onchange=e=>{ const s=curStep(); if(!s) return; s.face=e.target.value;
   const fi=ED.faces.findIndex(x=>x.key===s.face); if(fi>=0){ saveFaceState(); loadFaceState(fi); } renderStepTabs(); };
 // タイトル先頭が「ステップN」形式のものだけ並び順に番号を振り直す
 function renumberStepTitles(){ ED.steps.forEach((s,i)=>{ if(/^ステップ\s*[0-9０-９]+/.test(s.title||'')) s.title=(s.title||'').replace(/^ステップ\s*[0-9０-９]+/,'ステップ'+(i+1)); }); }
 function moveStep(dir){ const ni=stepIdx+dir; if(ni<0||ni>=ED.steps.length) return;
+  if(ED.flow && ED.steps[ni].sec!==ED.steps[stepIdx].sec) return;   // 区間をまたぐ移動は「区間」欄で行う
   const [s]=ED.steps.splice(stepIdx,1); ED.steps.splice(ni,0,s); stepIdx=ni; figIdx=-1;
   renumberStepTitles(); syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
 function deleteStep(){ if(ED.steps.length<=1){ alert('最後のステップは削除できません'); return; }
   if(!confirm('このステップを削除しますか？')) return;
   ED.steps.splice(stepIdx,1); stepIdx=Math.max(0,stepIdx-1); figIdx=-1; renumberStepTitles(); syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
+
+// ══════════ 分岐（区間・選択肢・合流）／フロー図 ══════════
+// ED.flow = { start, sections:[{ key, label, branch?, next:{type:'goto',to} | {type:'choice',prompt,options:[{label,to,tone?,note?}]} | {type:'end',label?} }] }
+// 各ステップは s.sec で区間に属する。区間の中は配列順に進む。一番上の区間が開始区間。（形式は BRANCH_SPEC.md）
+let _flowRoute=-1;   // フロー図で強調表示する経路（-1=なし）
+function curSecKey(){ if(!ED.flow) return null; const s=curStep(); return (s&&s.sec)||ED.flow.sections[0].key; }
+// 整合を取る：開始=先頭区間、所属の無いステップは先頭区間へ、ステップを区間順にまとめて並べる
+function flowFix(){ const F=ED.flow; if(!F) return;
+  if(!Array.isArray(F.sections)||!F.sections.length){ ED.flow=null; ED.steps.forEach(s=>{ delete s.sec; }); return; }
+  const keys=F.sections.map(x=>x.key); F.start=keys[0];
+  ED.steps.forEach(s=>{ if(!keys.includes(s.sec)) s.sec=keys[0]; });
+  const ord=new Map(keys.map((k,i)=>[k,i])); const cs=curStep();
+  const sorted=ED.steps.map((s,i)=>[s,i]).sort((a,b)=>(ord.get(a[0].sec)-ord.get(b[0].sec))||(a[1]-b[1])).map(x=>x[0]);
+  if(sorted.some((s,i)=>s!==ED.steps[i])){ ED.steps.splice(0,ED.steps.length,...sorted); if(cs) stepIdx=Math.max(0,ED.steps.indexOf(cs)); }
+}
+function newSecKey(){ const ks=new Set((ED.flow?ED.flow.sections:[]).map(x=>x.key)); let n=1; while(ks.has('s'+n)) n++; return 's'+n; }
+function secByKey(k){ return ED.flow && ED.flow.sections.find(x=>x.key===k); }
+function afterFlowChange(rebuild){
+  flowFix(); if(stepIdx>=ED.steps.length) stepIdx=ED.steps.length-1; figIdx=-1;
+  syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar();
+  if(document.getElementById('flow-modal').classList.contains('on')){ if(rebuild) renderFlowModal(); else renderFlowView(); }
+}
+function enableFlow(){ if(ED.flow) return;
+  ED.flow={ start:'s1', sections:[{ key:'s1', label:'A1 本流', next:{type:'end'} }] };
+  ED.steps.forEach(s=>{ s.sec='s1'; }); afterFlowChange(true); }
+function disableFlow(){ if(!ED.flow) return;
+  if(ED.flow.sections.length>1){ alert('区間が2つ以上あります。区間を1つにしてから分岐をやめてください。'); return; }
+  if(!confirm('分岐をやめて、1本道のシナリオに戻しますか？')) return;
+  ED.flow=null; ED.steps.forEach(s=>{ delete s.sec; }); afterFlowChange(true); }
+function addSection(){ if(!ED.flow) return; const k=newSecKey();
+  ED.flow.sections.push({ key:k, label:'区間'+(ED.flow.sections.length+1), branch:true, next:{type:'goto', to:''} });
+  const st=mkStep(); st.sec=k; ED.steps.push(st); afterFlowChange(true); }
+function deleteSection(k){ const F=ED.flow; if(!F) return; const sec=secByKey(k); if(!sec) return;
+  if(F.sections.length<=1){ alert('最後の区間は削除できません（分岐をやめる場合は「分岐をやめる」）'); return; }
+  const n=ED.steps.filter(s=>s.sec===k).length;
+  if(!confirm(`区間「${sec.label||k}」を削除します。${n?`中の${n}ステップも削除されます。`:''}よろしいですか？`)) return;
+  const cs=curStep();
+  for(let i=ED.steps.length-1;i>=0;i--) if(ED.steps[i].sec===k) ED.steps.splice(i,1);
+  F.sections=F.sections.filter(x=>x.key!==k);
+  F.sections.forEach(x=>{ const nx=x.next||{}; if(nx.type==='goto'&&nx.to===k) nx.to=''; if(nx.type==='choice') (nx.options||[]).forEach(o=>{ if(o.to===k) o.to=''; }); });
+  if(!ED.steps.length){ const st=mkStep('ステップ1'); st.sec=F.sections[0].key; ED.steps.push(st); }
+  stepIdx=Math.max(0, cs?ED.steps.indexOf(cs):0); afterFlowChange(true); }
+function moveSection(k,d){ const ss=ED.flow&&ED.flow.sections; if(!ss) return; const i=ss.findIndex(x=>x.key===k), j=i+d;
+  if(i<0||j<0||j>=ss.length) return; [ss[i],ss[j]]=[ss[j],ss[i]]; afterFlowChange(true); }
+// 区間の設定変更（文字入力は図と区間バーだけ更新＝入力中のフォーカスを保つ）
+function flSet(k,field,val){ const s=secByKey(k); if(!s) return; s.next=s.next||{type:'end'};
+  if(field==='label'){ s.label=val; renderSecBar(); renderFlowView(); return; }
+  if(field==='branch'){ s.branch=!!val; if(!val) delete s.branch; afterFlowChange(true); return; }
+  if(field==='type'){ s.next = val==='goto'?{type:'goto',to:''} : val==='choice'?{type:'choice',prompt:'',options:[{label:'',to:''},{label:'',to:''}]} : {type:'end'}; afterFlowChange(true); return; }
+  if(field==='to'){ s.next.to=val; afterFlowChange(false); return; }
+  if(field==='prompt'){ s.next.prompt=val; renderFlowView(); return; }
+  if(field==='endLabel'){ s.next.label=val; renderFlowView(); return; }
+}
+function flOpt(k,i,field,val){ const s=secByKey(k); const o=s&&s.next&&s.next.options&&s.next.options[i]; if(!o) return;
+  if(val===''&&(field==='tone'||field==='note')) delete o[field]; else o[field]=val;
+  if(field==='to'||field==='tone') afterFlowChange(false); else renderFlowView(); }
+function flOptAdd(k){ const s=secByKey(k); if(!s||!s.next||!s.next.options||s.next.options.length>=4) return; s.next.options.push({label:'',to:''}); afterFlowChange(true); }
+function flOptDel(k,i){ const s=secByKey(k); if(!s||!s.next||!s.next.options) return; s.next.options.splice(i,1); afterFlowChange(true); }
+function selectSection(k){ if(!secByKey(k)) return; let i=ED.steps.findIndex(s=>s.sec===k);
+  if(i<0){ if(!confirm('この区間にはステップがありません。ステップを追加しますか？')) return;
+    const st=mkStep(); st.sec=k; ED.steps.push(st); flowFix(); i=ED.steps.indexOf(st); }
+  stepIdx=i; figIdx=-1; syncStepMeta(); renderStepTabs(); renderOverlay(); renderPropbar(); }
+function jumpToSection(k){ closeFlow(); selectSection(k); }
+function renderSecBar(){ const bar=document.getElementById('secbar'); if(!bar) return;
+  if(!ED.flow){ bar.classList.remove('on'); bar.innerHTML=''; return; }
+  bar.classList.add('on'); bar.innerHTML=''; const sk=curSecKey(); const A=flowCheck();
+  ED.flow.sections.forEach((sec,i)=>{ const n=ED.steps.filter(s=>s.sec===sec.key).length; const b=document.createElement('button');
+    b.className='sec'+(sec.branch?' br':'')+(sec.key===sk?' on':'')+(A.bad.has(sec.key)?' ng':'');
+    b.innerHTML=(i===0?'▶ ':'')+escHtml(sec.label||sec.key)+`<small>${n}</small>`; b.title='この区間のステップを編集';
+    b.onclick=()=>selectSection(sec.key); bar.appendChild(b); });
+  const fb=document.createElement('button'); fb.className='flowbtn';
+  fb.textContent='🔀 フロー図'+(A.errors.length?` ⚠${A.errors.length}`:''); fb.onclick=openFlow; bar.appendChild(fb);
+}
+
+// ── 解析：到達性・終了への到達・戻り(ループ)・経路一覧・設定ミスの検出 ──
+function flowAnalyze(F, steps){
+  const secs=F.sections, by=new Map(secs.map(s=>[s.key,s]));
+  const cntMap=new Map(); steps.forEach(s=>cntMap.set(s.sec,(cntMap.get(s.sec)||0)+1)); const cnt=k=>cntMap.get(k)||0;
+  const edges=[], ends=new Map();
+  secs.forEach(s=>{ const nx=s.next||{type:'end'};
+    if(nx.type==='goto') edges.push({from:s.key,to:nx.to||'',kind:'goto',label:''});
+    else if(nx.type==='choice') (nx.options||[]).forEach((o,oi)=>edges.push({from:s.key,to:o.to||'',kind:'choice',label:o.label||'',tone:o.tone||'',oi}));
+    else { const lb=(nx.label||'').trim()||'終了'; const ek='END:'+lb; ends.set(ek,lb); edges.push({from:s.key,to:ek,kind:'end',label:''}); } });
+  const valid=edges.filter(e=>by.has(e.to)||ends.has(e.to));
+  const out=k=>valid.filter(e=>e.from===k);
+  const reach=new Set(), st=[F.start];
+  while(st.length){ const k=st.pop(); if(reach.has(k)||!by.has(k)) continue; reach.add(k); out(k).forEach(e=>st.push(e.to)); }
+  const canEnd=new Set(ends.keys()); for(let ch=true; ch;){ ch=false; secs.forEach(s=>{ if(!canEnd.has(s.key)&&out(s.key).some(e=>canEnd.has(e.to))){ canEnd.add(s.key); ch=true; } }); }
+  const back=new Set(), state=new Map();
+  const dfs=k=>{ state.set(k,1); out(k).forEach(e=>{ if(!by.has(e.to)) return; const s2=state.get(e.to); if(s2===1) back.add(e); else if(!s2) dfs(e.to); }); state.set(k,2); };
+  if(by.has(F.start)) dfs(F.start); secs.forEach(s=>{ if(!state.get(s.key)) dfs(s.key); });
+  const errors=[], warns=[], bad=new Set();
+  const L=k=>`「${(by.get(k)||{}).label||k}」`; const E=(k,m)=>{ errors.push(L(k)+m); bad.add(k); };
+  secs.forEach(s=>{ const nx=s.next||{}; const n=cnt(s.key);
+    if(!reach.has(s.key)) E(s.key,'はどこからもつながっていません');
+    if(nx.type==='goto'){ if(!nx.to) E(s.key,'の行き先が未設定です'); else if(!by.has(nx.to)) E(s.key,'の行き先の区間がありません'); }
+    if(nx.type==='choice'){ const os=nx.options||[];
+      if(os.length<2) E(s.key,'の選択肢が2つ未満です'); if(os.length>4) E(s.key,'の選択肢が5つ以上です（4つまで）');
+      os.forEach((o,i)=>{ if(!(o.label||'').trim()) E(s.key,`の選択肢${i+1}の文字が空欄です`);
+        if(!o.to) E(s.key,`の選択肢${i+1}の行き先が未設定です`); else if(!by.has(o.to)) E(s.key,`の選択肢${i+1}の行き先の区間がありません`); });
+      if(!(nx.prompt||'').trim()) warns.push(L(s.key)+'の質問文が空欄です（選択画面に表示されます）'); }
+    if(n===0){ if(nx.type==='choice'&&s.key!==F.start) warns.push(L(s.key)+'にステップがありません（前の区間からすぐに選択画面になります）'); else E(s.key,'にステップがありません'); }
+    if(reach.has(s.key)&&!canEnd.has(s.key)) E(s.key,'から作業終了にたどり着けません（抜け出せないループ）');
+  });
+  const routes=[]; const walk=(k,path,seen)=>{ if(routes.length>=30) return;
+    if(ends.has(k)){ routes.push({path:path.slice(), end:ends.get(k)}); return; }
+    if(!by.has(k)||seen.has(k)) return; seen.add(k); path.push(k); out(k).forEach(e=>{ if(!back.has(e)) walk(e.to,path,seen); }); path.pop(); seen.delete(k); };
+  if(by.has(F.start)) walk(F.start,[],new Set());
+  routes.forEach(r=>{ r.steps=r.path.reduce((a,k)=>a+cnt(k),0); r.choices=r.path.filter(k=>(by.get(k).next||{}).type==='choice').length; });
+  if(routes.some(r=>r.choices>=3)) warns.push('分岐が3段以上重なる経路があります（読みやすさのため2段までを推奨）');
+  if(secs.length>20) warns.push('区間が20個を超えています');
+  const lbls=secs.map(s=>(s.label||'').trim()); if(new Set(lbls).size!==lbls.length) warns.push('同じ名前の区間があります');
+  const indeg=new Map(); valid.forEach(e=>{ if(!back.has(e)) indeg.set(e.to,(indeg.get(e.to)||0)+1); });
+  return { by, edges:valid, ends, reach, back, errors:[...new Set(errors)], warns, bad, routes, cnt, indeg };
+}
+function flowCheck(){ return ED.flow ? flowAnalyze(ED.flow, ED.steps) : { errors:[], warns:[], bad:new Set(), routes:[] }; }
+function routeText(A,r){ return r.path.map(k=>A.by.get(k).label||k).join(' → ')+' → '+r.end; }
+
+// ── フロー図（SVG・自動配置）：上から下へ。戻る矢印は右側の点線 ──
+function flowSVG(A, F, opt){
+  const W=176, H=52, HC=76, CW=206, RH=124, PX=16, PY=30;
+  const isEnd=k=>A.ends.has(k);
+  const nodes=[...F.sections.map(s=>s.key), ...A.ends.keys()];
+  const fwd=A.edges.filter(e=>!A.back.has(e));
+  const layer=new Map(nodes.map(k=>[k,0]));
+  for(let it=0; it<=nodes.length; it++){ let ch=false; fwd.forEach(e=>{ const v=layer.get(e.from)+1; if(v>layer.get(e.to)){ layer.set(e.to,v); ch=true; } }); if(!ch) break; }
+  const rows=[]; nodes.forEach(k=>{ const l=layer.get(k); (rows[l]=rows[l]||[]).push(k); });
+  const maxN=Math.max(1,...rows.filter(Boolean).map(r=>r.length));
+  const pos=new Map(), ord=new Map(nodes.map((k,i)=>[k,i]));
+  rows.forEach((r,l)=>{ if(!r) return;
+    const pref=k=>{ const ps=fwd.filter(e=>e.to===k&&pos.has(e.from)).map(e=>pos.get(e.from).x); return ps.length? ps.reduce((a,b)=>a+b,0)/ps.length : 1e6+ord.get(k); };
+    if(l>0) r.sort((a,b)=>pref(a)-pref(b));
+    const x0=PX+(maxN-r.length)*CW/2;
+    r.forEach((k,i)=>pos.set(k,{ x:x0+i*CW+CW/2, y:PY+l*RH })); });
+  const backs=[...A.back]; const laneX0=PX+maxN*CW+4;
+  const VW=laneX0+backs.length*14+(backs.length?90:0), VH=PY+rows.length*RH;
+  const nh=k=>isEnd(k)?32:(((A.by.get(k).next||{}).type==='choice')?HC:H);
+  const route=opt.route, onN=new Set(), onE=new Set();
+  if(route){ route.path.forEach(k=>onN.add(k)); onN.add('END:'+route.end);
+    const seq=[...route.path,'END:'+route.end]; for(let i=0;i<seq.length-1;i++) onE.add(seq[i]+'>'+seq[i+1]); }
+  const dim=on=>route&&!on?' opacity="0.2"':'';
+  const col=e=>e.kind==='end'?'#94a3b8':e.tone==='danger'?'#dc2626':e.tone==='warn'?'#d97706':'#475569';
+  const tr=(s,n)=>{ s=String(s||''); return s.length>n? s.slice(0,n-1)+'…' : s; };
+  let g='';
+  const mk=c=>'fa'+c.slice(1);   // 矢印の色ごとのマーカー
+  fwd.forEach(e=>{ const a=pos.get(e.from), b=pos.get(e.to); if(!a||!b) return;
+    const outs=fwd.filter(x=>x.from===e.from), j=outs.indexOf(e), m=outs.length;
+    const sx=a.x-W/2+(j+1)*W/(m+1), sy=a.y+nh(e.from), tx=b.x, ty=b.y-3; const c=col(e);
+    const on=onE.has(e.from+'>'+e.to);
+    g+=`<g${dim(on)}><path d="M${sx} ${sy} C${sx} ${sy+34},${tx} ${ty-34},${tx} ${ty}" fill="none" stroke="${c}" stroke-width="${on?2.6:1.5}" marker-end="url(#${mk(c)})"/>`;
+    if(e.kind==='choice'&&e.label) g+=`<text x="${sx+(tx-sx)*0.22}" y="${sy+17}" text-anchor="middle" font-size="11" font-weight="800" fill="${c}" stroke="#f8fafc" stroke-width="4" paint-order="stroke">${escHtml(tr(e.label,10))}</text>`;
+    g+='</g>'; });
+  backs.forEach((e,i)=>{ const a=pos.get(e.from), b=pos.get(e.to); if(!a||!b) return;
+    const sx=a.x+W/2, sy=a.y+nh(e.from)/2, lx=laneX0+i*14, ty=b.y+nh(e.to)/2; const on=onE.has(e.from+'>'+e.to);
+    g+=`<g${dim(on)}><path d="M${sx} ${sy} H${lx} V${ty} H${b.x+W/2+3}" fill="none" stroke="#d97706" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#fad97706)"/>`
+      +`<text x="${lx+5}" y="${(sy+ty)/2}" font-size="11" font-weight="700" fill="#b45309" stroke="#f8fafc" stroke-width="4" paint-order="stroke">↩ ${escHtml(tr(e.label||'戻る',8))}</text></g>`; });
+  nodes.forEach(k=>{ const p=pos.get(k); const on=onN.has(k);
+    if(isEnd(k)){ const w=120; g+=`<g${dim(on)}><rect x="${p.x-w/2}" y="${p.y}" width="${w}" height="32" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1"/>`
+      +`<text x="${p.x}" y="${p.y+20}" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">■ ${escHtml(tr(A.ends.get(k),9))}</text></g>`; return; }
+    const s=A.by.get(k), nx=s.next||{}, isC=nx.type==='choice', h=nh(k), bad=A.bad.has(k), isCur=k===opt.cur;
+    const fill=bad?'#fef2f2':s.branch?'#f0fdfa':'#ffffff', stroke=bad?'#dc2626':isCur?'#1d4ed8':s.branch?'#0d9488':'#64748b';
+    const merge=(A.indeg.get(k)||0)>=2;
+    g+=`<g class="fn" data-k="${k}"${dim(on)}>`;
+    if(k===F.start) g+=`<text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="11" font-weight="800" fill="#1d4ed8">▶ 開始</text>`;
+    g+=`<rect x="${p.x-W/2}" y="${p.y}" width="${W}" height="${h}" rx="10" fill="${fill}" stroke="${stroke}" stroke-width="${isCur||on?2.6:1.2}"${bad?' stroke-dasharray="5 3"':''}/>`;
+    g+=`<text x="${p.x}" y="${p.y+21}" text-anchor="middle" font-size="13" font-weight="800" fill="${bad?'#991b1b':'#0f172a'}">${escHtml(tr(s.label||k,12))}</text>`;
+    g+=`<text x="${p.x}" y="${p.y+39}" text-anchor="middle" font-size="11" fill="#64748b">${A.cnt(k)}ステップ${merge?'・合流':''}</text>`;
+    if(isC) g+=`<rect x="${p.x-W/2+1.5}" y="${p.y+H}" width="${W-3}" height="${HC-H-1.5}" fill="#fef3c7"/>`
+      +`<text x="${p.x}" y="${p.y+H+16}" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e">◆ ${escHtml(tr(nx.prompt||'分岐点',12))}</text>`;
+    g+='</g>'; });
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${VW}" height="${VH}" viewBox="0 0 ${VW} ${VH}" font-family="system-ui,-apple-system,'Hiragino Sans','Yu Gothic',sans-serif">`
+    +`<defs>${['#475569','#94a3b8','#dc2626','#d97706'].map(c=>`<marker id="${mk(c)}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="${c}"/></marker>`).join('')}</defs>${g}</svg>`;
+}
+function openFlow(){ _flowRoute=-1; renderFlowModal(); document.getElementById('flow-modal').classList.add('on'); }
+function closeFlow(){ closeModal('flow-modal'); if(ED.steps.length){ syncStepMeta(); renderStepTabs(); } }
+function renderFlowModal(){
+  const intro=document.getElementById('flow-intro'), body=document.getElementById('flow-body');
+  if(!ED.flow){
+    intro.innerHTML=`<div style="font-size:13px;line-height:1.8;color:#334155">シナリオを<b>区間</b>に分け、区間の最後に<b>選択肢</b>を出して分岐できます。<br>
+      例：A1 点検準備 →「異常なし」A2 通常手順 ／「異常あり」B 異常時対応 → A3 後片付け で合流<br>
+      今のステップは、すべて最初の区間に入ります。<br>
+      <span style="color:#b45309">⚠ 分岐したシナリオは Webプレイヤー v4.17 以降で再生してください（古い版では全ステップが1本道で再生されます）。</span></div>
+      <div class="mact" style="justify-content:flex-start"><button class="btn" onclick="enableFlow()">🔀 分岐を使い始める</button></div>`;
+    body.innerHTML=''; body.style.display='none'; return; }
+  body.style.display='';
+  intro.innerHTML=`<div style="font-size:12px;color:#475569;line-height:1.6;margin-bottom:8px">区間ごとに「終わったら どうするか」（次の区間へ／選択肢で分ける／作業終了）を設定します。一番上の区間（▶開始）から始まります。
+    ${ED.flow.sections.length<=1?'<button class="fsb" style="margin-left:6px" onclick="disableFlow()">分岐をやめる</button>':''}</div>`;
+  const A=flowCheck();
+  body.innerHTML=`<div><div class="fl-h">区間の設定</div><div id="flow-secs">${ED.flow.sections.map((s,i)=>flowSecHtml(s,i,A)).join('')}</div>
+      <button class="btn" style="margin-top:2px" onclick="addSection()">＋ 区間を追加</button></div>
+    <div><div class="fl-h">フロー図（区間をクリックすると、その区間の編集へ移ります）</div><div id="flow-svgwrap"></div><div id="flow-check"></div></div>`;
+  renderFlowView();
+}
+function flowSecHtml(s,i,A){
+  const F=ED.flow, k=s.key, nx=s.next||{type:'end'}, n=A.cnt(k);
+  const opts=(sel,exSelf)=>`<option value="">（行き先を選択）</option>`+F.sections.filter(x=>!(exSelf&&x.key===k))
+    .map(x=>`<option value="${x.key}"${x.key===sel?' selected':''}>${escHtml(x.label||x.key)}</option>`).join('');
+  const sel=t=>nx.type===t?' selected':'';
+  let b=`<div class="row">終わったら <select onchange="flSet('${k}','type',this.value)"><option value="goto"${sel('goto')}>次の区間へ進む</option><option value="choice"${sel('choice')}>選択肢で分ける</option><option value="end"${sel('end')}>作業終了</option></select>`;
+  if(nx.type==='goto') b+=` → <select onchange="flSet('${k}','to',this.value)">${opts(nx.to,true)}</select>`;
+  if(nx.type==='end') b+=` <input class="wide" placeholder="終了の名前（任意）例：作業中止・指令へ連絡" value="${escAttr(nx.label||'')}" oninput="flSet('${k}','endLabel',this.value)">`;
+  b+='</div>';
+  if(nx.type==='choice'){
+    b+=`<div class="row"><input class="wide" placeholder="質問文　例：異常はありましたか？" value="${escAttr(nx.prompt||'')}" oninput="flSet('${k}','prompt',this.value)"></div>`;
+    (nx.options||[]).forEach((o,oi)=>{ const ts=t=>(o.tone||'')===t?' selected':'';
+      b+=`<div class="fopt"><input class="ol" placeholder="選択肢${oi+1}" value="${escAttr(o.label||'')}" oninput="flOpt('${k}',${oi},'label',this.value)"> →
+        <select onchange="flOpt('${k}',${oi},'to',this.value)">${opts(o.to,false)}</select>
+        <select title="ボタンの色" onchange="flOpt('${k}',${oi},'tone',this.value)"><option value=""${ts('')}>通常</option><option value="warn"${ts('warn')}>注意(黄)</option><option value="danger"${ts('danger')}>危険(赤)</option></select>
+        <input class="on" placeholder="補足（任意）" value="${escAttr(o.note||'')}" oninput="flOpt('${k}',${oi},'note',this.value)">
+        <button class="fsb del" onclick="flOptDel('${k}',${oi})" title="この選択肢を削除">✕</button></div>`; });
+    if((nx.options||[]).length<4) b+=`<div class="row"><button class="fsb" onclick="flOptAdd('${k}')">＋ 選択肢</button></div>`;
+  }
+  return `<div class="fsec${s.branch?' br':''}${k===curSecKey()?' cur':''}">
+    <div class="fsec-h">${i===0?'<span class="fstart">▶開始</span>':''}<input class="fl" value="${escAttr(s.label||'')}" placeholder="区間名" oninput="flSet('${k}','label',this.value)">
+      <span class="fcnt">${n}ステップ</span>
+      <label title="分岐側の区間として色分けします"><input type="checkbox"${s.branch?' checked':''} onchange="flSet('${k}','branch',this.checked)">分岐側</label>
+      <button class="fsb" onclick="moveSection('${k}',-1)" title="上へ（一番上が開始区間）">↑</button><button class="fsb" onclick="moveSection('${k}',1)" title="下へ">↓</button>
+      <button class="fsb go" onclick="jumpToSection('${k}')">✏️ 編集</button>
+      <button class="fsb del" onclick="deleteSection('${k}')">削除</button></div>
+    <div class="fsec-n">${b}</div></div>`;
+}
+function renderFlowView(){
+  const wrap=document.getElementById('flow-svgwrap'), chk=document.getElementById('flow-check'); if(!wrap||!ED.flow) return;
+  const A=flowCheck(); if(_flowRoute>=A.routes.length) _flowRoute=-1;
+  wrap.innerHTML=flowSVG(A, ED.flow, { cur:curSecKey(), route:_flowRoute>=0?A.routes[_flowRoute]:null });
+  wrap.onclick=e=>{ const g=e.target.closest('.fn'); if(g) jumpToSection(g.getAttribute('data-k')); };
+  let h='';
+  if(!A.errors.length&&!A.warns.length) h+='<div class="ok">✓ 設定の誤りは見つかりませんでした</div>';
+  A.errors.forEach(m=>{ h+=`<div class="e">✕ ${escHtml(m)}</div>`; });
+  A.warns.forEach(m=>{ h+=`<div class="w">⚠ ${escHtml(m)}</div>`; });
+  if(A.routes.length){ h+=`<div class="fl-h" style="margin-top:8px">経路（押すと図で強調）</div>`;
+    A.routes.forEach((r,i)=>{ h+=`<button class="froute${i===_flowRoute?' on':''}" onclick="_flowRoute=(_flowRoute===${i}?-1:${i});renderFlowView()">経路${i+1}：${escHtml(routeText(A,r))}（${r.steps}ステップ）</button>`; });
+    if(A.routes.length>=30) h+='<div class="w">経路が多いため30件まで表示しています</div>'; }
+  chk.innerHTML=h;
+}
+// 公開前の確認（誤りがあれば警告）
+function confirmFlowBeforePublish(){ if(!ED.flow) return true; const A=flowCheck(); if(!A.errors.length) return true;
+  return confirm(`分岐の設定に誤りが${A.errors.length}件あります。\n・${A.errors.slice(0,6).join('\n・')}${A.errors.length>6?'\n…':''}\n\nこのまま公開しますか？（🔀フロー図で確認できます）`); }
+// 保存用に整えた flow（余分な項目を出さない）
+function cleanFlow(){ const F=ED.flow; flowFix();
+  return { start:F.sections[0].key, sections:F.sections.map(s=>{ const nx=s.next||{type:'end'}; let n;
+    if(nx.type==='goto') n={type:'goto', to:nx.to||''};
+    else if(nx.type==='choice') n={type:'choice', prompt:nx.prompt||'', options:(nx.options||[]).map(o=>({ label:o.label||'', to:o.to||'', ...(o.tone?{tone:o.tone}:{}), ...(o.note?{note:o.note}:{}) }))};
+    else n={type:'end', ...((nx.label||'').trim()?{label:nx.label.trim()}:{})};
+    return { key:s.key, label:s.label||'', ...(s.branch?{branch:true}:{}), next:n }; }) }; }
 
 // ══════════ 図形プロパティ ══════════
 function selectFig(i){ figIdx=i; renderPropbar(); renderOverlay(); }
@@ -1285,7 +1621,7 @@ function genId(name){
 
 // ══════════ エクスポート / GitHub ══════════
 function buildScenarioJSON(){
-  saveFaceState();
+  saveFaceState(); flowFix();
   const faces=(ED.faces||[]).map(f=>({ key:f.key, label:f.label, barcode:f.barcode,
     calib:f.calib, markerSizeMM:f.markerSizeMM, imageFile:f.imageFile||'', markerPos:f.marker }));
   return JSON.stringify({
@@ -1296,8 +1632,9 @@ function buildScenarioJSON(){
     device: ED.device||'',
     docs: ED.docs||{},
     faces,                        // ← 多面。各面のマーカー番号・校正・写真
-    steps: ED.steps.map(s=>({ ...s, ar:(s.ar||[]).map(f=>{ const {_dataURL, ...rest}=f; return rest; }) }))   // _dataURL(作業用)は出力しない
-
+    ...(ED.flow ? { formatVersion: 2, flow: cleanFlow() } : {}),   // 分岐（区間・選択肢）。無ければ従来どおり1本道
+    steps: ED.steps.map(s=>{ const o={ ...s, ar:(s.ar||[]).map(f=>{ const {_dataURL, ...rest}=f; return rest; }) }; if(!ED.flow) delete o.sec; return o; }),   // _dataURL(作業用)は出力しない
+    ...(ED.status ? { status: ED.status, updatedAt: new Date().toISOString() } : {})   // OneDrive保存時：draft=下書き / published=公開
   }, null, 2);
 }
 function openExport(){
@@ -1320,6 +1657,13 @@ async function uploadDoc(kind, file){
   const statusEl=document.getElementById(kind+'-status');
   const set=(t,err)=>{ statusEl.innerHTML=t; statusEl.style.color=err?'#dc2626':'#16a34a'; };
   if(!file){ return; }
+  statusEl.dataset.touched='1';
+  if(isOneDriveMode()){
+    if(kind==='pdf' && !(file.type==='application/pdf' || /\.pdf$/i.test(file.name))){ set('❌ PDFファイルを選んでください',true); return; }
+    if(kind==='video' && !(/^video\//.test(file.type) || /\.(mp4|mov|webm|m4v|ogg)$/i.test(file.name))){ set('❌ 動画ファイルを選んでください',true); return; }
+    try{ await odUploadDoc(kind, file, set); }catch(e){ set('❌ 失敗：'+escHtml(e.message),true); }
+    return;
+  }
   const repoStr=(document.getElementById('gh-repo').value.trim())||'ifx-mori/IFX_AR-';
   const token=document.getElementById('gh-token').value.trim();
   if(!token){ set('❌ ④既存シナリオ読込の「GitHub設定」にトークンを入力してください',true); return; }
@@ -1429,6 +1773,7 @@ async function githubUpload(){
   if(!repoStr.includes('/')){ setJsonStatus('❌ リポジトリは owner/repo 形式',true); return; }
   const [owner,repo]=repoStr.split('/');
   localStorage.setItem('bc_gh_token',token); localStorage.setItem('bc_gh_repo',repoStr);
+  if(!confirmFlowBeforePublish()) return;
   const btn=document.getElementById('btn-upload'); btn.disabled=true;
   try{
     saveFaceState();
@@ -1469,6 +1814,257 @@ async function githubUpload(){
   btn.disabled=false;
 }
 
+
+// ══════════ OneDrive（Microsoft Graph）連携 ══════════
+// GitHubを使わない保存先。ご自身のMicrosoft 365アカウントでサインインし、OneDrive直下の「ARNavi」フォルダへ保存する。
+//   ARNavi/scenarios/<id>.json   シナリオ（status: draft=下書き / published=公開）
+//   ARNavi/targets/<id>-<面>.jpg  面ごとの参照写真
+//   ARNavi/assets/<id>-sNiM.png   画像オーバーレイ
+//   ARNavi/docs/<id>-pdf.pdf 等    資料（PDF・動画）
+// シナリオ内のファイル参照は ARNavi からの相対パス（例 targets/xxx.jpg）。プレイヤーも同じ規則で解決する。
+// ※ Entra ID のアプリ登録（シングルページアプリ, リダイレクトURI http://localhost:8765/）が前提。PCで start-editor.bat から起動して使う。
+const OD = {
+  clientId:'c77cef18-0f67-4ef0-b2f4-e0cf4440fe58',
+  tenantId:'d5e2aae0-4b99-4228-88dc-00ef3b4442ea',
+  root:'ARNavi',
+  scopes:['Files.ReadWrite','User.Read'],
+  msalUrl:'https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.30.0/lib/msal-browser.min.js',
+  graph:'https://graph.microsoft.com/v1.0',
+};
+let _msal=null, _odAccount=null, _odLoadingMsal=null;
+const _odEtag={};   // シナリオID → 読込/保存時の eTag（同時編集の検出用）
+
+/** OneDriveが使える起動方法か（リダイレクトURIに登録したPC上の localhost で開いたとき） */
+function odAvailable(){ return location.hostname==='localhost' && location.port==='8765'; }   // 登録したリダイレクトURI（http://localhost:8765/）と一致する起動方法のときだけ
+function isOneDriveMode(){ const r=document.getElementById('st-od'); return !!(r && r.checked); }
+
+function odLoadMsal(){
+  if(window.msal) return Promise.resolve();
+  if(!_odLoadingMsal) _odLoadingMsal=new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=OD.msalUrl;
+    s.onload=res; s.onerror=()=>{ _odLoadingMsal=null; rej(new Error('サインイン部品を読み込めませんでした（ネット接続を確認）')); }; document.head.appendChild(s); });
+  return _odLoadingMsal;
+}
+async function odInit(){
+  if(_msal) return _msal;
+  await odLoadMsal();
+  _msal=new msal.PublicClientApplication({
+    auth:{ clientId:OD.clientId, authority:`https://login.microsoftonline.com/${OD.tenantId}`, redirectUri:location.origin+'/' },
+    cache:{ cacheLocation:'localStorage' } });
+  await _msal.initialize();
+  const accs=_msal.getAllAccounts(); if(accs.length) _odAccount=accs[0];
+  return _msal;
+}
+async function odSignIn(){
+  try{ await odInit(); const r=await _msal.loginPopup({ scopes:OD.scopes, prompt:'select_account' }); _odAccount=r.account; }
+  catch(e){ alert('サインインできませんでした：'+((e&&e.message)||e)); }
+  updateOdState();
+}
+async function odSignOut(){
+  try{ await odInit(); if(_odAccount) await _msal.logoutPopup({ account:_odAccount, mainWindowRedirectUri:location.href }); }catch(_){}
+  _odAccount=null; updateOdState();
+}
+async function odToken(){
+  await odInit();
+  if(!_odAccount) throw new Error('OneDriveにサインインしてください（④の「Microsoftアカウントでサインイン」）');
+  try{ return (await _msal.acquireTokenSilent({ scopes:OD.scopes, account:_odAccount })).accessToken; }
+  catch(_){ return (await _msal.acquireTokenPopup({ scopes:OD.scopes, account:_odAccount })).accessToken; }
+}
+/** ARNavi からの相対パス → Graph の項目URL */
+function odItemUrl(rel){ return `${OD.graph}/me/drive/root:/${[OD.root, ...String(rel).split('/')].map(encodeURIComponent).join('/')}`; }
+async function odFetch(url, opts){ opts=opts||{}; const t=await odToken();
+  return fetch(url, Object.assign({}, opts, { headers:Object.assign({ Authorization:'Bearer '+t }, opts.headers||{}) })); }
+async function odErr(r, what){ let t=''; try{ t=(await r.text()).slice(0,160); }catch(_){} return new Error(`${what}（HTTP ${r.status}）${t}`); }
+
+/** フォルダ内の一覧（無ければ空） */
+async function odList(dir){
+  let url=odItemUrl(dir)+':/children?$top=200'; const items=[];
+  while(url){ const r=await odFetch(url); if(r.status===404) return [];
+    if(!r.ok) throw await odErr(r, dir+' の一覧取得に失敗');
+    const j=await r.json(); items.push(...(j.value||[])); url=j['@odata.nextLink']||null; }
+  return items;
+}
+async function odMeta(rel){ const r=await odFetch(odItemUrl(rel)); if(r.status===404) return null; if(!r.ok) throw await odErr(r, rel+' の情報取得に失敗'); return r.json(); }
+/** ファイル本体をBlobで取得（一時的なダウンロードURL経由。だめなら /content 経由） */
+async function odGetBlob(rel, meta){
+  meta=meta||await odMeta(rel); if(!meta) return null;
+  const dl=meta['@microsoft.graph.downloadUrl'];
+  if(dl){ try{ const r=await fetch(dl); if(r.ok) return await r.blob(); }catch(_){} }
+  const r=await odFetch(odItemUrl(rel)+':/content'); if(!r.ok) throw await odErr(r, rel+' の取得に失敗'); return r.blob();
+}
+async function odGetJson(rel, meta){ const b=await odGetBlob(rel, meta); return b ? JSON.parse(await b.text()) : null; }
+/** 保存（4MB以下は一括、超える場合はアップロードセッションで分割送信） */
+async function odPut(rel, data, contentType, onProgress){
+  const blob=(data instanceof Blob) ? data : new Blob([data], { type:contentType||'application/octet-stream' });
+  const ct=contentType||blob.type||'application/octet-stream';
+  if(blob.size<=4*1024*1024){
+    const r=await odFetch(odItemUrl(rel)+':/content', { method:'PUT', headers:{ 'Content-Type':ct }, body:blob });
+    if(!r.ok) throw await odErr(r, rel+' の保存に失敗'); return r.json();
+  }
+  const s=await odFetch(odItemUrl(rel)+':/createUploadSession', { method:'POST', headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify({ item:{ '@microsoft.graph.conflictBehavior':'replace' } }) });
+  if(!s.ok) throw await odErr(s, rel+' のアップロード開始に失敗');
+  const { uploadUrl }=await s.json();
+  const CH=320*1024*16;   // 5MB（320KiBの倍数）
+  let pos=0, last=null;
+  while(pos<blob.size){
+    const end=Math.min(pos+CH, blob.size);
+    const r=await fetch(uploadUrl, { method:'PUT', headers:{ 'Content-Range':`bytes ${pos}-${end-1}/${blob.size}` }, body:blob.slice(pos,end) });
+    if(!(r.ok||r.status===202)) throw await odErr(r, rel+' の送信に失敗');
+    last=r; pos=end; if(onProgress) onProgress(pos/blob.size);
+  }
+  return last.json();
+}
+async function odDelete(rel){ const r=await odFetch(odItemUrl(rel), { method:'DELETE' }); if(r.status===404) return false; if(!r.ok&&r.status!==204) throw await odErr(r, rel+' の削除に失敗'); return true; }
+async function dataURLToBlob(u){ return (await fetch(u)).blob(); }
+
+/** 保存済みシナリオを全部読む（[{item, json}]） */
+async function odLoadAllScenarios(){
+  const items=(await odList('scenarios')).filter(it=>it.file && /\.json$/i.test(it.name));
+  const out=await Promise.all(items.map(async it=>{ try{ return { item:it, json:await odGetJson('scenarios/'+it.name, it) }; }catch(_){ return { item:it, json:null }; } }));
+  return out.filter(x=>x.json && x.json.id && Array.isArray(x.json.steps));
+}
+
+// ── 画面：サインイン状態・保存先の切替 ──
+function updateOdState(){
+  const st=document.getElementById('od-state'), si=document.getElementById('od-signin'), so=document.getElementById('od-signout');
+  if(!st) return;
+  if(!odAvailable()){ st.textContent='OneDriveは、PCで「start-editor.bat」から起動したエディタで利用できます'; st.style.color='#b45309'; si.style.display='none'; so.style.display='none'; return; }
+  if(_odAccount){ st.textContent='サインイン中：'+(_odAccount.name||_odAccount.username||''); st.style.color='#15803d'; si.style.display='none'; so.style.display=''; }
+  else { st.textContent='未サインイン'; st.style.color='#64748b'; si.style.display=''; so.style.display='none'; }
+}
+function applyStoreMode(){
+  const od=isOneDriveMode();
+  try{ localStorage.setItem('bc_store_mode', od?'od':'gh'); }catch(_){}
+  document.getElementById('od-panel').style.display=od?'':'none';
+  document.getElementById('gh-settings').style.display=od?'none':'';
+  document.getElementById('save-od').style.display=od?'flex':'none';
+  document.getElementById('btn-upload').style.display=od?'none':'';
+  document.getElementById('json-hint').innerHTML = od
+    ? '<b>OneDriveへ保存</b>：OneDrive の ARNavi/scenarios/&lt;id&gt;.json に保存します。<b>下書き</b>はプレイヤーに表示されず、<b>公開</b>したものだけが再生されます。バーコード番号が空なら自動採番します。'
+    : '<b>GitHubへ保存</b>：barcode-scenarios/&lt;id&gt;.json にアップロードします。バーコード番号が空なら自動採番します。';
+  ['pdf','video'].forEach(k=>{ const h=document.getElementById(k+'-status'); if(h && !h.dataset.touched) h.innerHTML = od
+    ? 'OneDrive の <code>ARNavi/docs/</code> に保存して登録します（サインインが必要）。'
+    : (k==='pdf' ? 'GitHubの <code>docs/</code> に自動アップロードしてURL登録します（④の「GitHub設定」のリポジトリ・トークンが必要）。blob/raw URLは保存時にPages URLへ自動変換。'
+                 : 'mp4等。大きい動画はアップロードに時間がかかります（目安40MB以下推奨）。'); });
+  updateOdState();
+}
+
+// ── 既存シナリオを開く（OneDrive） ──
+async function odOpenPicker(){
+  document.getElementById('remote-modal').classList.add('on');
+  const list=document.getElementById('remote-list'); list.innerHTML='<div style="color:#64748b;font-size:13px">OneDriveから読み込み中…</div>';
+  try{
+    const all=await odLoadAllScenarios();
+    if(!all.length){ list.innerHTML='<div style="color:#64748b;font-size:13px">OneDriveに保存済みのシナリオがありません</div>'; return; }
+    list.innerHTML='';
+    all.sort((a,b)=>String(b.item.lastModifiedDateTime).localeCompare(String(a.item.lastModifiedDateTime))).forEach(({item,json:s})=>{
+      const pub=s.status==='published';
+      const row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;align-items:stretch;margin-bottom:8px';
+      const b=document.createElement('button'); b.className='remote-item'; b.style.margin='0'; b.style.flex='1';
+      const when=item.lastModifiedDateTime?new Date(item.lastModifiedDateTime).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+      b.innerHTML=`<b>${escHtml(s.name||s.id)} <span style="font-size:11px;padding:1px 7px;border-radius:9px;${pub?'background:#dcfce7;color:#15803d':'background:#fef3c7;color:#b45309'}">${pub?'公開':'下書き'}</span></b>`
+        +`<small>バーコード ${s.barcode??'—'}｜${s.steps.length}ステップ｜更新 ${when}</small>`;
+      b.onclick=()=>odLoadScenario(item, s);
+      const del=document.createElement('button'); del.textContent='🗑'; del.title='削除';
+      del.style.cssText='flex:0 0 auto;width:46px;border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:10px;font-size:18px;font-weight:700';
+      del.onclick=ev=>{ ev.stopPropagation(); odDeleteScenario(s); };
+      row.appendChild(b); row.appendChild(del); list.appendChild(row);
+    });
+  }catch(e){ list.innerHTML='<div style="color:#dc2626;font-size:13px">取得失敗：'+escHtml(e.message)+'</div>'; }
+}
+async function odLoadScenario(item, data){
+  const list=document.getElementById('remote-list'); list.innerHTML='<div style="color:#64748b;font-size:13px">写真を読み込み中…</div>';
+  // 参照写真・画像オーバーレイを先に取得して、表示用の一時URLへ（OneDriveはサインインが必要なため直接URLで表示できない）
+  const rels=new Set();
+  (Array.isArray(data.faces)?data.faces:[]).forEach(f=>{ if(f.imageFile) rels.add(f.imageFile); });
+  if(data.imageFile) rels.add(data.imageFile);
+  (data.steps||[]).forEach(s=>(s.ar||[]).forEach(f=>{ if(f.type==='image'&&f.src&&!/^https?:/.test(f.src)) rels.add(f.src); }));
+  const map={};
+  await Promise.all([...rels].map(async rel=>{ try{ const b=await odGetBlob(rel); if(b) map[rel]=URL.createObjectURL(b); }catch(_){} }));
+  _odEtag[data.id]=item.eTag;
+  ED.status=data.status||'draft';
+  loadScenario(data, null, null, rel=>(rel&&map[rel])||'');
+}
+async function odDeleteScenario(s){
+  if(!confirm(`「${s.name||s.id}」（バーコード${s.barcode??'—'}）をOneDriveから削除します。よろしいですか？\n参照写真・画像も一緒に削除します。`)) return;
+  const list=document.getElementById('remote-list'); list.innerHTML='<div style="color:#64748b;font-size:13px">削除中…</div>';
+  try{
+    const rels=new Set([`scenarios/${s.id}.json`]);
+    (Array.isArray(s.faces)?s.faces:[]).forEach(f=>{ if(f.imageFile) rels.add(f.imageFile); });
+    (s.steps||[]).forEach(st=>(st.ar||[]).forEach(f=>{ if(f.type==='image'&&f.src&&!/^https?:/.test(f.src)) rels.add(f.src); }));
+    for(const rel of rels){ try{ await odDelete(rel); }catch(_){} }
+    delete _odEtag[s.id];
+    if(ED.id===s.id){ ED.id=''; document.getElementById('cfg-id').value=''; }
+    await odOpenPicker();
+  }catch(e){ list.innerHTML='<div style="color:#dc2626;font-size:13px">削除失敗：'+escHtml(e.message)+'</div>'; }
+}
+
+// ── 保存（下書き／公開） ──
+async function odUpload(status){
+  if(status==='published' && !confirmFlowBeforePublish()) return;
+  const btns=[...document.querySelectorAll('#save-od button')]; btns.forEach(b=>b.disabled=true);
+  try{
+    saveFaceState();
+    if(!ED.id) ED.id=document.getElementById('cfg-id').value.trim() || genId(ED.name);
+    const rel=`scenarios/${ED.id}.json`;
+    // 同時編集の確認：読み込んだ後に別の場所（iPadなど）で更新されていないか
+    setJsonStatus('OneDriveの状態を確認中…');
+    const cur=await odMeta(rel);
+    if(cur && _odEtag[ED.id] && cur.eTag!==_odEtag[ED.id]){
+      const when=new Date(cur.lastModifiedDateTime).toLocaleString('ja-JP');
+      if(!confirm(`このシナリオは、読み込んだ後に別の場所で更新されています（${when}）。\n\n「OK」＝今の内容で上書きする\n「キャンセル」＝保存しない`)){ setJsonStatus('保存を取りやめました',true); return; }
+    } else if(cur && !_odEtag[ED.id]){
+      if(!confirm(`OneDriveに同じID（${ED.id}）のシナリオがあります。上書きしますか？`)){ setJsonStatus('保存を取りやめました',true); return; }
+    }
+    // バーコード番号の自動採番（未割当の面のみ。OneDrive上の他シナリオと重複しない番号）
+    if(ED.faces.some(f=>f.barcode==null||isNaN(f.barcode))){
+      setJsonStatus('バーコード番号を採番中…');
+      const used=new Set();
+      (await odLoadAllScenarios()).forEach(({json:j})=>{ if(j.id===ED.id) return; if(Number.isInteger(j.barcode)) used.add(j.barcode);
+        (Array.isArray(j.faces)?j.faces:[]).forEach(f=>{ if(Number.isInteger(f.barcode)) used.add(f.barcode); }); });
+      ED.faces.forEach(f=>{ if(Number.isInteger(f.barcode)) used.add(f.barcode); });
+      for(const f of ED.faces){ if(f.barcode==null||isNaN(f.barcode)){ let n=0; while(used.has(n)) n++; f.barcode=n; used.add(n); } }
+    }
+    ED.barcode=ED.faces[0].barcode;
+    const upFiles=[];
+    for(const f of ED.faces){ if(f.photoDataURL){ setJsonStatus(`参照写真を保存中…（${f.label}）`);
+      f.imageFile=`targets/${ED.id}-${f.key}.jpg`;
+      await odPut(f.imageFile, await dataURLToBlob(f.photoDataURL), 'image/jpeg'); upFiles.push(f.imageFile); } }
+    for(let si=0; si<ED.steps.length; si++){ const ar=ED.steps[si].ar||[];
+      for(let fi=0; fi<ar.length; fi++){ const g=ar[fi];
+        if(g.type==='image' && g._dataURL && /^data:/.test(g._dataURL)){
+          setJsonStatus(`画像を保存中…（STEP${si+1}）`);
+          const path=`assets/${ED.id}-s${si+1}i${fi+1}.png`;
+          await odPut(path, await dataURLToBlob(g._dataURL), 'image/png');
+          g.src=path; upFiles.push(path);
+        } } }
+    ED.status=status;
+    setJsonStatus('シナリオを保存中…');
+    const json=buildScenarioJSON();
+    document.getElementById('json-ta').value=json;
+    const saved=await odPut(rel, json, 'application/json');
+    _odEtag[ED.id]=saved.eTag;
+    const faceInfo=ED.faces.map(f=>`${f.label}=${f.barcode}`).join(' / ');
+    setJsonStatus(`✅ OneDriveに${status==='published'?'【公開】':'【下書き】'}として保存しました\n面とバーコード：${faceInfo}\n・ARNavi/${rel}`+upFiles.map(u=>`\n・ARNavi/${u}`).join('')
+      +(status==='published'?'\n\nプレイヤーで再生できる状態です。':'\n\n下書きはプレイヤーには表示されません。仕上がったら「公開して保存」してください。'));
+    renderFaceBar();
+  }catch(e){ setJsonStatus('❌ 失敗：'+e.message,true); }
+  finally{ btns.forEach(b=>b.disabled=false); }
+}
+
+// ── 資料（PDF・動画）をOneDriveへ ──
+async function odUploadDoc(kind, file, set){
+  if(!ED.id) ED.id=document.getElementById('cfg-id').value.trim() || genId(document.getElementById('cfg-name').value.trim()||'bc');
+  document.getElementById('cfg-id').value=ED.id;
+  const ext=((file.name.split('.').pop()||(kind==='pdf'?'pdf':'mp4')).toLowerCase().replace(/[^a-z0-9]/g,''))||(kind==='pdf'?'pdf':'mp4');
+  const base=(ED.id.replace(/[^A-Za-z0-9._-]/g,'').replace(/^-+|-+$/g,''))||('doc-'+Date.now().toString(36));
+  const rel=`docs/${base}-${kind}.${ext}`;
+  set(`OneDriveへ保存中…（${(file.size/1e6).toFixed(1)}MB）`);
+  await odPut(rel, file, file.type||(kind==='pdf'?'application/pdf':'video/mp4'), p=>set(`OneDriveへ保存中…（${Math.round(p*100)}%）`));
+  document.getElementById(kind==='pdf'?'cfg-pdf':'cfg-video').value=rel;
+  set(`✅ 登録：ARNavi/${escHtml(rel)}`);
+}
+
 // ══════════ バーコード表示 / 印刷 ══════════
 // AR.js matrixCodeType:3x3 用の公式互換マーカー画像（jsDelivr→rawフォールバック）
 const BC_PRIMARY  = n => `https://cdn.jsdelivr.net/gh/nicolocarpignoli/artoolkit-barcode-markers-collection@master/3x3/${n}.png`;
@@ -1506,6 +2102,7 @@ function printBarcode(){
 
 // ══════════ GitHubから既存シナリオを読込 ══════════
 async function openRemotePicker(){
+  if(isOneDriveMode()) return odOpenPicker();
   const repoStr=(document.getElementById('gh-repo').value.trim())||'ifx-mori/IFX_AR-';
   const [owner,repo]=repoStr.split('/');
   document.getElementById('remote-modal').classList.add('on');
@@ -1544,9 +2141,10 @@ async function openRemotePicker(){
     });
   }catch(e){ list.innerHTML='<div style="color:#dc2626;font-size:13px">取得失敗: '+e.message+'</div>'; }
 }
-function loadScenario(data,owner,repo){
+function loadScenario(data,owner,repo,resolve){
   ED.id=data.id; ED.name=data.name||'シナリオ'; ED.subtitle=data.subtitle||''; ED.device=data.device||''; ED.docs=data.docs||{};
-  const rawUrl=p=>p?`https://raw.githubusercontent.com/${owner}/${repo}/main/${p}?t=${Date.now()}`:'';
+  if(!resolve) ED.status=data.status||'';   // GitHubから読んだ場合は状態を引き継ぐだけ（OneDriveは呼び出し側で設定）
+  const rawUrl=resolve || (p=>p?`https://raw.githubusercontent.com/${owner}/${repo}/main/${p}?t=${Date.now()}`:'');
   if(Array.isArray(data.faces)&&data.faces.length){
     ED.faces=data.faces.map((f,i)=>({ key:f.key||('f'+(i+1)), label:f.label||('面'+(i+1)), barcode:Number.isInteger(f.barcode)?f.barcode:null,
       markerSizeMM:(f.markerSizeMM>0)?f.markerSizeMM:MARKER_MM_DEFAULT, calib:Object.assign({...CALIB_DEFAULT}, f.calib||{}),
@@ -1562,6 +2160,14 @@ function loadScenario(data,owner,repo){
   }
   ED.faceIdx=0;
   ED.steps=(data.steps&&data.steps.length)?data.steps:[{title:'ステップ1',detail:'',warn:'normal',ar:[],face:ED.faces[0].key}];
+  // 分岐：開始区間を先頭に置き、所属の無いステップは開始区間へ
+  if((data.formatVersion||1)>2) alert('このシナリオは新しい版のエディタで作られています。編集・保存すると一部の設定が失われる可能性があります。');
+  ED.flow=null; _flowRoute=-1;
+  if(data.flow&&Array.isArray(data.flow.sections)&&data.flow.sections.length){
+    const F=JSON.parse(JSON.stringify(data.flow)); F.sections.forEach((x,i)=>{ if(!x.key) x.key='s'+(i+1); if(!x.next) x.next={type:'end'}; });
+    const si=F.sections.findIndex(x=>x.key===F.start); if(si>0) F.sections.unshift(...F.sections.splice(si,1));
+    ED.flow=F; stepIdx=0; flowFix();
+  } else ED.steps.forEach(s=>{ delete s.sec; });
   // 画像オーバーレイのプレビュー用に、保存URLからロード用URLを_dataURLへ設定（再アップは_dataURLがdata:のもののみ）
   ED.steps.forEach(s=>(s.ar||[]).forEach(f=>{ if(f.type==='image'&&f.src&&!f._dataURL) f._dataURL=rawUrl(f.src); }));
   const fkeys=ED.faces.map(f=>f.key); ED.steps.forEach(s=>{ if(!fkeys.includes(s.face)) s.face=fkeys[0]; });
@@ -1830,6 +2436,15 @@ function updateCfgMoreState(){ const el=document.getElementById('cfg-more-state'
   el.textContent=n.length?'：'+n.join('・')+' 入力済':''; }
 ['cfg-sub','cfg-device','cfg-id'].forEach(id=>document.getElementById(id).addEventListener('input', updateCfgMoreState));
 (function restoreBottom(){ let c=false; try{ c=localStorage.getItem('bc_bottom_collapsed')==='1'; }catch(_){} document.getElementById('bottom').classList.toggle('collapsed', c); })();
+function syncStoreTabs(){ [['st-od','st-od-lb'],['st-gh','st-gh-lb']].forEach(([r,l])=>{ const on=document.getElementById(r).checked, el=document.getElementById(l);
+  el.style.background=on?'#fff':'transparent'; el.style.color=on?'#1d4ed8':'#475569'; el.style.boxShadow=on?'0 1px 4px rgba(0,0,0,.12)':'none'; }); }
+(function restoreStoreMode(){
+  let m=null; try{ m=localStorage.getItem('bc_store_mode'); }catch(_){}
+  if(!m) m=odAvailable()?'od':'gh';
+  document.getElementById(m==='od'?'st-od':'st-gh').checked=true;
+  syncStoreTabs(); applyStoreMode();
+  if(odAvailable()) odInit().then(updateOdState).catch(()=>{});   // 前回のサインインを復元
+})();
 (function restoreSetupMode(){ let m='list'; try{ m=localStorage.getItem('bc_setup_mode')||'list'; }catch(_){} setSetupMode(m==='wz'?'wz':'list'); })();
 // 資料URL欄：フォーカスを外したら blob/raw を Pages URL に自動変換
 ['cfg-pdf','cfg-video'].forEach(id=>{ const el=document.getElementById(id);

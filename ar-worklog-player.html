@@ -93,6 +93,19 @@
   #finmodal .fm-resume { border:2px solid #15803d; background:#f0fdf4; color:#15803d; }
   #finmodal .fm-home { border:none; background:#1d4ed8; color:#fff; }
   #finmodal .fm-again { border:1px solid #cbd5e1; background:#fff; color:#334155; }
+  /* 分岐の選択画面（AR表示が見えるよう下寄せ） */
+  #choicemodal { position:fixed; inset:0; z-index:44; display:none; align-items:flex-end; justify-content:center; background:rgba(15,23,42,.35); padding:16px; }
+  #choicemodal .cm-box { background:#fff; border-radius:16px; padding:16px; width:100%; max-width:440px; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+  .cm-from { font-size:11px; color:#64748b; font-weight:700; }
+  .cm-q { font-size:16px; font-weight:800; color:#0f172a; margin:4px 0 12px; line-height:1.4; }
+  .cm-opt { display:block; width:100%; text-align:left; padding:14px; margin-bottom:9px; border:2px solid #1d4ed8; border-radius:12px; background:#eff6ff; color:#1e3a8a; font-size:15px; font-weight:800; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .cm-opt.warn { border-color:#d97706; background:#fffbeb; color:#92400e; }
+  .cm-opt.danger { border-color:#dc2626; background:#fef2f2; color:#991b1b; }
+  .cm-opt small { display:block; font-size:11.5px; font-weight:600; margin-top:3px; opacity:.85; }
+  .cm-cancel { display:block; width:100%; padding:11px; border:1px solid #cbd5e1; border-radius:11px; background:#fff; color:#475569; font-size:13px; font-weight:700; cursor:pointer; }
+  .pg-sec { font-size:12.5px; font-weight:800; color:#0f172a; margin:10px 2px 6px; }
+  .pg-sec.next { color:#64748b; font-weight:700; }
+  .pg-row.past { opacity:.6; cursor:default; }
   /* 作業記録モーダル */
   #logmodal { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); padding:16px; }
   #logmodal .lm-box { background:#fff; border-radius:16px; padding:16px; width:100%; max-width:520px; max-height:84vh; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,.35); }
@@ -138,7 +151,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.16</div>
+    <div id="ver">Worklog v4.17</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -206,6 +219,16 @@
     <div class="sp-head">操作を選択　<span id="sp-dev" style="font-weight:500;color:#94a3b8;font-size:11px"></span></div>
     <div id="sp-list"></div>
     <button class="sp-home" onclick="goHome()">🏠 最初の画面に戻る</button>
+  </div>
+</div>
+
+<!-- 分岐の選択画面 -->
+<div id="choicemodal">
+  <div class="cm-box">
+    <div class="cm-from" id="cm-from"></div>
+    <div class="cm-q" id="cm-q"></div>
+    <div id="cm-list"></div>
+    <button class="cm-cancel" onclick="hideChoice(true)">‹ このステップに戻る</button>
   </div>
 </div>
 
@@ -654,6 +677,73 @@ const wrapper=document.getElementById('wrapper');
 const content=document.getElementById('content');
 let curKey=null, idx=0, cur=null, curMid=null;
 let checkedSteps=new Set();
+// ── 分岐（区間・選択肢・合流）：cur.flow があれば区間単位で進む。trail＝通ってきた区間の順番（形式は BRANCH_SPEC.md） ──
+let trail=[], _pendingChoice=null;
+function hasFlow(){ return !!(cur&&cur.flow); }
+function secOf(k){ return cur&&cur.flow ? cur.flow.by.get(k) : null; }
+function secLabel(k){ return (secOf(k)||{}).label||k; }
+function secIdxs(sc,k){ const a=[]; (sc.steps||[]).forEach((s,i)=>{ if(s.sec===k) a.push(i); }); return a; }
+function firstStepIdx(sc){ if(!sc||!sc.flow) return 0; const a=secIdxs(sc,sc.flow.start); return a.length?a[0]:0; }
+// 区間kを終えた後の行き先。ステップの無い区間は通り抜ける（via＝通り抜けた区間）
+function resolveNext(k,guard){ guard=guard||0; const s=secOf(k), nx=(s&&s.next)||{type:'end'};
+  if(nx.type==='goto'){ if(!secOf(nx.to)) return {type:'end',label:'',via:[]};
+    if(!secIdxs(cur,nx.to).length && guard<20){ const r=resolveNext(nx.to,guard+1); r.via=[nx.to,...r.via]; return r; }
+    return {type:'goto',to:nx.to,via:[]}; }
+  if(nx.type==='choice') return {type:'choice',sec:k,via:[]};
+  return {type:'end',label:nx.label||'',via:[]}; }
+// 表示用のステップ番号（通ってきた順の通し番号）
+function stepNo(){ if(!hasFlow()) return idx+1; let n=0; trail.slice(0,-1).forEach(k=>{ n+=secIdxs(cur,k).length; });
+  return n+secIdxs(cur,cur.steps[idx].sec).indexOf(idx)+1; }
+// このあと最短で何ステップか（ループは数えない）
+function minAfter(k,seen){ const s=secOf(k), nx=(s&&s.next)||{type:'end'};
+  const tg = nx.type==='goto'?[nx.to] : nx.type==='choice'?(nx.options||[]).map(o=>o.to) : [];
+  const v=tg.map(t=>minFrom(t,new Set(seen))).filter(x=>isFinite(x)); return v.length?Math.min(...v):0; }
+function minFrom(k,seen){ if(!secOf(k)||seen.has(k)) return Infinity; seen.add(k); return secIdxs(cur,k).length+minAfter(k,seen); }
+// 進み具合：「A1 ✓ → B 2/4 → A3 → ■終了」
+function trailText(){ const k=cur.steps[idx].sec, ids=secIdxs(cur,k), pos=ids.indexOf(idx);
+  let past=trail.slice(0,-1).map(x=>secLabel(x)+' ✓'); if(past.length>2) past=['…',...past.slice(-2)];
+  const parts=[...past, `${secLabel(k)} ${pos+1}/${ids.length}`];
+  let r=resolveNext(k), g=0;
+  while(g++<4){ if(r.type==='goto'){ parts.push(secLabel(r.to)); r=resolveNext(r.to); } else { parts.push(r.type==='choice'?'◆分岐':('■'+(r.label||'終了'))); break; } }
+  return parts.join(' → '); }
+function canPrev(){ if(!hasFlow()) return idx>0; const ids=secIdxs(cur,cur.steps[idx].sec); if(ids.indexOf(idx)>0) return true;
+  return trail.slice(0,-1).some(k=>secIdxs(cur,k).length>0); }
+function flowPrev(){ const k=cur.steps[idx].sec, ids=secIdxs(cur,k), pos=ids.indexOf(idx);
+  if(pos>0){ idx=ids[pos-1]; renderStep(); return; }
+  const t=trail.slice(0,-1); while(t.length && !secIdxs(cur,t[t.length-1]).length) t.pop();   // 経路をさかのぼる
+  if(!t.length) return; trail=t; const p=secIdxs(cur,t[t.length-1]); idx=p[p.length-1]; renderStep(); }
+function flowNext(){ const k=cur.steps[idx].sec, ids=secIdxs(cur,k), pos=ids.indexOf(idx);
+  if(pos<ids.length-1){ idx=ids[pos+1]; renderStep(); return; }
+  const r=resolveNext(k);
+  if(r.type==='goto'){ trail.push(...r.via); enterSection(r.to); }
+  else if(r.type==='choice') showChoice(r);
+  else finishScenario(); }
+function enterSection(t){ trail.push(t);
+  const ids=secIdxs(cur,t);
+  if(trail.filter(x=>x===t).length>1) ids.forEach(i=>checkedSteps.delete(i));   // やり直し：もう一度確認させる
+  if(ids.length){ idx=ids[0]; renderStep(); return; }
+  const r=resolveNext(t);   // ステップの無い区間（すぐに選択 等）
+  if(r.type==='goto'){ trail.push(...r.via); enterSection(r.to); }
+  else if(r.type==='choice'){ r.undo=true; showChoice(r); }
+  else { trail.push(...r.via); finishScenario(); } }
+function showChoice(r){ const s=secOf(r.sec); if(!s||!s.next||s.next.type!=='choice') return; _pendingChoice=r;
+  document.getElementById('cm-from').textContent='分岐：'+(s.label||'');
+  document.getElementById('cm-q').textContent=s.next.prompt||'次に行う作業を選んでください';
+  const box=document.getElementById('cm-list'); box.innerHTML='';
+  (s.next.options||[]).forEach((o,i)=>{ const b=document.createElement('button');
+    b.className='cm-opt'+((o.tone==='warn'||o.tone==='danger')?' '+o.tone:'');
+    b.innerHTML=escHtml(o.label||('選択肢'+(i+1)))+(o.note?`<small>${escHtml(o.note)}</small>`:'');
+    b.onclick=()=>chooseOption(i); box.appendChild(b); });
+  document.getElementById('choicemodal').style.display='flex'; }
+function chooseOption(i){ const r=_pendingChoice; if(!r||!cur) return; const s=secOf(r.sec); const o=s&&s.next.options[i];
+  if(!o||!secOf(o.to)){ toast('この選択肢の行き先が設定されていません'); return; }
+  _pendingChoice=null; document.getElementById('choicemodal').style.display='none';
+  if(!r.undo) trail.push(...r.via);
+  logEvent('branch',{fromSec:r.sec, fromLabel:s.label||'', choice:o.label||'', toSec:o.to, toLabel:secLabel(o.to)});
+  enterSection(o.to); }
+// cancel=true：選ばずに戻る（ステップの無い区間に入っていた場合は経路から外す）
+function hideChoice(cancel){ if(cancel && _pendingChoice && _pendingChoice.undo) trail.pop();
+  _pendingChoice=null; const m=document.getElementById('choicemodal'); if(m) m.style.display='none'; if(cancel&&cur) renderStep(); }
 const SCENARIOS={}; const _ghKeys=new Set();
 
 // ── 面(マーカー)ヘルパー：1シナリオが複数マーカー(前面/側面…)にまたがる ──
@@ -665,7 +755,7 @@ function anyFaceVisible(sc){ if(!sc) return false; for(const k of faceKeys(sc)) 
 function isMultiFace(){ return cur && cur.faces && cur.faces.length>1; }
 // 開始面＝ステップ1の面のマーカー。シナリオはこの面のマーカーからのみ開始できる（途中用の面では開始しない）
 function stepFaceBarcode(sc,i){ const fs=sc.faces||[]; const st=sc.steps&&sc.steps[i]; const key=st&&st.face; const f=fs.find(x=>x.key===key)||fs[0]; return f?String(f.barcode):String(sc.barcode); }
-function entryBarcode(sc){ return stepFaceBarcode(sc,0); }
+function entryBarcode(sc){ return stepFaceBarcode(sc,firstStepIdx(sc)); }
 function entryScenarios(key){ return (SCENARIOS[key]||[]).filter(sc=>entryBarcode(sc)===String(key)); }
 
 // ══════ 位置確認枠 ══════
@@ -699,11 +789,16 @@ function applyCal(){ if(!cur) return; const f=curFace(); const c=f.calib;
 function renderStep(){ const sc=cur; if(!sc) return; const step=sc.steps[idx]; const w=WARN[step.warn]||WARN.normal; const col=w.c;
   document.getElementById('stitle').textContent=(w.sym?w.sym+' ':'')+step.title;
   document.getElementById('sdetail').textContent=(w.sym?w.sym+' ':'')+(step.detail||'');
-  const b=document.getElementById('badge'); b.textContent=`STEP ${idx+1}`; b.style.background=col;
+  const b=document.getElementById('badge'); b.textContent=`STEP ${stepNo()}`; b.style.background=col;
   document.getElementById('btn-next').style.background=col;
-  document.getElementById('counter').textContent=`${idx+1} / ${sc.steps.length}`;
-  const isLast = idx>=sc.steps.length-1;
-  document.getElementById('btn-prev').style.visibility=idx>0?'visible':'hidden';
+  let isLast, nextLbl='次へ ›';
+  if(hasFlow()){ const ids=secIdxs(sc,step.sec), secLast=ids.indexOf(idx)===ids.length-1, r=resolveNext(step.sec);
+    isLast = secLast && r.type==='end';
+    if(secLast && r.type==='choice') nextLbl='分岐を選ぶ ›'; else if(secLast && r.type==='goto') nextLbl='次の区間へ ›';
+    document.getElementById('counter').textContent=trailText(); }
+  else { isLast = idx>=sc.steps.length-1; document.getElementById('counter').textContent=`${idx+1} / ${sc.steps.length}`; }
+  document.getElementById('btn-prev').style.visibility=canPrev()?'visible':'hidden';
+  document.getElementById('btn-next').textContent=nextLbl;
   document.getElementById('btn-next').style.display=isLast?'none':'';
   document.getElementById('btn-finish').style.display=isLast?'':'none';
   // ① チェック確認：確認済みでないと次へ／終了に進めない
@@ -726,12 +821,16 @@ document.getElementById('btn-check').onclick=()=>{
   if(!cur) return;
   // 認識ゲート：未認識では「済」にできない（ボタンも無効化しているが、安全のため二重チェック）
   if(CHECK_GATE && !checkedSteps.has(idx) && !_visible.has(String(curFace().barcode))){ toast('バーコードを認識してから確認してください'); return; }
-  if(!checkedSteps.has(idx)){ checkedSteps.add(idx); logEvent('check',{step:idx+1, stepTitle:cur.steps[idx].title, totalSteps:cur.steps.length}); }
+  if(!checkedSteps.has(idx)){ checkedSteps.add(idx);
+    if(hasFlow()){ const k=cur.steps[idx].sec; logEvent('check',{step:stepNo(), stepTitle:cur.steps[idx].title, sec:k, secLabel:secLabel(k), pass:trail.filter(x=>x===k).length}); }
+    else logEvent('check',{step:idx+1, stepTitle:cur.steps[idx].title, totalSteps:cur.steps.length}); }
   renderStep();
 };
 function followMarker(markerId){ if(curMid===markerId) return; curMid=markerId;
   anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: ${FOLLOW_MC}; beta: ${FOLLOW_BETA}`); }
-function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=key; cur=scenario; idx=0;
+function setScenario(scenario,key,markerId){ if(cur===scenario) return;
+  if(scenario.tooNew){ toast('このシナリオは新しい版のアプリが必要です。プレイヤーを更新してください'); return; }
+  curKey=key; cur=scenario; idx=firstStepIdx(scenario); trail=scenario.flow?[scenario.flow.start]:[]; hideChoice();
   checkedSteps=new Set(); sessionId=newSessionId();
   document.getElementById('scname').textContent=scenario.name;
   document.getElementById('scsub').textContent=scenario.subtitle||'';
@@ -741,7 +840,7 @@ function setScenario(scenario,key,markerId){ if(cur===scenario) return; curKey=k
   _homeSup.clear();
   _lockOrient=_curOrient(); _updateOrientLock();   // 再生開始時の向きを基準にソフトロック
   resolveImageAssets();   // 画像オーバーレイの端末保存blobを解決（オフライン表示用）
-  logEvent('start',{totalSteps:scenario.steps.length});
+  logEvent('start', scenario.flow?{flow:true}:{totalSteps:scenario.steps.length});
 }
 // 画像オーバーレイのsrcを端末保存blob(あれば)へ解決してから再描画（オフライン対応。無ければURLのまま）
 function resolveImageAssets(){ if(!cur) return;
@@ -751,8 +850,10 @@ function resolveImageAssets(){ if(!cur) return;
         cur.steps.forEach(s=>(s.ar||[]).forEach(f=>{ if(f.type==='image'&&f.src===u) f._src=o; })); } }catch(_){} }))
     .then(()=>{ if(cur) renderStep(); });
 }
-document.getElementById('btn-next').onclick=()=>{ if(cur&&!document.getElementById('btn-next').disabled&&idx<cur.steps.length-1){idx++;renderStep();} };
-document.getElementById('btn-prev').onclick=()=>{ if(cur&&idx>0){idx--;renderStep();} };
+document.getElementById('btn-next').onclick=()=>{ if(!cur||document.getElementById('btn-next').disabled) return;
+  if(hasFlow()){ flowNext(); return; }
+  if(idx<cur.steps.length-1){idx++;renderStep();} };
+document.getElementById('btn-prev').onclick=()=>{ if(!cur) return; if(hasFlow()){ flowPrev(); return; } if(idx>0){idx--;renderStep();} };
 
 // ══════ 資料(PDF/動画)フロート表示（端末保存済みならblobで表示＝オフライン可） ══════
 function updateDocButtons(){
@@ -887,7 +988,7 @@ document.getElementById('btn-photo').onclick=()=>{
 async function showPhoto(url){
   initFloatDragResize('photo-viewer','photo-viewer-head','photo-viewer-resize');
   const pv=document.getElementById('photo-viewer'); const body=document.getElementById('photo-viewer-body');
-  document.getElementById('photo-viewer-title').textContent='参考写真'+(cur?(' – STEP '+(idx+1)):'');
+  document.getElementById('photo-viewer-title').textContent='参考写真'+(cur?(' – STEP '+stepNo()):'');
   pv.style.display='flex';
   let realUrl=url;
   if(!/^data:/.test(url) && !navigator.onLine){ try{ const a=await idbGet('assets',url); if(assetBlob(a)) realUrl=URL.createObjectURL(assetBlob(a)); }catch(_){} }
@@ -931,10 +1032,13 @@ function showPicker(key,markerId){
 function hidePicker(){ document.getElementById('scenpick').style.display='none'; }
 document.getElementById('btn-menu').onclick=()=>{ if(curKey) showPicker(curKey, curMid); };
 function finishScenario(){
-  logEvent('finish',{checked:checkedSteps.size, totalSteps:(cur&&cur.steps.length)||0});
-  closeDoc(); closePhoto(); const key=curKey, mid=curMid, finName=(cur&&cur.name)||'';
-  _finSnap={ sc:cur, idx, checked:new Set(checkedSteps), key, mid, sessionId };   // 「元の作業に戻る」用に退避
-  cur=null; idx=0; checkedSteps=new Set();
+  let endLabel='';
+  if(hasFlow()){ const r=resolveNext(trail[trail.length-1]); endLabel=r.label||'';
+    logEvent('finish',{checked:checkedSteps.size, path:[...trail,...(r.via||[])].map(secLabel).join(' → '), endLabel}); }
+  else logEvent('finish',{checked:checkedSteps.size, totalSteps:(cur&&cur.steps.length)||0});
+  hideChoice(); closeDoc(); closePhoto(); const key=curKey, mid=curMid, finName=((cur&&cur.name)||'')+(endLabel?`（${endLabel}）`:'');
+  _finSnap={ sc:cur, idx, checked:new Set(checkedSteps), key, mid, sessionId, trail:trail.slice() };   // 「元の作業に戻る」用に退避
+  cur=null; idx=0; trail=[]; checkedSteps=new Set();
   content.setAttribute('visible', false);
   _lockOrient=null; _updateOrientLock();   // 作業終了で向きロック解除
   showFinish(key, mid, finName);
@@ -960,7 +1064,7 @@ let _finSnap=null;
 function resumeFinished(){
   const sn=_finSnap; if(!sn||!sn.sc){ resetToIdle(); return; }
   hideFinish(); _homeSup.clear();
-  cur=sn.sc; idx=sn.idx; checkedSteps=new Set(sn.checked); curKey=sn.key; sessionId=sn.sessionId;
+  cur=sn.sc; idx=sn.idx; trail=(sn.trail||[]).slice(); checkedSteps=new Set(sn.checked); curKey=sn.key; sessionId=sn.sessionId;
   document.getElementById('scname').textContent=cur.name;
   document.getElementById('scsub').textContent=cur.subtitle||'';
   renderStep(); updateDocButtons();
@@ -973,14 +1077,14 @@ function hideFinish(){ _finOpen=false; document.getElementById('finmodal').style
 // 再生中／選択メニューから「最初へ」：途中まで確認済みなら確認してから中断扱いで戻る
 function goHome(){
   if(cur && checkedSteps.size>0 && !confirm('作業を中断して最初の画面に戻りますか？\n（ここまでの確認は「中断」として記録に残ります）')) return;
-  if(cur) logEvent('abort',{checked:checkedSteps.size, totalSteps:cur.steps.length});
+  if(cur) logEvent('abort', hasFlow()?{checked:checkedSteps.size, path:trail.map(secLabel).join(' → ')}:{checked:checkedSteps.size, totalSteps:cur.steps.length});
   resetToIdle();
 }
 function resetToIdle(){
   _finSnap=null;
   closeDoc(); closePhoto(); hidePicker(); hideFinish();
   clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
-  cur=null; idx=0; checkedSteps=new Set(); curKey=null;
+  hideChoice(); cur=null; idx=0; trail=[]; checkedSteps=new Set(); curKey=null;
   content.setAttribute('visible', false); while(content.firstChild) content.removeChild(content.firstChild);
   _lockOrient=null; _updateOrientLock();
   _visible.forEach(k=>_homeSup.set(k,0));   // 今写っているバーコードでは即再開しない
@@ -1142,7 +1246,16 @@ function normalizeScenario(s){
     ar:(st.ar||[]).map(f=> f.type==='image' ? Object.assign({}, f, { src:normalizeGhUrl(f.src||'') }) : f)   // 画像srcはPages URLへ正規化
   }));
   return { id:s.id, name:s.name||('barcode '+(faces[0].barcode)), subtitle:s.subtitle||'', device:s.device||'',
-    docs:normDocs(s.docs), faces, barcode:faces[0].barcode, calib:faces[0].calib, steps };
+    docs:normDocs(s.docs), faces, barcode:faces[0].barcode, calib:faces[0].calib, steps,
+    flow:normFlow(s.flow, steps), tooNew:(s.formatVersion||1)>2 };
+}
+// 分岐の区間情報。所属の無いステップは開始区間へ
+function normFlow(f, steps){
+  if(!f||!Array.isArray(f.sections)||!f.sections.length) return null;
+  const secs=f.sections.filter(x=>x&&x.key).map(x=>({ key:String(x.key), label:x.label||String(x.key), branch:!!x.branch, next:x.next||{type:'end'} }));
+  if(!secs.length) return null; const keys=secs.map(x=>x.key); const start=keys.includes(f.start)?f.start:keys[0];
+  steps.forEach(st=>{ if(!keys.includes(st.sec)) st.sec=start; });
+  return { start, sections:secs, by:new Map(secs.map(x=>[x.key,x])) };
 }
 function registerScenario(sc, replaceBuiltin){ faceKeys(sc).forEach(k=> addScenarioToGroup(k, sc, replaceBuiltin)); }
 // 端末保存分を先に読み込む（オフラインでも表示可能に）
@@ -1256,9 +1369,12 @@ function download(name, text, mime){ const blob=new Blob([text],{type:mime||'tex
 function pad2(n){ return (n<10?'0':'')+n; }
 function fmtTs(ts){ const d=new Date(ts); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; }
 function logsToCsv(logs){
-  const cols=['日時','セッション','バーコード','機器','操作','イベント','ステップ番号','ステップ名','総ステップ'];
+  const cols=['日時','セッション','バーコード','機器','操作','イベント','ステップ番号','ステップ名','総ステップ','区間','選択','経路'];
   const esc=v=>{ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
-  const rows=logs.slice().sort((a,b)=>a.ts-b.ts).map(l=>[fmtTs(l.ts), l.sessionId, l.barcode||'', l.device||'', l.scenarioName||'', l.event, l.step||'', l.stepTitle||'', l.totalSteps||''].map(esc).join(','));
+  const rows=logs.slice().sort((a,b)=>a.ts-b.ts).map(l=>[fmtTs(l.ts), l.sessionId, l.barcode||'', l.device||'', l.scenarioName||'', l.event, l.step||'', l.stepTitle||'', l.totalSteps||'',
+    l.event==='branch' ? (l.fromLabel||'') : (l.secLabel ? l.secLabel+((l.pass||1)>1?`（${l.pass}回目）`:'') : ''),
+    l.event==='branch' ? `${l.choice||''} → ${l.toLabel||''}` : '',
+    l.path ? l.path+(l.endLabel?`（${l.endLabel}）`:'') : ''].map(esc).join(','));
   return '﻿'+cols.join(',')+'\n'+rows.join('\n');
 }
 async function openLog(){
@@ -1284,6 +1400,24 @@ document.getElementById('lm-close').onclick=()=>{ document.getElementById('logmo
 function openProg(){
   const list=document.getElementById('pg-list'), sum=document.getElementById('pg-sum'), bar=document.querySelector('#pg-bar > i');
   if(!cur){ sum.textContent='シナリオを開始すると、ここに各ステップの未・済が表示されます'; bar.style.width='0%'; list.innerHTML=''; }
+  else if(hasFlow()){
+    // 分岐あり：通ってきた区間ごとに表示。今の区間だけ押して移動できる。この先の決まっている区間も表示
+    const k=cur.steps[idx].sec, ids=secIdxs(cur,k);
+    let done=0; trail.slice(0,-1).forEach(t=>{ done+=secIdxs(cur,t).length; }); done+=ids.filter(i=>checkedSteps.has(i)).length;
+    const rem=ids.filter(i=>!checkedSteps.has(i)).length + minAfter(k,new Set([k]));
+    sum.textContent=`${cur.name}　確認済み ${done} ステップ／このあと最短 ${rem} ステップ`;
+    bar.style.width=((done+rem)? Math.round(done/(done+rem)*100):0)+'%';
+    let h='';
+    trail.forEach((t,ti)=>{ const isCur=ti===trail.length-1, sids=secIdxs(cur,t); if(!sids.length) return;
+      h+=`<div class="pg-sec">${isCur?'▶ ':'✓ '}${escHtml(secLabel(t))}</div>`;
+      sids.forEach((i,n)=>{ const ok=isCur?checkedSteps.has(i):true;
+        h+=`<div class="pg-row${isCur&&i===idx?' cur':''}${isCur?'':' past'}"${isCur?` data-i="${i}"`:''}><span class="pg-num">${n+1}</span><span class="pg-title">${escHtml(cur.steps[i].title||('ステップ'+(n+1)))}</span><span class="pg-badge ${ok?'done':'todo'}">${ok?'済':'未'}</span></div>`; }); });
+    let r=resolveNext(k), g=0;
+    while(g++<6){ if(r.type==='goto'){ h+=`<div class="pg-sec next">→ ${escHtml(secLabel(r.to))}（このあと ${secIdxs(cur,r.to).length}ステップ）</div>`; r=resolveNext(r.to); }
+      else { h+=`<div class="pg-sec next">${r.type==='choice' ? '◆ 分岐：'+escHtml((secOf(r.sec).next.prompt)||'作業を選択') : '■ '+escHtml(r.label||'作業終了')}</div>`; break; } }
+    list.innerHTML=h;
+    list.querySelectorAll('.pg-row[data-i]').forEach(rw=>rw.onclick=()=>{ const i=+rw.getAttribute('data-i'); if(cur&&i>=0&&i<cur.steps.length){ idx=i; renderStep(); document.getElementById('progmodal').style.display='none'; } });
+  }
   else {
     const total=cur.steps.length, done=[...checkedSteps].filter(i=>i<total).length;
     sum.textContent=`${cur.name}　済 ${done} / ${total} ステップ`;
