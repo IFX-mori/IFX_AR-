@@ -631,7 +631,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.27';
+const APP_VERSION = 'v4.28';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1375,12 +1375,43 @@ function flowSVG(A, F, opt){
   const tr=(s,n)=>{ s=String(s||''); return s.length>n? s.slice(0,n-1)+'…' : s; };
   let g='';
   const mk=c=>'fa'+c.slice(1);   // 矢印の色ごとのマーカー
+  // 矢印の重なり対策：出口は行き先の左右順に並べ（交差を防ぐ）、合流する入口は横に散らし、答えの文字は重ならないようにずらす
+  const px=k=>(pos.get(k)||{x:0}).x, nw=k=>isEnd(k)?120:W;
+  const outsOf=new Map(), insOf=new Map();
+  fwd.forEach(e=>{ if(!pos.get(e.from)||!pos.get(e.to)) return; (outsOf.get(e.from)||outsOf.set(e.from,[]).get(e.from)).push(e); (insOf.get(e.to)||insOf.set(e.to,[]).get(e.to)).push(e); });
+  outsOf.forEach(arr=>arr.sort((a,b)=>px(a.to)-px(b.to)));
+  insOf.forEach(arr=>arr.sort((a,b)=>px(a.from)-px(b.from)));
+  const sxOf=e=>{ const arr=outsOf.get(e.from), j=arr.indexOf(e), m=arr.length; return px(e.from)-W/2+(j+1)*W/(m+1); };
+  const txOf=e=>{ const arr=insOf.get(e.to), j=arr.indexOf(e), m=arr.length; if(m<2) return px(e.to); const span=nw(e.to)*0.6; return px(e.to)-span/2+j*span/(m-1); };
+  // 2段以上またぐ矢印は、途中の段の箱を避ける縦の通り道(wx)を通す
+  const via=new Map();
+  fwd.forEach(e=>{ const la=layer.get(e.from), lb=layer.get(e.to); if(lb-la<2||!pos.get(e.from)||!pos.get(e.to)) return;
+    const sx=sxOf(e), tx=txOf(e); let wx=(sx+tx)/2;
+    const blocks=nodes.filter(k=>{ const l=layer.get(k); return l>la&&l<lb; });
+    for(let it=0; it<4; it++){ const hit=blocks.find(k=>Math.abs(px(k)-wx)<nw(k)/2+10); if(!hit) break;
+      const L=px(hit)-nw(hit)/2-16, R=px(hit)+nw(hit)/2+16; wx = Math.abs(L-(sx+tx)/2)<=Math.abs(R-(sx+tx)/2) ? L : R; }
+    const rowTop=PY+(la+1)*RH, rowBot=PY+(lb-1)*RH+Math.max(...blocks.map(k=>nh(k)),H);
+    via.set(e,{ wx, y1:rowTop-10, y2:rowBot+12 }); });
+  const lab=new Map();
+  outsOf.forEach((arr,from)=>{ const sy=pos.get(from).y+nh(from);
+    // 文字は矢印の中ほど（矢印どうしが離れた所）に置く
+    const mid=e=>{ const v=via.get(e); if(v) return { x:(sxOf(e)+v.wx)/2, y:(sy+v.y1)/2+4 }; const b=pos.get(e.to); return { x:(sxOf(e)+txOf(e))/2, y:(sy+b.y-3)/2+4 }; };
+    const L=arr.filter(e=>e.kind==='choice'&&e.label).map(e=>{ const t=tr(e.label,10), m=mid(e); return { e, t, w:t.length*11.5+8, x:m.x, y:m.y }; });
+    if(L.length<2){ L.forEach(l=>lab.set(l.e,l)); return; }
+    L.sort((a,b)=>a.x-b.x);
+    const overlap=()=>L.some((l,i)=>i&&Math.abs(l.y-L[i-1].y)<14&&l.x-l.w/2<L[i-1].x+L[i-1].w/2+4);
+    if(overlap()){ // 重なる組は上下にずらし、まだ重なれば横に押し広げる
+      L.forEach((l,i)=>{ if(i&&Math.abs(l.y-L[i-1].y)<14&&l.x-l.w/2<L[i-1].x+L[i-1].w/2+4) l.y=L[i-1].y+(L[i-1].y>mid(L[i-1].e).y?-15:15); });
+      for(let i=1;i<L.length;i++){ const p=L[i-1], l=L[i]; if(Math.abs(l.y-p.y)<14){ const min=p.x+p.w/2+6+l.w/2; if(l.x<min) l.x=min; } } }
+    L.forEach(l=>lab.set(l.e,l)); });
   fwd.forEach(e=>{ const a=pos.get(e.from), b=pos.get(e.to); if(!a||!b) return;
-    const outs=fwd.filter(x=>x.from===e.from), j=outs.indexOf(e), m=outs.length;
-    const sx=a.x-W/2+(j+1)*W/(m+1), sy=a.y+nh(e.from), tx=b.x, ty=b.y-3; const c=col(e);
+    const sx=sxOf(e), sy=a.y+nh(e.from), tx=txOf(e), ty=b.y-3; const c=col(e);
     const on=onE.has(e.from+'>'+e.to);
-    g+=`<g${dim(on)}><path d="M${sx} ${sy} C${sx} ${sy+34},${tx} ${ty-34},${tx} ${ty}" fill="none" stroke="${c}" stroke-width="${on?2.6:1.5}" marker-end="url(#${mk(c)})"/>`;
-    if(e.kind==='choice'&&e.label) g+=`<text x="${sx+(tx-sx)*0.22}" y="${sy+17}" text-anchor="middle" font-size="11" font-weight="800" fill="${c}" stroke="#f8fafc" stroke-width="4" paint-order="stroke">${escHtml(tr(e.label,10))}</text>`;
+    const v=via.get(e);
+    const d = v ? `M${sx} ${sy} C${sx} ${sy+26},${v.wx} ${v.y1-26},${v.wx} ${v.y1} L${v.wx} ${v.y2} C${v.wx} ${v.y2+26},${tx} ${ty-26},${tx} ${ty}` : `M${sx} ${sy} C${sx} ${sy+34},${tx} ${ty-34},${tx} ${ty}`;
+    g+=`<g${dim(on)}><path d="${d}" fill="none" stroke="${c}" stroke-width="${on?2.6:1.5}" marker-end="url(#${mk(c)})"/>`;
+    const l=lab.get(e);
+    if(l) g+=`<text x="${l.x}" y="${l.y}" text-anchor="middle" font-size="11" font-weight="800" fill="${c}" stroke="#f8fafc" stroke-width="4" paint-order="stroke">${escHtml(l.t)}</text>`;
     g+='</g>'; });
   backs.forEach((e,i)=>{ const a=pos.get(e.from), b=pos.get(e.to); if(!a||!b) return;
     const sx=a.x+W/2, sy=a.y+nh(e.from)/2, lx=laneX0+i*14, ty=b.y+nh(e.to)/2; const on=onE.has(e.from+'>'+e.to);
