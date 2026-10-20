@@ -287,8 +287,8 @@
         {
           "type": "text",
           "pos": [
-            -0.022,
-            0.22,
+            -0.05,
+            0.281,
             0
           ],
           "color": "#60a5fa",
@@ -326,7 +326,7 @@
           ],
           "color": "#60a5fa",
           "lineThick": 0.015,
-          "label": "確認",
+          "label": "点灯色を確認",
           "labelBelow": true,
           "sizeW": 0.4654,
           "sizeH": 0.184
@@ -345,8 +345,8 @@
         {
           "type": "text",
           "pos": [
-            0.005,
-            0.382,
+            -0.164,
+            0.418,
             0
           ],
           "color": "#60a5fa",
@@ -362,10 +362,26 @@
           ],
           "color": "#60a5fa",
           "lineThick": 0.015,
-          "label": "確認",
+          "label": "押す",
           "labelBelow": true,
           "sizeW": 0.1997,
           "sizeH": 0.273
+        },
+        {
+          "type": "arrow",
+          "pos": [
+            0.323,
+            0.42,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "",
+          "h": 0.1671,
+          "rot": {
+            "x": 0,
+            "y": 0,
+            "z": -90
+          }
         }
       ],
       "photo": "",
@@ -414,16 +430,20 @@
         {
           "type": "box",
           "pos": [
-            -0.2731,
-            0.5654,
+            -0.27,
+            0.585,
             0
           ],
           "color": "#60a5fa",
           "lineThick": 0.015,
-          "label": "確認",
+          "label": "ダイヤル回す",
           "labelBelow": true,
           "sizeW": 0.5351,
-          "sizeH": 0.2675
+          "sizeH": 0.2675,
+          "labelPos": {
+            "x": 0,
+            "y": 0.219
+          }
         }
       ],
       "photo": "",
@@ -465,7 +485,7 @@
           ],
           "color": "#60a5fa",
           "lineThick": 0.015,
-          "label": "確認",
+          "label": "上下に操作",
           "labelBelow": true,
           "sizeW": 0.6995,
           "sizeH": 0.238
