@@ -31,18 +31,58 @@
     "sections": [
       {
         "key": "s1",
-        "label": "手順1〜2",
+        "label": "手順1",
+        "next": {
+          "type": "goto",
+          "to": "s2"
+        }
+      },
+      {
+        "key": "s2",
+        "label": "手順2",
         "next": {
           "type": "choice",
           "prompt": "ランプの点灯色は？",
           "options": [
             {
               "label": "青",
-              "to": "s2"
+              "to": "s3"
             },
             {
               "label": "黄",
-              "to": "s3",
+              "to": "s4",
+              "tone": "warn"
+            },
+            {
+              "label": "赤",
+              "to": "s6",
+              "tone": "danger"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s3",
+        "label": "手順3〜4",
+        "next": {
+          "type": "end"
+        }
+      },
+      {
+        "key": "s4",
+        "label": "「黄」のとき",
+        "branch": true,
+        "next": {
+          "type": "choice",
+          "prompt": "ランプ点灯色は？",
+          "options": [
+            {
+              "label": "青",
+              "to": "s3"
+            },
+            {
+              "label": "黄",
+              "to": "s2",
               "tone": "warn"
             },
             {
@@ -54,39 +94,7 @@
         }
       },
       {
-        "key": "s2",
-        "label": "手順3〜4",
-        "next": {
-          "type": "end"
-        }
-      },
-      {
-        "key": "s3",
-        "label": "「黄」のとき",
-        "branch": true,
-        "next": {
-          "type": "choice",
-          "prompt": "ランプ点灯色は？",
-          "options": [
-            {
-              "label": "青",
-              "to": "s2"
-            },
-            {
-              "label": "黄",
-              "to": "s4",
-              "tone": "warn"
-            },
-            {
-              "label": "赤",
-              "to": "s4",
-              "tone": "danger"
-            }
-          ]
-        }
-      },
-      {
-        "key": "s4",
+        "key": "s5",
         "label": "作業を中止して、指令へ連絡してください",
         "branch": true,
         "next": {
@@ -95,7 +103,7 @@
         }
       },
       {
-        "key": "s5",
+        "key": "s6",
         "label": "「赤」のとき",
         "branch": true,
         "next": {
@@ -104,16 +112,16 @@
           "options": [
             {
               "label": "青",
-              "to": "s2"
+              "to": "s3"
             },
             {
               "label": "黄",
-              "to": "s4",
+              "to": "s5",
               "tone": "warn"
             },
             {
               "label": "赤",
-              "to": "s4",
+              "to": "s2",
               "tone": "danger"
             }
           ]
@@ -160,7 +168,7 @@
               "id": "bbn69f6g",
               "title": "ダイヤルスイッチを回す",
               "detail": "左ダイヤル：20\n右ダイヤル：80",
-              "warn": "normal"
+              "warn": "caution"
             },
             {
               "type": "branch",
@@ -181,7 +189,7 @@
                   "label": "黄",
                   "tone": "warn",
                   "items": [],
-                  "then": "end",
+                  "then": "back",
                   "target": "bcac09m8",
                   "endLabel": "作業を中止して、指令へ連絡してください"
                 },
@@ -211,7 +219,7 @@
               "id": "bznvf1fj",
               "title": "トグルスイッチを操作する",
               "detail": "",
-              "warn": "normal"
+              "warn": "danger"
             },
             {
               "type": "branch",
@@ -241,8 +249,8 @@
                   "label": "赤",
                   "tone": "danger",
                   "items": [],
-                  "then": "end",
-                  "target": "",
+                  "then": "back",
+                  "target": "bcac09m8",
                   "endLabel": "作業を中止して、指令へ連絡してください"
                 }
               ]
@@ -269,7 +277,7 @@
       "warn": "normal"
     }
   ],
-  "builderSig": "f72xzi8",
+  "builderSig": "fkfot2k",
   "steps": [
     {
       "title": "盤面の前に立つ",
@@ -327,7 +335,7 @@
       "photo": "",
       "face": "fmvgeidu71c",
       "bid": "bcac09m8",
-      "sec": "s1"
+      "sec": "s2"
     },
     {
       "title": "盤面右側面のトグルスイッチを操作する",
@@ -363,7 +371,7 @@
       "photo": "",
       "face": "fmvgeidu71c",
       "bid": "bkzaz8iv",
-      "sec": "s2"
+      "sec": "s3"
     },
     {
       "title": "デモ終了",
@@ -385,7 +393,7 @@
       "photo": "",
       "face": "fmvgeidu71c",
       "bid": "bphiz169",
-      "sec": "s2"
+      "sec": "s3"
     },
     {
       "title": "ダイヤルスイッチを回す",
@@ -421,7 +429,7 @@
       "photo": "",
       "face": "fmvgeidu71c",
       "bid": "bbn69f6g",
-      "sec": "s3"
+      "sec": "s4"
     },
     {
       "title": "トグルスイッチを操作する",
@@ -457,7 +465,7 @@
       "photo": "",
       "face": "fmvgeidu71c",
       "bid": "bznvf1fj",
-      "sec": "s5"
+      "sec": "s6"
     }
   ]
 }
