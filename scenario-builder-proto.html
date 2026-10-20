@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>シナリオかんたん作成（試作）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body, button, input, select, textarea, label { touch-action:manipulation; }
+  html, body { height:100%; font-family:-apple-system,'Hiragino Sans','Yu Gothic UI','Meiryo UI',sans-serif; background:#f1f5f9; color:#1e293b; }
+  button { font-family:inherit; cursor:pointer; }
+  input, select, textarea { font-family:inherit; font-size:15px; }
+  header { position:sticky; top:0; z-index:20; display:flex; gap:8px; align-items:center; padding:10px 14px; background:#fff; border-bottom:1px solid #e2e8f0; flex-wrap:wrap; }
+  header h1 { font-size:16px; font-weight:800; color:#1e3a5f; margin-right:auto; }
+  header h1 small { font-size:11px; font-weight:600; color:#94a3b8; margin-left:6px; }
+  .hb { padding:8px 12px; border-radius:9px; border:1px solid #cbd5e1; background:#fff; font-size:13px; font-weight:700; color:#334155; }
+  .hb.p { background:#1d4ed8; border-color:#1d4ed8; color:#fff; }
+  #tabs { display:none; gap:6px; padding:8px 14px 0; }
+  #tabs button { flex:1; padding:9px; border-radius:9px; border:1px solid #cbd5e1; background:#fff; font-weight:800; font-size:14px; color:#475569; }
+  #tabs button.on { background:#0f172a; color:#fff; border-color:#0f172a; }
+  main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; padding:14px; align-items:start; }
+  @media (max-width:900px){ main { grid-template-columns:minmax(0,1fr); } #tabs { display:flex; } main.t-list #pane-flow, main.t-flow #pane-list { display:none; } }
+  .pane-h { font-size:13px; font-weight:800; color:#475569; margin:2px 2px 8px; display:flex; align-items:center; gap:8px; }
+  #info { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; margin-bottom:10px; display:grid; grid-template-columns:auto minmax(0,1fr); gap:6px 10px; align-items:center; font-size:13px; }
+  #info input { padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; width:100%; }
+  #hintbar { display:none; background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; border-radius:10px; padding:9px 12px; font-size:13px; line-height:1.6; margin-bottom:10px; }
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:9px 10px; margin-bottom:8px; }
+  .card.sel { border-color:#1d4ed8; box-shadow:0 0 0 2px #bfdbfe; }
+  .row { display:flex; gap:6px; align-items:center; }
+  .no { flex:0 0 auto; min-width:28px; height:28px; padding:0 6px; border-radius:999px; background:#e2e8f0; color:#334155; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  .card input.t, .sub input.t { flex:1; min-width:0; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; }
+  .det { display:flex; gap:6px; margin-top:6px; padding-left:34px; }
+  .det textarea { flex:1; min-height:38px; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; resize:vertical; }
+  .det select { padding:6px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; align-self:flex-start; }
+  .acts { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; padding-left:34px; }
+  .ab { padding:7px 11px; border-radius:9px; border:1px solid #cbd5e1; background:#fff; font-size:13px; font-weight:700; color:#334155; }
+  .ab.add { border-color:#1d4ed8; color:#1d4ed8; }
+  .ab.br { border-color:#d97706; color:#b45309; background:#fffbeb; }
+  .ab.del { border-color:#fecaca; color:#dc2626; }
+  .ab.sm { padding:5px 9px; font-size:12px; }
+  .card.branch { background:#fffbeb; border-color:#fcd34d; }
+  .card.branch.sel { border-color:#d97706; box-shadow:0 0 0 2px #fde68a; }
+  .bh { font-size:13px; font-weight:800; color:#92400e; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .bh .sp { margin-left:auto; }
+  .q { width:100%; padding:8px 10px; border:1px solid #fbbf24; border-radius:8px; font-weight:700; margin-bottom:8px; background:#fff; }
+  .ans { background:#fff; border:1px solid #fde68a; border-left:5px solid #1d4ed8; border-radius:10px; padding:8px; margin-bottom:8px; }
+  .ans.warn { border-left-color:#d97706; } .ans.danger { border-left-color:#dc2626; }
+  .ans .lbl { font-size:12px; font-weight:800; color:#64748b; white-space:nowrap; }
+  .ans input.al { flex:1; min-width:0; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; }
+  .ans select { padding:6px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; }
+  .sub { margin:6px 0 0 14px; padding-left:10px; border-left:2px dashed #cbd5e1; }
+  .sub .row { margin-bottom:6px; }
+  .sub .no { background:#ccfbf1; color:#0f766e; }
+  .then { margin-top:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:13px; color:#475569; }
+  .then input { padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; flex:1; min-width:140px; }
+  .ic { width:30px; height:30px; border-radius:8px; border:1px solid #cbd5e1; background:#fff; font-weight:800; color:#64748b; flex:0 0 auto; }
+  .empty { text-align:center; color:#64748b; font-size:14px; padding:30px 10px; background:#fff; border:1px dashed #cbd5e1; border-radius:12px; }
+  #pane-flow { position:sticky; top:66px; }
+  #svgwrap { background:#fff; border:1px solid #e2e8f0; border-radius:12px; overflow:auto; max-height:62vh; }
+  #svgwrap svg { display:block; margin:0 auto; } #svgwrap .fn { cursor:pointer; }
+  #checks { margin-top:8px; font-size:13px; line-height:1.7; }
+  #checks .e { color:#b91c1c; cursor:pointer; } #checks .w { color:#b45309; cursor:pointer; } #checks .ok { color:#15803d; font-weight:800; }
+  #routes { margin-top:6px; font-size:12px; color:#475569; line-height:1.7; }
+  .modal { position:fixed; inset:0; z-index:50; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; padding:16px; }
+  .modal.on { display:flex; }
+  .modal .box { background:#fff; border-radius:16px; padding:18px; width:100%; max-width:560px; max-height:88vh; overflow:auto; }
+  .modal h3 { font-size:17px; font-weight:800; margin-bottom:6px; color:#0f172a; }
+  .modal p.s { font-size:13px; color:#475569; line-height:1.7; margin-bottom:10px; }
+  .modal input[type=text], .modal textarea { width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:10px; margin-bottom:10px; }
+  .modal textarea { min-height:170px; line-height:1.7; }
+  .mact { display:flex; gap:8px; justify-content:flex-end; margin-top:6px; flex-wrap:wrap; }
+  .wzdots { display:flex; gap:6px; margin-bottom:10px; } .wzdots i { width:26px; height:5px; border-radius:3px; background:#e2e8f0; } .wzdots i.on { background:#1d4ed8; }
+  .bigq { display:flex; gap:10px; margin:8px 0 4px; } .bigq button { flex:1; padding:16px; border-radius:12px; font-size:16px; font-weight:800; border:2px solid #cbd5e1; background:#fff; }
+  .tpl { display:block; width:100%; text-align:left; padding:12px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; margin-bottom:8px; }
+  .tpl b { display:block; font-size:15px; color:#0f172a; margin-bottom:3px; } .tpl span { font-size:12.5px; color:#475569; line-height:1.6; }
+  .tpl:active { background:#e0e7ff; }
+  #toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0f172a; color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:90; }
+</style>
+</head>
+<body>
+<header>
+  <h1>シナリオかんたん作成<small>試作 v0.1</small></h1>
+  <button class="hb" onclick="openWizard()">＋ 新しく作る</button>
+  <button class="hb" onclick="loadSample()">サンプル</button>
+  <button class="hb p" onclick="openExport()">📤 出力</button>
+</header>
+<div id="tabs"><button id="tab-list" class="on" onclick="setTab('list')">手順</button><button id="tab-flow" onclick="setTab('flow')">フロー図</button></div>
+<main id="main" class="t-list">
+  <section id="pane-list">
+    <div id="info">
+      <label for="in-name">シナリオ名</label><input id="in-name" placeholder="例：〇〇盤 定期点検">
+      <label for="in-dev">機器名</label><input id="in-dev" placeholder="例：〇〇盤（任意）">
+    </div>
+    <div id="hintbar"></div>
+    <div class="pane-h">手順<span style="font-weight:600;color:#94a3b8">（手順を押すと「＋次の手順」「🔀 ここで分かれる」が出ます）</span></div>
+    <div id="list"></div>
+  </section>
+  <section id="pane-flow">
+    <div class="pane-h">フロー図<span style="font-weight:600;color:#94a3b8">（自動で描きます。押すとその手順へ移動）</span></div>
+    <div id="svgwrap"></div>
+    <div id="checks"></div>
+    <div id="routes"></div>
+  </section>
+</main>
+
+<!-- はじめの対話 -->
+<div class="modal" id="wz"><div class="box">
+  <div class="wzdots"><i></i><i></i><i></i></div>
+  <div id="wz-body"></div>
+</div></div>
+<!-- ひな形 -->
+<div class="modal" id="tplm"><div class="box">
+  <h3>よく使う分かれ方から選ぶ</h3>
+  <p class="s">選んだ手順のすぐ後に入ります。文字はあとで自由に書き換えられます。</p>
+  <div id="tpl-list"></div>
+  <div class="mact"><button class="hb" onclick="closeM('tplm')">閉じる</button></div>
+</div></div>
+<!-- 出力 -->
+<div class="modal" id="exp"><div class="box">
+  <h3>📤 シナリオJSONを出力</h3>
+  <p class="s">下の内容をコピーし、エディタの「📋 JSONを貼り付けて読込」に貼り付けると、写真・AR位置の調整と保存に進めます。</p>
+  <div id="exp-warn" style="font-size:13px;color:#b91c1c;margin-bottom:8px"></div>
+  <textarea id="exp-ta" style="min-height:240px;font-family:ui-monospace,monospace;font-size:11.5px" readonly></textarea>
+  <div class="mact"><button class="hb" onclick="closeM('exp')">閉じる</button><button class="hb p" onclick="copyExport()">📋 コピー</button></div>
+</div></div>
+<div id="toast"></div>
+
+<script>
+// ══════ データ ══════
+// items：本流の並び。{type:'step',id,title,detail,warn} / {type:'branch',id,q,answers:[{id,label,tone,steps:[{id,title,detail,warn}],then:'next'|'jump'|'back'|'end',target,endLabel}]}
+const KEY='sb_proto_draft';
+let S={ name:'', device:'', items:[], sel:null };
+const uid=()=>Math.random().toString(36).slice(2,9);
+const escHtml=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(t){ const e=document.getElementById('toast'); e.textContent=t; e.style.opacity=1; clearTimeout(e._t); e._t=setTimeout(()=>e.style.opacity=0,2400); }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(_){} }
+function mkStep(title){ return { type:'step', id:uid(), title:title||'', detail:'', warn:'normal' }; }
+function mkSub(title){ return { id:uid(), title:title||'', detail:'', warn:'normal' }; }
+function mkAns(label,tone){ return { id:uid(), label:label||'', tone:tone||'', steps:[], then:'next', target:'', endLabel:'' }; }
+function findItem(id){ return S.items.find(x=>x.id===id); }
+function idxOf(id){ return S.items.findIndex(x=>x.id===id); }
+function mainNo(){ const m={}; let n=0; S.items.forEach(it=>{ if(it.type==='step') m[it.id]=++n; }); return m; }
+function stepsBefore(i){ return S.items.slice(0,i).filter(x=>x.type==='step'); }
+function stepsAfter(i){ return S.items.slice(i+1).filter(x=>x.type==='step'); }
+
+// ══════ 手順リストの描画 ══════
+function render(){
+  document.getElementById('in-name').value=S.name; document.getElementById('in-dev').value=S.device;
+  const L=document.getElementById('list'), no=mainNo();
+  if(!S.items.length){ L.innerHTML=`<div class="empty">まだ手順がありません<br><br><button class="ab add" data-act="first">＋ 最初の手順を書く</button></div>`; renderFlow(); return; }
+  L.innerHTML=S.items.map((it,i)=> it.type==='step' ? stepCard(it,no[it.id],i) : branchCard(it,i,no)).join('');
+  renderFlow(); save();
+}
+function warnSel(v,attrs){ return `<select ${attrs} title="注意レベル"><option value="normal"${v==='normal'?' selected':''}>通常</option><option value="caution"${v==='caution'?' selected':''}>注意⚠️</option><option value="danger"${v==='danger'?' selected':''}>危険⛔</option></select>`; }
+function stepCard(it,n,i){ const sel=S.sel===it.id;
+  return `<div class="card${sel?' sel':''}" id="it-${it.id}" data-id="${it.id}">
+    <div class="row"><span class="no">${n}</span><input class="t" data-k="title" value="${escHtml(it.title)}" placeholder="手順の内容（例：電源ランプを確認）"></div>
+    ${sel?`<div class="det"><textarea data-k="detail" placeholder="作業者への説明（任意）">${escHtml(it.detail)}</textarea>${warnSel(it.warn,'data-k="warn"')}</div>
+    <div class="acts"><button class="ab add" data-act="addAfter">＋ 次の手順</button><button class="ab br" data-act="branch">🔀 ここで分かれる</button><button class="ab br" data-act="tpl">🔀 よく使う分かれ方</button>
+      <button class="ab sm" data-act="up" title="上へ">↑</button><button class="ab sm" data-act="down" title="下へ">↓</button><button class="ab sm del" data-act="del">削除</button></div>`:''}
+  </div>`; }
+function branchCard(b,i,no){ const sel=S.sel===b.id, before=stepsBefore(i), after=stepsAfter(i);
+  const nextTxt = after.length ? `次の手順へ進む（手順${no[after[0].id]}）` : '次の手順へ進む（この後に手順が無いので作業終了）';
+  const ans=b.answers.map((a,ai)=>{
+    const tgtList = a.then==='jump'?after.slice(1):a.then==='back'?before:[];
+    const tsel = (a.then==='jump'||a.then==='back') ? `<select data-ans="${a.id}" data-k="target"><option value="">（手順を選ぶ）</option>${tgtList.map(s=>`<option value="${s.id}"${s.id===a.target?' selected':''}>手順${no[s.id]} ${escHtml(s.title||'（未入力）')}</option>`).join('')}</select>` : '';
+    return `<div class="ans ${a.tone||''}">
+      <div class="row"><span class="lbl">答え${ai+1}</span><input class="al" data-ans="${a.id}" data-k="label" value="${escHtml(a.label)}" placeholder="例：異常あり">
+        <select data-ans="${a.id}" data-k="tone" title="ボタンの色"><option value=""${!a.tone?' selected':''}>青</option><option value="warn"${a.tone==='warn'?' selected':''}>黄</option><option value="danger"${a.tone==='danger'?' selected':''}>赤</option></select>
+        ${b.answers.length>2?`<button class="ic" data-act="ansDel" data-ans="${a.id}" title="この答えを削除">✕</button>`:''}</div>
+      ${a.steps.length?`<div class="sub">${a.steps.map((s,si)=>`<div class="row"><span class="no">${escHtml((a.label||'答え'+(ai+1)).slice(0,4))}-${si+1}</span><input class="t" data-ans="${a.id}" data-sub="${s.id}" data-k="title" value="${escHtml(s.title)}" placeholder="この答えのときの手順"><button class="ic" data-act="subDel" data-ans="${a.id}" data-sub="${s.id}" title="削除">✕</button></div>`).join('')}</div>`:''}
+      <div class="then">${a.steps.length?`<button class="ab sm add" data-act="subAdd" data-ans="${a.id}">＋ 手順を追加</button>`:`<button class="ab sm add" data-act="subAdd" data-ans="${a.id}">＋ この答えのときの手順を書く</button>`}</div>
+      <div class="then"><b>${a.steps.length?'その後：':'選んだら：'}</b>
+        <select data-ans="${a.id}" data-k="then"><option value="next"${a.then==='next'?' selected':''}>${nextTxt}</option>
+          ${after.length>1?`<option value="jump"${a.then==='jump'?' selected':''}>後の手順へ飛ぶ</option>`:''}
+          ${before.length?`<option value="back"${a.then==='back'?' selected':''}>前の手順に戻る（やり直し）</option>`:''}
+          <option value="end"${a.then==='end'?' selected':''}>作業終了</option></select>
+        ${tsel}${a.then==='end'?`<input data-ans="${a.id}" data-k="endLabel" value="${escHtml(a.endLabel)}" placeholder="終了の名前（任意）例：作業中止・指令へ連絡">`:''}</div>
+    </div>`; }).join('');
+  return `<div class="card branch${sel?' sel':''}" id="it-${b.id}" data-id="${b.id}">
+    <div class="bh">🔀 分かれ目<span class="sp"></span><button class="ab sm del" data-act="del">分かれ目を削除</button></div>
+    <input class="q" data-k="q" value="${escHtml(b.q)}" placeholder="何を確認しますか？（例：異常はありましたか？）">
+    ${ans}
+    ${b.answers.length<4?`<button class="ab sm" data-act="ansAdd">＋ 答えを追加</button>`:''}
+  </div>`; }
+
+// ══════ 操作 ══════
+const L=document.getElementById('list');
+function target(e){ const card=e.target.closest('[data-id]'); const it=card&&findItem(card.dataset.id); return {card,it}; }
+L.addEventListener('input',e=>{ const {it}=target(e); if(!it) return; const el=e.target, k=el.dataset.k; if(!k) return;
+  let o=it; if(el.dataset.ans){ o=it.answers.find(a=>a.id===el.dataset.ans); if(el.dataset.sub) o=o.steps.find(s=>s.id===el.dataset.sub); }
+  o[k]=el.value; if(el.tagName==='SELECT') rerenderKeep(el); else { scheduleFlow(); save(); } });
+L.addEventListener('focusin',e=>{ const t=e.target.tagName; if(t!=='INPUT'&&t!=='TEXTAREA') return;   // ボタン・選択欄はクリック側で処理（描き直しで押下が消えないように）
+  const {it}=target(e); if(it && S.sel!==it.id){ S.sel=it.id; rerenderKeep(e.target); } });
+L.addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); const {it}=target(e);
+  if(!b){ if(it&&S.sel!==it.id){ S.sel=it.id; render(); } return; }
+  const act=b.dataset.act, i=it?idxOf(it.id):-1;
+  if(act==='first'){ const s=mkStep(); S.items.push(s); S.sel=s.id; render(); focusItem(s.id); return; }
+  if(act==='addAfter'){ const s=mkStep(); S.items.splice(i+1,0,s); S.sel=s.id; render(); focusItem(s.id); return; }
+  if(act==='branch'){ insertBranch(i, { q:'', answers:[mkAns(''),mkAns('')] }); return; }
+  if(act==='tpl'){ openTpl(i); return; }
+  if(act==='up'||act==='down'){ const j=i+(act==='up'?-1:1); if(j<0||j>=S.items.length) return; [S.items[i],S.items[j]]=[S.items[j],S.items[i]]; fixBranches(); render(); return; }
+  if(act==='del'){ if(it.type==='step' && !confirm(`手順「${it.title||'（未入力）'}」を削除しますか？`)) return;
+    if(it.type==='branch' && !confirm('この分かれ目を削除しますか？（答えのときの手順も消えます）')) return;
+    S.items.splice(i,1); S.sel=null; fixBranches(); render(); return; }
+  const a=it&&it.answers&&it.answers.find(x=>x.id===b.dataset.ans);
+  if(act==='ansAdd'){ if(it.answers.length<4){ const n=mkAns(''); it.answers.push(n); render(); focusSel(`[data-ans="${n.id}"][data-k="label"]`); } return; }
+  if(act==='ansDel'){ it.answers=it.answers.filter(x=>x!==a); render(); return; }
+  if(act==='subAdd'){ const s=mkSub(); a.steps.push(s); render(); focusSel(`[data-sub="${s.id}"]`); return; }
+  if(act==='subDel'){ a.steps=a.steps.filter(x=>x.id!==b.dataset.sub); render(); return; }
+});
+// Enterで次の手順を追加（本流の手順・答えの手順）
+L.addEventListener('keydown',e=>{ if(e.key!=='Enter'||e.isComposing||e.target.tagName!=='INPUT'||e.target.dataset.k!=='title') return;
+  e.preventDefault(); const {it}=target(e); if(!it) return;
+  if(e.target.dataset.sub){ const a=it.answers.find(x=>x.id===e.target.dataset.ans); const k=a.steps.findIndex(x=>x.id===e.target.dataset.sub); const s=mkSub(); a.steps.splice(k+1,0,s); render(); focusSel(`[data-sub="${s.id}"]`); }
+  else if(it.type==='step'){ const s=mkStep(); S.items.splice(idxOf(it.id)+1,0,s); S.sel=s.id; render(); focusItem(s.id); } });
+document.getElementById('in-name').oninput=e=>{ S.name=e.target.value; save(); };
+document.getElementById('in-dev').oninput=e=>{ S.device=e.target.value; save(); };
+function insertBranch(i,b){ const br={ type:'branch', id:uid(), q:b.q, answers:b.answers };
+  S.items.splice(i+1,0,br); S.sel=br.id; fixBranches(); render(); document.getElementById('it-'+br.id).scrollIntoView({block:'nearest',behavior:'smooth'});
+  if(!b.q) focusSel(`#it-${br.id} .q`); hint(''); }
+// 移動・削除で行き先が無効になったら「次の手順へ」に戻す
+function fixBranches(){ S.items.forEach((it,i)=>{ if(it.type!=='branch') return; const bef=stepsBefore(i).map(s=>s.id), aft=stepsAfter(i).slice(1).map(s=>s.id);
+  it.answers.forEach(a=>{ if(a.then==='back'&&!bef.includes(a.target)) a.target=''; if(a.then==='jump'&&!aft.includes(a.target)) a.target=''; }); }); }
+function rerenderKeep(el){ const sel=selectorOf(el); render(); if(sel) focusSel(sel); }
+function selectorOf(el){ const c=el.closest('[data-id]'); if(!c) return null; let s=`#it-${c.dataset.id} `; if(el.dataset.ans) s+=`[data-ans="${el.dataset.ans}"]`; if(el.dataset.sub) s+=`[data-sub="${el.dataset.sub}"]`; if(el.dataset.k) s+=`[data-k="${el.dataset.k}"]`; return s; }
+function focusSel(q){ const el=document.querySelector(q); if(el){ el.focus(); if(el.setSelectionRange&&el.type==='text'){ const n=el.value.length; try{ el.setSelectionRange(n,n); }catch(_){} } } }
+function focusItem(id){ focusSel(`#it-${id} input.t`); }
+let _ft=null; function scheduleFlow(){ clearTimeout(_ft); _ft=setTimeout(renderFlow,250); }
+function hint(t){ const h=document.getElementById('hintbar'); h.innerHTML=t; h.style.display=t?'block':'none'; }
+
+// ══════ よく使う分かれ方 ══════
+const TPLS=[
+  { name:'確認して、異常なら対応して戻ってくる', desc:'異常なし → そのまま次へ／異常あり → 対応の手順 → 次の手順で合流', make:()=>{ const a=mkAns('異常なし'), b=mkAns('異常あり','warn'); b.steps=[mkSub('異常箇所を記録する'),mkSub('応急処置をする')]; return { q:'異常はありましたか？', answers:[a,b] }; } },
+  { name:'続けられなければ中止する', desc:'続けられる → そのまま次へ／続けられない → 指令へ連絡 → 作業終了（作業中止）', make:()=>{ const a=mkAns('続けられる'), b=mkAns('続けられない','danger'); b.steps=[mkSub('指令へ連絡する')]; b.then='end'; b.endLabel='作業中止・指令へ連絡'; return { q:'作業を続けられますか？', answers:[a,b] }; } },
+  { name:'基準外なら調整してやり直す', desc:'基準内 → そのまま次へ／基準外 → 調整の手順 → この確認の手順に戻ってやり直し', make:i=>{ const a=mkAns('基準内'), b=mkAns('基準外','warn'); b.steps=[mkSub('調整する')]; b.then='back'; const prev=S.items[i]; b.target=(prev&&prev.type==='step')?prev.id:''; return { q:'測定値は基準内ですか？', answers:[a,b] }; } },
+  { name:'自分で作る（空の分かれ目）', desc:'質問と答えを自由に書きます', make:()=>({ q:'', answers:[mkAns(''),mkAns('')] }) },
+];
+let _tplAt=-1;
+function openTpl(i){ _tplAt=i; document.getElementById('tpl-list').innerHTML=TPLS.map((t,k)=>`<button class="tpl" onclick="useTpl(${k})"><b>🔀 ${escHtml(t.name)}</b><span>${escHtml(t.desc)}</span></button>`).join(''); document.getElementById('tplm').classList.add('on'); }
+function useTpl(k){ closeM('tplm'); insertBranch(_tplAt, TPLS[k].make(_tplAt)); toast('分かれ目を入れました。文字は自由に書き換えられます'); }
+function closeM(id){ document.getElementById(id).classList.remove('on'); }
+
+// ══════ はじめの対話 ══════
+let WZ={ step:0, name:'', device:'', lines:'' };
+function openWizard(){ if(S.items.length && !confirm('今の内容を消して、新しく作りますか？')) return; WZ={ step:0, name:'', device:'', lines:'' }; renderWz(); document.getElementById('wz').classList.add('on'); }
+function renderWz(){ const b=document.getElementById('wz-body'); document.querySelectorAll('.wzdots i').forEach((d,i)=>d.classList.toggle('on', i<=WZ.step));
+  if(WZ.step===0) b.innerHTML=`<h3>何の作業のシナリオですか？</h3><p class="s">あとで変えられます。</p>
+    <input type="text" id="wz-name" placeholder="シナリオ名（例：〇〇盤 定期点検）" value="${escHtml(WZ.name)}"><input type="text" id="wz-dev" placeholder="機器名（任意）" value="${escHtml(WZ.device)}">
+    <div class="mact"><button class="hb" onclick="closeM('wz')">やめる</button><button class="hb" onclick="closeM('wz');loadSample()">サンプルで試す</button><button class="hb p" onclick="wzNext()">次へ</button></div>`;
+  if(WZ.step===1) b.innerHTML=`<h3>いつもの手順を、順番に書いてください</h3><p class="s"><b>1行に1つ</b>。異常のときのことは、まだ書かなくて大丈夫です（あとで「分かれ目」として足せます）。</p>
+    <textarea id="wz-lines" placeholder="例：&#10;外観を確認する&#10;表示ランプを確認する&#10;スイッチを切る&#10;後片付けをする">${escHtml(WZ.lines)}</textarea>
+    <div class="mact"><button class="hb" onclick="wzBack()">戻る</button><button class="hb p" onclick="wzNext()">次へ</button></div>`;
+  if(WZ.step===2) b.innerHTML=`<h3>途中で、判断が分かれる所はありますか？</h3><p class="s">例：異常があったら別の対応をする、基準外なら調整してやり直す、続けられなければ中止する など。</p>
+    <div class="bigq"><button onclick="wzDone(true)">ある</button><button onclick="wzDone(false)">ない</button></div>
+    <div class="mact"><button class="hb" onclick="wzBack()">戻る</button></div>`;
+  setTimeout(()=>{ const f=b.querySelector('input,textarea'); if(f) f.focus(); },50); }
+function wzKeep(){ const n=document.getElementById('wz-name'), d=document.getElementById('wz-dev'), l=document.getElementById('wz-lines'); if(n) WZ.name=n.value; if(d) WZ.device=d.value; if(l) WZ.lines=l.value; }
+function wzNext(){ wzKeep(); if(WZ.step===0&&!WZ.name.trim()){ toast('シナリオ名を入れてください'); return; }
+  if(WZ.step===1&&!WZ.lines.trim()){ toast('手順を1つ以上書いてください'); return; } WZ.step++; renderWz(); }
+function wzBack(){ wzKeep(); WZ.step--; renderWz(); }
+function wzDone(has){ closeM('wz');
+  S={ name:WZ.name.trim(), device:WZ.device.trim(), sel:null, items:WZ.lines.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(t=>mkStep(t)) };
+  render();
+  hint(has ? '<b>次に、分かれる所を作ります。</b>判断する手順を押して「🔀 よく使う分かれ方」か「🔀 ここで分かれる」を選んでください。右（または上の「フロー図」）に流れが自動で描かれます。'
+           : '一本道のシナリオができました。必要なら手順を押して説明や注意レベルを足し、「📤 出力」でエディタへ渡せます。'); }
+
+// ══════ サンプル ══════
+function loadSample(){ if(S.items.length && !confirm('今の内容を消して、サンプルを読み込みますか？')) return;
+  const s1=mkStep('外観を確認する'), s2=mkStep('表示ランプを確認する'), s3=mkStep('通常の操作をする'), s4=mkStep('後片付けをする'), s5=mkStep('終了報告をする');
+  s2.warn='caution'; s2.detail='運転ランプが緑で点灯していること';
+  const a=mkAns('異常なし'), b=mkAns('異常あり','warn'), c=mkAns('判断できない','danger');
+  b.steps=[mkSub('異常箇所を記録する'),mkSub('応急処置をする')]; b.then='jump'; b.target=s4.id;
+  c.steps=[mkSub('指令へ連絡する')]; c.then='end'; c.endLabel='作業中止・指令へ連絡';
+  S={ name:'分岐サンプル（かんたん作成）', device:'テスト機器', sel:null, items:[s1,s2,{type:'branch',id:uid(),q:'異常はありましたか？',answers:[a,b,c]},s3,s4,s5] };
+  render(); hint('サンプルを読み込みました。手順や答えを押して、書き換え・追加を試してください。'); }
+
+// ══════ 区間(flow)へ変換：本流を分かれ目・飛び先で区切り、答えの手順は分岐側の区間にする ══════
+function toFlow(){
+  const items=S.items, no=mainNo(); const targets=new Set();
+  items.forEach(it=>{ if(it.type==='branch') it.answers.forEach(a=>{ if((a.then==='jump'||a.then==='back')&&a.target) targets.add(a.target); }); });
+  const sections=[], steps=[], firstItem={}; let cur=null, n=0;
+  const newSec=(label,branch,item)=>{ const s={ key:'s'+(++n), label, ...(branch?{branch:true}:{}), next:null, _main:!branch, _no:[] }; sections.push(s); if(item) firstItem[s.key]=item; return s; };
+  const startOf={}, afterBranch={};
+  items.forEach((it,i)=>{
+    if(it.type==='step'){
+      if(!cur || cur.next || targets.has(it.id) || (i>0&&items[i-1].type==='branch')){
+        const s=newSec('',false,it.id); if(cur&&!cur.next) cur.next={type:'goto',to:s.key}; cur=s; }
+      startOf[it.id]=startOf[it.id]||cur.key; cur._no.push(no[it.id]);
+      steps.push({ sec:cur.key, title:it.title||'（未入力）', detail:it.detail||'', warn:it.warn||'normal' });
+    } else {
+      if(!cur || cur.next){ const s=newSec('分かれ目',false,it.id); if(cur&&!cur.next) cur.next={type:'goto',to:s.key}; cur=s; }
+      cur.next={ type:'choice', _branch:it }; cur._bid=it.id;
+      if(!firstItem[cur.key]) firstItem[cur.key]=it.id;
+    }
+  });
+  if(cur && !cur.next) cur.next={type:'end'};
+  // 本流区間の名前：「手順1〜2」
+  sections.forEach(s=>{ if(s._main && s._no.length) s.label = s._no.length>1 ? `手順${s._no[0]}〜${s._no[s._no.length-1]}` : `手順${s._no[0]}`; });
+  const endSecs={};
+  const endSec=lbl=>{ const k=lbl||''; if(!endSecs[k]){ const s=newSec(lbl||'作業終了',true,null); s.next={type:'end',...(lbl?{label:lbl}:{})}; endSecs[k]=s; } return endSecs[k].key; };
+  // 分かれ目の次（本流で次に来る区間）
+  const nextMainAfter=bid=>{ const i=items.findIndex(x=>x.id===bid); const nx=items.slice(i+1).find(x=>x.type==='step'); return nx?startOf[nx.id]:null; };
+  sections.slice().forEach(s=>{ if(!s.next||s.next.type!=='choice') return; const br=s.next._branch;
+    const opts=br.answers.map((a,ai)=>{
+      const thenKey = a.then==='next' ? (nextMainAfter(br.id)||null) : (a.then==='jump'||a.then==='back') ? (a.target?startOf[a.target]:'') : null;
+      let to;
+      if(a.steps.length){ const as=newSec(`「${a.label||('答え'+(ai+1))}」のとき`,true,br.id);
+        a.steps.forEach(st=>steps.push({ sec:as.key, title:st.title||'（未入力）', detail:st.detail||'', warn:(st.warn&&st.warn!=='normal')?st.warn:(a.tone==='danger'?'danger':a.tone==='warn'?'caution':'normal') }));
+        as.next = a.then==='end' || (a.then==='next'&&!thenKey) ? {type:'end', ...(a.then==='end'&&a.endLabel?{label:a.endLabel}:{})} : {type:'goto', to:thenKey||''};
+        to=as.key; }
+      else to = a.then==='end' ? endSec(a.endLabel||'') : (a.then==='next'&&!thenKey) ? endSec('') : (thenKey||'');
+      return { label:a.label||'', to, ...(a.tone?{tone:a.tone}:{}) }; });
+    s.next={ type:'choice', prompt:br.q||'', options:opts }; });
+  const clean=sections.map(s=>({ key:s.key, label:s.label, ...(s.branch?{branch:true}:{}), next:s.next }));
+  const order=new Map(clean.map((s,i)=>[s.key,i])); steps.sort((a,b)=>order.get(a.sec)-order.get(b.sec));
+  return { flow:{ start:clean.length?clean[0].key:'s1', sections:clean }, steps, firstItem };
+}
+
+// ══════ 解析とフロー図（エディタ v4.23 と同じ考え方） ══════
+function analyze(F, steps){
+  const secs=F.sections, by=new Map(secs.map(s=>[s.key,s])); const cntMap=new Map(); steps.forEach(s=>cntMap.set(s.sec,(cntMap.get(s.sec)||0)+1)); const cnt=k=>cntMap.get(k)||0;
+  const edges=[], ends=new Map();
+  secs.forEach(s=>{ const nx=s.next||{type:'end'};
+    if(nx.type==='goto') edges.push({from:s.key,to:nx.to||'',kind:'goto',label:''});
+    else if(nx.type==='choice') (nx.options||[]).forEach(o=>edges.push({from:s.key,to:o.to||'',kind:'choice',label:o.label||'',tone:o.tone||''}));
+    else { const lb=(nx.label||'').trim()||'終了'; const ek='END:'+lb; ends.set(ek,lb); edges.push({from:s.key,to:ek,kind:'end',label:''}); } });
+  const valid=edges.filter(e=>by.has(e.to)||ends.has(e.to)); const out=k=>valid.filter(e=>e.from===k);
+  const back=new Set(), state=new Map(); const dfs=k=>{ state.set(k,1); out(k).forEach(e=>{ if(!by.has(e.to)) return; const s2=state.get(e.to); if(s2===1) back.add(e); else if(!s2) dfs(e.to); }); state.set(k,2); };
+  if(by.has(F.start)) dfs(F.start); secs.forEach(s=>{ if(!state.get(s.key)) dfs(s.key); });
+  const canEnd=new Set(ends.keys()); for(let ch=true;ch;){ ch=false; secs.forEach(s=>{ if(!canEnd.has(s.key)&&out(s.key).some(e=>canEnd.has(e.to))){ canEnd.add(s.key); ch=true; } }); }
+  const routes=[]; const walk=(k,path,seen)=>{ if(routes.length>=20) return; if(ends.has(k)){ routes.push({path:path.slice(),end:ends.get(k)}); return; } if(!by.has(k)||seen.has(k)) return; seen.add(k); path.push(k); out(k).forEach(e=>{ if(!back.has(e)) walk(e.to,path,seen); }); path.pop(); seen.delete(k); };
+  if(by.has(F.start)) walk(F.start,[],new Set());
+  routes.forEach(r=>{ r.steps=r.path.reduce((a,k)=>a+cnt(k),0); });
+  const indeg=new Map(); valid.forEach(e=>{ if(!back.has(e)) indeg.set(e.to,(indeg.get(e.to)||0)+1); });
+  return { by, edges:valid, ends, back, routes, cnt, indeg, canEnd };
+}
+function flowSVG(A,F,cur){
+  const W=168, H=50, HC=74, CW=196, RH=120, PX=14, PY=28; const isEnd=k=>A.ends.has(k);
+  const nodes=[...F.sections.map(s=>s.key), ...A.ends.keys()]; const fwd=A.edges.filter(e=>!A.back.has(e));
+  const layer=new Map(nodes.map(k=>[k,0])); for(let it=0;it<=nodes.length;it++){ let ch=false; fwd.forEach(e=>{ const v=layer.get(e.from)+1; if(v>layer.get(e.to)){ layer.set(e.to,v); ch=true; } }); if(!ch) break; }
+  const rows=[]; nodes.forEach(k=>{ const l=layer.get(k); (rows[l]=rows[l]||[]).push(k); }); const maxN=Math.max(1,...rows.filter(Boolean).map(r=>r.length));
+  const pos=new Map(), ord=new Map(nodes.map((k,i)=>[k,i]));
+  rows.forEach((r,l)=>{ if(!r) return; const pref=k=>{ const ps=fwd.filter(e=>e.to===k&&pos.has(e.from)).map(e=>pos.get(e.from).x); return ps.length?ps.reduce((a,b)=>a+b,0)/ps.length:1e6+ord.get(k); };
+    if(l>0) r.sort((a,b)=>pref(a)-pref(b)); const x0=PX+(maxN-r.length)*CW/2; r.forEach((k,i)=>pos.set(k,{x:x0+i*CW+CW/2,y:PY+l*RH})); });
+  const backs=[...A.back], laneX0=PX+maxN*CW+4, VW=laneX0+backs.length*14+(backs.length?84:0), VH=PY+rows.length*RH;
+  const nh=k=>isEnd(k)?32:(((A.by.get(k).next||{}).type==='choice')?HC:H);
+  const col=e=>e.kind==='end'?'#94a3b8':e.tone==='danger'?'#dc2626':e.tone==='warn'?'#d97706':'#475569'; const mk=c=>'fa'+c.slice(1);
+  const tr=(s,n)=>{ s=String(s||''); return s.length>n?s.slice(0,n-1)+'…':s; };
+  let g='';
+  fwd.forEach(e=>{ const a=pos.get(e.from), b=pos.get(e.to); if(!a||!b) return; const outs=fwd.filter(x=>x.from===e.from), j=outs.indexOf(e), m=outs.length;
+    const sx=a.x-W/2+(j+1)*W/(m+1), sy=a.y+nh(e.from), tx=b.x, ty=b.y-3, c=col(e);
+    g+=`<path d="M${sx} ${sy} C${sx} ${sy+34},${tx} ${ty-34},${tx} ${ty}" fill="none" stroke="${c}" stroke-width="1.6" marker-end="url(#${mk(c)})"/>`;
+    if(e.kind==='choice'&&e.label) g+=`<text x="${sx+(tx-sx)*0.22}" y="${sy+17}" text-anchor="middle" font-size="11" font-weight="800" fill="${c}" stroke="#fff" stroke-width="4" paint-order="stroke">${escHtml(tr(e.label,9))}</text>`; });
+  backs.forEach((e,i)=>{ const a=pos.get(e.from), b=pos.get(e.to); if(!a||!b) return; const sx=a.x+W/2, sy=a.y+nh(e.from)/2, lx=laneX0+i*14, ty=b.y+nh(e.to)/2;
+    g+=`<path d="M${sx} ${sy} H${lx} V${ty} H${b.x+W/2+3}" fill="none" stroke="#d97706" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#fad97706)"/><text x="${lx+5}" y="${(sy+ty)/2}" font-size="11" font-weight="700" fill="#b45309" stroke="#fff" stroke-width="4" paint-order="stroke">↩ やり直し</text>`; });
+  nodes.forEach(k=>{ const p=pos.get(k);
+    if(isEnd(k)){ g+=`<rect x="${p.x-60}" y="${p.y}" width="120" height="32" rx="16" fill="#f1f5f9" stroke="#64748b"/><text x="${p.x}" y="${p.y+20}" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">■ ${escHtml(tr(A.ends.get(k),9))}</text>`; return; }
+    const s=A.by.get(k), nx=s.next||{}, isC=nx.type==='choice', h=nh(k), isCur=k===cur, bad=!A.canEnd.has(k);
+    const fill=bad?'#fef2f2':s.branch?'#f0fdfa':'#fff', stroke=bad?'#dc2626':isCur?'#1d4ed8':s.branch?'#0d9488':'#64748b';
+    g+=`<g class="fn" data-k="${k}">`; if(k===F.start) g+=`<text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="11" font-weight="800" fill="#1d4ed8">▶ 開始</text>`;
+    g+=`<rect x="${p.x-W/2}" y="${p.y}" width="${W}" height="${h}" rx="10" fill="${fill}" stroke="${stroke}" stroke-width="${isCur?2.6:1.2}"/>`;
+    g+=`<text x="${p.x}" y="${p.y+20}" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">${escHtml(tr(s.label,12))}</text>`;
+    g+=`<text x="${p.x}" y="${p.y+38}" text-anchor="middle" font-size="11" fill="#64748b">${A.cnt(k)}手順${(A.indeg.get(k)||0)>=2?'・合流':''}</text>`;
+    if(isC) g+=`<rect x="${p.x-W/2+1.5}" y="${p.y+H}" width="${W-3}" height="${HC-H-1.5}" fill="#fef3c7"/><text x="${p.x}" y="${p.y+H+16}" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e">◆ ${escHtml(tr(nx.prompt||'（質問が未入力）',12))}</text>`;
+    g+='</g>'; });
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${VW}" height="${VH}" viewBox="0 0 ${VW} ${VH}" font-family="-apple-system,'Hiragino Sans','Yu Gothic UI',sans-serif"><defs>${['#475569','#94a3b8','#dc2626','#d97706'].map(c=>`<marker id="${mk(c)}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="${c}"/></marker>`).join('')}</defs>${g}</svg>`;
+}
+let _conv=null;
+function renderFlow(){
+  const wrap=document.getElementById('svgwrap'), chk=document.getElementById('checks'), rt=document.getElementById('routes');
+  if(!S.items.length){ wrap.innerHTML='<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">手順を書くと、ここに流れが描かれます</div>'; chk.innerHTML=''; rt.innerHTML=''; return; }
+  _conv=toFlow(); const F=_conv.flow, A=analyze(F,_conv.steps);
+  let curKey=null; Object.entries(_conv.firstItem).forEach(([k,id])=>{ if(id===S.sel&&!curKey) curKey=k; });
+  if(!curKey&&S.sel){ const st=S.items.find(x=>x.id===S.sel); if(st&&st.type==='step'){ const i=S.items.indexOf(st); for(let j=i;j>=0;j--){ const k=Object.keys(_conv.firstItem).find(k=>_conv.firstItem[k]===S.items[j].id && !(F.sections.find(s=>s.key===k)||{}).branch); if(k){ curKey=k; break; } } } }
+  wrap.innerHTML=flowSVG(A,F,curKey);
+  wrap.onclick=e=>{ const g=e.target.closest('.fn'); if(!g) return; const id=_conv.firstItem[g.getAttribute('data-k')]; if(!id) return; S.sel=id; setTab('list'); render(); const el=document.getElementById('it-'+id); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); };
+  const P=problems(A); let h='';
+  if(!P.e.length&&!P.w.length) h='<div class="ok">✓ 問題は見つかりませんでした</div>';
+  P.e.forEach(x=>h+=`<div class="e" data-go="${x.id||''}">✕ ${escHtml(x.m)}</div>`); P.w.forEach(x=>h+=`<div class="w" data-go="${x.id||''}">⚠ ${escHtml(x.m)}</div>`);
+  chk.innerHTML=h; chk.querySelectorAll('[data-go]').forEach(d=>d.onclick=()=>{ const id=d.dataset.go; if(!id) return; S.sel=id; setTab('list'); render(); const el=document.getElementById('it-'+id); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); });
+  rt.innerHTML = A.routes.length>1 ? '<b>流れの種類</b><br>'+A.routes.map((r,i)=>`${i+1}. ${r.path.map(k=>escHtml(A.by.get(k).label)).join(' → ')} → ${escHtml(r.end)}（${r.steps}手順）`).join('<br>') : '';
+}
+// 書き手に分かる言葉での問題点
+function problems(A){ const e=[], w=[], no=mainNo();
+  S.items.forEach((it,i)=>{
+    if(it.type==='step' && !it.title.trim()) w.push({id:it.id, m:`手順${no[it.id]}の内容が空欄です`});
+    if(it.type!=='branch') return;
+    if(i===0) e.push({id:it.id, m:'最初の手順より前に分かれ目があります（分かれ目は手順の後に置きます）'});
+    if(!it.q.trim()) w.push({id:it.id, m:'分かれ目の質問が空欄です'});
+    if(it.answers.length<2) e.push({id:it.id, m:'分かれ目の答えが2つ未満です'});
+    it.answers.forEach((a,ai)=>{ const n=`「${it.q||'分かれ目'}」の答え${ai+1}`;
+      if(!a.label.trim()) e.push({id:it.id, m:`${n}が空欄です`});
+      if((a.then==='jump'||a.then==='back')&&!a.target) e.push({id:it.id, m:`${n}の行き先の手順を選んでください`});
+      a.steps.forEach((s,si)=>{ if(!s.title.trim()) w.push({id:it.id, m:`${n}の手順${si+1}が空欄です`}); }); });
+  });
+  A.by.forEach((s,k)=>{ if(!A.canEnd.has(k)){ const id=_conv.firstItem[k]; e.push({id, m:`「${s.label}」から作業終了にたどり着けません（やり直しがループしています）`}); } });
+  return { e, w }; }
+function setTab(t){ document.getElementById('main').className='t-'+t; document.getElementById('tab-list').classList.toggle('on',t==='list'); document.getElementById('tab-flow').classList.toggle('on',t==='flow'); if(t==='flow') renderFlow(); }
+
+// ══════ 出力（エディタの「JSONを貼り付けて読込」用） ══════
+function buildJSON(){ const c=toFlow(); const hasBranch=S.items.some(x=>x.type==='branch');
+  const steps=c.steps.map(s=>({ ...(hasBranch?{sec:s.sec}:{}), title:s.title, detail:s.detail, warn:s.warn, face:'f1', photo:'',
+    ar:[{ type:'text', pos:[0,0.16,0], color: s.warn==='danger'?'#ef4444':s.warn==='caution'?'#f59e0b':'#60a5fa', label:s.title.slice(0,16), fontScale:1 }] }));
+  const slug=(S.name||'bc').replace(/[^0-9A-Za-z一-龠ぁ-んァ-ヶ]/g,'').slice(0,10)||'bc';
+  return JSON.stringify({ id:'bc-'+slug+'-'+Date.now().toString(36).slice(-5), name:S.name||'新規シナリオ', subtitle:'', device:S.device||'', docs:{},
+    faces:[{ key:'f1', label:'前面', barcode:null, markerSizeMM:40, calib:{scale:6.6667,ox:0,oy:0,rot:0}, imageFile:'', markerPos:{u:0.5,v:0.5,w:0.15} }],
+    ...(hasBranch?{ formatVersion:2, flow:c.flow }:{}), steps }, null, 1); }
+function openExport(){ if(!S.items.length){ toast('先に手順を書いてください'); return; }
+  const A=analyze(toFlow().flow,toFlow().steps), P=problems(A);
+  document.getElementById('exp-warn').textContent = P.e.length ? `✕ 直したほうがよい点が${P.e.length}件あります（フロー図の下を確認）。このまま出力もできます。` : '';
+  document.getElementById('exp-ta').value=buildJSON(); document.getElementById('exp').classList.add('on'); }
+function copyExport(){ const ta=document.getElementById('exp-ta'); ta.select();
+  (navigator.clipboard?navigator.clipboard.writeText(ta.value):Promise.reject()).then(()=>toast('コピーしました'),()=>{ try{ document.execCommand('copy'); toast('コピーしました'); }catch(_){ toast('選択された内容を手動でコピーしてください'); } }); }
+
+// ══════ 起動 ══════
+(function(){ let d=null; try{ d=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(_){}
+  if(d&&Array.isArray(d.items)){ S=d; render(); if(!S.items.length) openWizard(); } else { render(); openWizard(); } })();
+</script>
+</body>
+</html>

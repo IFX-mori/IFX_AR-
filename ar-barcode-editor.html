@@ -537,7 +537,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.25';
+const APP_VERSION = 'v4.26';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1234,7 +1234,9 @@ function flowAnalyze(F, steps){
       os.forEach((o,i)=>{ if(!(o.label||'').trim()) E(s.key,`の選択肢${i+1}の文字が空欄です`);
         if(!o.to) E(s.key,`の選択肢${i+1}の行き先が未設定です`); else if(!by.has(o.to)) E(s.key,`の選択肢${i+1}の行き先の区間がありません`); });
       if(!(nx.prompt||'').trim()) warns.push(L(s.key)+'の質問文が空欄です（選択画面に表示されます）'); }
-    if(n===0){ if(nx.type==='choice'&&s.key!==F.start) warns.push(L(s.key)+'にステップがありません（前の区間からすぐに選択画面になります）'); else E(s.key,'にステップがありません'); }
+    if(n===0){ if(nx.type==='choice'&&s.key!==F.start) warns.push(L(s.key)+'にステップがありません（前の区間からすぐに選択画面になります）');
+      else if(nx.type==='end'&&s.key!==F.start) warns.push(L(s.key)+'にステップがありません（選ぶとすぐ作業終了になります）');
+      else E(s.key,'にステップがありません'); }
     if(reach.has(s.key)&&!canEnd.has(s.key)) E(s.key,'から作業終了にたどり着けません（抜け出せないループ）');
   });
   const routes=[]; const walk=(k,path,seen)=>{ if(routes.length>=30) return;
