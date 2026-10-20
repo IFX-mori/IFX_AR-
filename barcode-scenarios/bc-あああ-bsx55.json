@@ -1,6 +1,6 @@
 {
   "id": "bc-あああ-bsx55",
-  "barcode": 0,
+  "barcode": 1,
   "name": "あああ",
   "subtitle": "",
   "device": "",
@@ -9,7 +9,7 @@
     {
       "key": "f1",
       "label": "前面",
-      "barcode": 0,
+      "barcode": 1,
       "calib": {
         "scale": 6.67,
         "ox": 0,
