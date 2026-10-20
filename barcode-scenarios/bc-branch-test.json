@@ -1,0 +1,286 @@
+{
+  "id": "bc-branch-test",
+  "barcode": 0,
+  "name": "分岐テスト（確認用）",
+  "subtitle": "分岐・合流・やり直し・中止の動作確認",
+  "device": "テスト機器",
+  "docs": {},
+  "faces": [
+    {
+      "key": "f1",
+      "label": "前面",
+      "barcode": 0,
+      "calib": {
+        "scale": 6.67,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "",
+      "markerPos": {
+        "u": 0.5,
+        "v": 0.5,
+        "w": 0.15
+      }
+    }
+  ],
+  "formatVersion": 2,
+  "flow": {
+    "start": "s1",
+    "sections": [
+      {
+        "key": "s1",
+        "label": "A1 点検準備",
+        "next": {
+          "type": "choice",
+          "prompt": "異常はありましたか？",
+          "options": [
+            {
+              "label": "異常なし",
+              "to": "s2"
+            },
+            {
+              "label": "異常あり",
+              "to": "s3",
+              "tone": "warn",
+              "note": "B 異常時対応へ進みます"
+            },
+            {
+              "label": "判断できない",
+              "to": "s5",
+              "tone": "danger",
+              "note": "作業を中止します"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s2",
+        "label": "A2 通常手順",
+        "next": {
+          "type": "goto",
+          "to": "s4"
+        }
+      },
+      {
+        "key": "s3",
+        "label": "B 異常時対応",
+        "branch": true,
+        "next": {
+          "type": "choice",
+          "prompt": "再測定しますか？",
+          "options": [
+            {
+              "label": "再測定する",
+              "to": "s1",
+              "note": "A1 点検準備からやり直します"
+            },
+            {
+              "label": "対応完了",
+              "to": "s4"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s4",
+        "label": "A3 後片付け",
+        "next": {
+          "type": "end"
+        }
+      },
+      {
+        "key": "s5",
+        "label": "C 作業中止",
+        "branch": true,
+        "next": {
+          "type": "end",
+          "label": "作業中止・指令へ連絡"
+        }
+      }
+    ]
+  },
+  "steps": [
+    {
+      "sec": "s1",
+      "title": "A1-1 外観を確認",
+      "detail": "本流の1つ目です。確認して「次へ」。",
+      "warn": "normal",
+      "face": "f1",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "A1-1 外観確認",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "sec": "s1",
+      "title": "A1-2 表示ランプを確認",
+      "detail": "確認すると「分岐を選ぶ」が出ます。1回目は「異常あり」を選んでください。",
+      "warn": "caution",
+      "face": "f1",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "A1-2 ランプ確認",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "sec": "s2",
+      "title": "A2-1 通常の操作1",
+      "detail": "「異常なし」を選ぶとここに来ます。",
+      "warn": "normal",
+      "face": "f1",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "A2-1 通常操作1",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "sec": "s2",
+      "title": "A2-2 通常の操作2",
+      "detail": "次は A3 で合流します。",
+      "warn": "normal",
+      "face": "f1",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "A2-2 通常操作2",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "sec": "s3",
+      "title": "B-1 異常箇所を記録",
+      "detail": "分岐側の区間です。「戻る」で A1 に戻って選び直せることも確認してください。",
+      "warn": "caution",
+      "face": "f1",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#f59e0b",
+          "label": "B-1 異常記録",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "sec": "s3",
+      "title": "B-2 応急処置",
+      "detail": "確認後の選択で「再測定する」を選ぶと A1 からやり直しになります。",
+      "warn": "caution",
+      "face": "f1",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#f59e0b",
+          "label": "B-2 応急処置",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "sec": "s4",
+      "title": "A3-1 工具を片付ける",
+      "detail": "合流点です。A2 と B のどちらからも来ます。",
+      "warn": "normal",
+      "face": "f1",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "A3-1 片付け",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "sec": "s4",
+      "title": "A3-2 終了報告",
+      "detail": "確認して「終了」。作業記録に通った経路が残ります。",
+      "warn": "normal",
+      "face": "f1",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "A3-2 終了報告",
+          "fontScale": 1
+        }
+      ]
+    },
+    {
+      "sec": "s5",
+      "title": "C-1 指令へ連絡",
+      "detail": "中止の終わり方の確認です。「終了」で（作業中止・指令へ連絡）と表示されます。",
+      "warn": "danger",
+      "face": "f1",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#ef4444",
+          "label": "C-1 指令へ連絡",
+          "fontScale": 1
+        }
+      ]
+    }
+  ]
+}
