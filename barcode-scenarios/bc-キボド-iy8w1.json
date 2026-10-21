@@ -11,7 +11,7 @@
       "label": "前面",
       "barcode": 2,
       "calib": {
-        "scale": 13.99,
+        "scale": 9.61,
         "ox": 0.04,
         "oy": -0.02,
         "rot": 0
@@ -19,12 +19,52 @@
       "markerSizeMM": 40,
       "imageFile": "barcode-targets/bc-キボド-iy8w1-fmvhiy8w2k5.jpg",
       "markerPos": {
-        "u": 0.2612,
-        "v": 0.4541,
-        "w": 0.0715
+        "u": 0.1425,
+        "v": 0.5054,
+        "w": 0.1041
       }
     }
   ],
+  "formatVersion": 2,
+  "flow": {
+    "start": "s1",
+    "sections": [
+      {
+        "key": "s1",
+        "label": "手順1〜3",
+        "next": {
+          "type": "choice",
+          "prompt": "位置は合ってる？",
+          "options": [
+            {
+              "label": "合ってる",
+              "to": "s2"
+            },
+            {
+              "label": "ズレてる",
+              "to": "s3"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s2",
+        "label": "手順4",
+        "next": {
+          "type": "end"
+        }
+      },
+      {
+        "key": "s3",
+        "label": "「ズレてる」のとき",
+        "branch": true,
+        "next": {
+          "type": "goto",
+          "to": ""
+        }
+      }
+    ]
+  },
   "builder": [
     {
       "type": "step",
@@ -39,9 +79,58 @@
       "title": "キーボード操作",
       "detail": "",
       "warn": "normal"
+    },
+    {
+      "type": "step",
+      "id": "birrl30r",
+      "title": "画面指示",
+      "detail": "",
+      "warn": "normal"
+    },
+    {
+      "type": "branch",
+      "id": "bu64hwaa",
+      "q": "位置は合ってる？",
+      "answers": [
+        {
+          "id": "bkq9chqv",
+          "label": "合ってる",
+          "tone": "",
+          "items": [],
+          "then": "next",
+          "target": "",
+          "endLabel": "",
+          "endTone": ""
+        },
+        {
+          "id": "bcbj70dw",
+          "label": "ズレてる",
+          "tone": "",
+          "items": [
+            {
+              "type": "step",
+              "id": "b31hlzcx",
+              "title": "校正する",
+              "detail": "",
+              "warn": "normal"
+            }
+          ],
+          "then": "back",
+          "target": "",
+          "endLabel": "",
+          "endTone": ""
+        }
+      ]
+    },
+    {
+      "type": "step",
+      "id": "bkt4sqx5",
+      "title": "作業終了",
+      "detail": "",
+      "warn": "normal"
     }
   ],
-  "builderSig": "",
+  "builderSig": "f8s1any",
   "steps": [
     {
       "title": "画面確認",
@@ -51,8 +140,8 @@
         {
           "type": "text",
           "pos": [
-            0.239,
-            0.099,
+            0.31,
+            0.17,
             0
           ],
           "color": "#60a5fa",
@@ -62,8 +151,8 @@
         {
           "type": "arrow",
           "pos": [
-            -0.047,
-            0.331,
+            -0.002,
+            0.411,
             0
           ],
           "color": "#60a5fa",
@@ -78,8 +167,8 @@
         {
           "type": "arrow",
           "pos": [
-            0.549,
-            0.355,
+            0.681,
+            0.411,
             0
           ],
           "color": "#60a5fa",
@@ -94,8 +183,8 @@
         {
           "type": "arrow",
           "pos": [
-            0.502,
-            0.035,
+            0.669,
+            0.019,
             0
           ],
           "color": "#60a5fa",
@@ -110,7 +199,8 @@
       ],
       "photo": "",
       "face": "fmvhiy8w2k5",
-      "bid": "bsjmovrn"
+      "bid": "bsjmovrn",
+      "sec": "s1"
     },
     {
       "title": "キーボード操作",
@@ -120,8 +210,8 @@
         {
           "type": "box",
           "pos": [
-            0.5399,
-            -0.1074,
+            0.722,
+            -0.174,
             0
           ],
           "color": "#60a5fa",
@@ -143,8 +233,8 @@
         {
           "type": "ring",
           "pos": [
-            0.229,
-            -0.135,
+            0.28,
+            -0.2,
             0
           ],
           "color": "#60a5fa",
@@ -160,7 +250,87 @@
       ],
       "photo": "",
       "face": "fmvhiy8w2k5",
-      "bid": "bga41ng1"
+      "bid": "bga41ng1",
+      "sec": "s1"
+    },
+    {
+      "title": "画面指示",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0.267,
+            0.241,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "lineThick": 0.0062,
+          "label": "バーコード",
+          "labelBelow": true
+        },
+        {
+          "type": "arrow",
+          "pos": [
+            0.482,
+            0.182,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "中央",
+          "h": 0.124
+        }
+      ],
+      "photo": "",
+      "face": "fmvhiy8w2k5",
+      "bid": "birrl30r",
+      "sec": "s1"
+    },
+    {
+      "title": "作業終了",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "作業終了",
+          "fontScale": 1
+        }
+      ],
+      "photo": "",
+      "face": "fmvhiy8w2k5",
+      "bid": "bkt4sqx5",
+      "sec": "s2"
+    },
+    {
+      "title": "校正する",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "校正する",
+          "fontScale": 1
+        }
+      ],
+      "photo": "",
+      "face": "fmvhiy8w2k5",
+      "bid": "b31hlzcx",
+      "sec": "s3"
     }
   ]
 }
