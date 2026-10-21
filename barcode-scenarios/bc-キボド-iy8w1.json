@@ -31,36 +31,44 @@
     "sections": [
       {
         "key": "s1",
-        "label": "手順1〜3",
+        "label": "手順1〜2",
+        "next": {
+          "type": "goto",
+          "to": "s2"
+        }
+      },
+      {
+        "key": "s2",
+        "label": "手順3",
         "next": {
           "type": "choice",
           "prompt": "位置は合ってる？",
           "options": [
             {
               "label": "合ってる",
-              "to": "s2"
+              "to": "s3"
             },
             {
               "label": "ズレてる",
-              "to": "s3"
+              "to": "s4"
             }
           ]
         }
       },
       {
-        "key": "s2",
+        "key": "s3",
         "label": "手順4",
         "next": {
           "type": "end"
         }
       },
       {
-        "key": "s3",
+        "key": "s4",
         "label": "「ズレてる」のとき",
         "branch": true,
         "next": {
           "type": "goto",
-          "to": ""
+          "to": "s2"
         }
       }
     ]
@@ -116,7 +124,7 @@
             }
           ],
           "then": "back",
-          "target": "",
+          "target": "birrl30r",
           "endLabel": "",
           "endTone": ""
         }
@@ -130,7 +138,7 @@
       "warn": "normal"
     }
   ],
-  "builderSig": "f8s1any",
+  "builderSig": "f1d7sorg",
   "steps": [
     {
       "title": "画面確認",
@@ -286,7 +294,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "birrl30r",
-      "sec": "s1"
+      "sec": "s2"
     },
     {
       "title": "作業終了",
@@ -308,7 +316,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "bkt4sqx5",
-      "sec": "s2"
+      "sec": "s3"
     },
     {
       "title": "校正する",
@@ -330,7 +338,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "b31hlzcx",
-      "sec": "s3"
+      "sec": "s4"
     }
   ]
 }
