@@ -686,7 +686,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.36';
+const APP_VERSION = 'v4.37';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1755,7 +1755,7 @@ const EB=(()=>{
       ${sel?`<div class="det"><textarea data-k="detail" placeholder="作業者への説明（任意）">${escHtml(it.detail)}</textarea>${warnSel(it.warn,'data-k="warn"')}</div>
       <div class="acts"><button class="ab add" data-act="addAfter">＋ 次の手順</button>
         ${canBr?`<button class="ab br" data-act="branch">🔀 ここで分かれる</button><button class="ab br" data-act="tpl">🔀 よく使う分かれ方</button>`:''}
-        ${canBr&&!ctx.inSet?`<button class="ab set" data-act="set" title="好きな順番で行える作業のまとまりを入れる">📋 順不同のまとまり</button>`:''}
+        ${canBr&&!ctx.inSet?`<button class="ab set" data-act="set" title="この手順を作業の概要にして、中に順不同の作業（作業1・作業2…）を作る">📋 この手順を順不同のまとまりにする</button>`:''}
         <button class="ab sm" data-act="up" title="上へ">↑</button><button class="ab sm" data-act="down" title="下へ">↓</button><button class="ab sm del" data-act="del">削除</button>
         ${document.getElementById('editor').classList.contains('on')?'<button class="ab sm add" data-act="ar" title="この内容を反映して、編集画面でこの手順のAR図形を置く">📷 AR図形を編集</button>':''}</div>
       ${!canBr?'<div class="acts" style="font-size:12px;color:#94a3b8">分かれ目・順不同のまとまりは2段までです（この中にはこれ以上入れられません）</div>':''}`:''}
@@ -1828,7 +1828,7 @@ const EB=(()=>{
       if(act==='ar'){ apply(it.id); return; }
       if(act==='addAfter'){ const s=mkStep(); loc.arr.splice(loc.i+1,0,s); S.sel=s.id; render(); focusItem(s.id); return; }
       if(act==='branch'){ insertBranch(loc,{ q:'', answers:[mkAns(''),mkAns('')] }); return; }
-      if(act==='set'){ insertSet(loc); return; }
+      if(act==='set'){ toSet(loc); return; }
       if(act==='tpl'){ openTpl(loc); return; }
       if(act==='up'||act==='down'){ const j=loc.i+(act==='up'?-1:1); if(j<0||j>=loc.arr.length) return; [loc.arr[loc.i],loc.arr[j]]=[loc.arr[j],loc.arr[loc.i]]; fixBranches(); render(); return; }
       if(act==='del'){ if(it.type==='step' && !confirm(`手順「${it.title||'（未入力）'}」を削除しますか？`)) return;
@@ -1848,6 +1848,17 @@ const EB=(()=>{
     const br={ type:'branch', id:uid(), q:b.q, answers:b.answers };
     loc.arr.splice(loc.i+1,0,br); S.sel=br.id; fixBranches(); render();
     const el=$('eb-it-'+br.id); if(el) el.scrollIntoView({block:'nearest',behavior:'smooth'}); if(!b.q) focusSel(`#eb-it-${br.id} .q`); }
+  // 選んだ手順そのものを「作業の概要」にして、中に作業1・作業2を作る（手順の名前・説明は概要へ引き継ぐ）
+  function toSet(loc){ if(loc.depth>=MAX_DEPTH){ toastE('分かれ目・順不同のまとまりは2段までです'); return; }
+    const st=loc.it, ed=ED.steps.find(x=>x.bid===st.id), has=ed&&((ed.ar&&ed.ar.length)||ed.photo);
+    const set={ type:'set', id:uid(), label:st.title||'', detail:st.detail||'', answers:[mkAns(''),mkAns('')] };
+    if(has){ if(!confirm(`手順「${st.title||'（未入力）'}」には写真やAR図形があります。
+この手順は「作業1」の最初の手順として残します（写真・AR図形もそのまま）。よろしいですか？`)) return;
+      set.answers[0].items=[st]; }
+    loc.arr.splice(loc.i,1,set); S.sel=set.id; fixBranches(); render();
+    const el=$('eb-it-'+set.id); if(el) el.scrollIntoView({block:'nearest',behavior:'smooth'});
+    focusSel(`#eb-it-${set.id} [data-ans="${set.answers[0].id}"][data-k="label"]`);
+    toastE('この手順を作業の概要にしました。作業の名前を入れてください'); }
   function insertSet(loc){ if(loc.depth>=MAX_DEPTH){ toastE('分かれ目・順不同のまとまりは2段までです'); return; }
     const st={ type:'set', id:uid(), label:'', answers:[mkAns(''),mkAns('')] };
     loc.arr.splice(loc.i+1,0,st); S.sel=st.id; render();
