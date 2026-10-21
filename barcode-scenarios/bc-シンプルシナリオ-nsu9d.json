@@ -1,0 +1,159 @@
+{
+  "id": "bc-シンプルシナリオ-nsu9d",
+  "barcode": 2,
+  "name": "シンプルシナリオ",
+  "subtitle": "",
+  "device": "",
+  "docs": {},
+  "faces": [
+    {
+      "key": "fmvhnsu9dcp",
+      "label": "前面",
+      "barcode": 2,
+      "calib": {
+        "scale": 8.61,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-シンプルシナリオ-nsu9d-fmvhnsu9dcp.jpg",
+      "markerPos": {
+        "u": 0.1446,
+        "v": 0.5269,
+        "w": 0.1161
+      }
+    }
+  ],
+  "steps": [
+    {
+      "title": "ステップ1",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "画面確認",
+          "pos": [
+            0.355,
+            0.316,
+            0
+          ]
+        },
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "矢印確認",
+          "pos": [
+            0.355,
+            0.176,
+            0
+          ]
+        },
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "キーボード確認",
+          "pos": [
+            0.355,
+            0.036,
+            0
+          ]
+        },
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "バーコード確認",
+          "pos": [
+            0.355,
+            -0.104,
+            0
+          ]
+        },
+        {
+          "type": "text",
+          "color": "#60a5fa",
+          "label": "終了",
+          "pos": [
+            0.355,
+            -0.244,
+            0
+          ]
+        }
+      ],
+      "photo": "",
+      "face": "fmvhnsu9dcp"
+    },
+    {
+      "title": "矢印確認",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "arrow",
+          "pos": [
+            -0.058,
+            0.422,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "押す",
+          "h": 0.189
+        }
+      ],
+      "photo": "",
+      "face": "fmvhnsu9dcp"
+    },
+    {
+      "title": "キーボード確認",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "ring",
+          "pos": [
+            0.33,
+            -0.25,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "label": "押す"
+        }
+      ],
+      "photo": "",
+      "face": "fmvhnsu9dcp"
+    },
+    {
+      "title": "バーコード確認",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0.348,
+            0.199,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true
+        }
+      ],
+      "photo": "",
+      "face": "fmvhnsu9dcp"
+    },
+    {
+      "title": "終了",
+      "detail": "",
+      "warn": "normal",
+      "ar": [],
+      "photo": "",
+      "face": "fmvhnsu9dcp"
+    }
+  ]
+}
