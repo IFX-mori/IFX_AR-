@@ -1,0 +1,166 @@
+{
+  "id": "bc-キボド-iy8w1",
+  "barcode": 2,
+  "name": "キーボード",
+  "subtitle": "",
+  "device": "",
+  "docs": {},
+  "faces": [
+    {
+      "key": "fmvhiy8w2k5",
+      "label": "前面",
+      "barcode": 2,
+      "calib": {
+        "scale": 12.82,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "barcode-targets/bc-キボド-iy8w1-fmvhiy8w2k5.jpg",
+      "markerPos": {
+        "u": 0.2612,
+        "v": 0.4541,
+        "w": 0.078
+      }
+    }
+  ],
+  "builder": [
+    {
+      "type": "step",
+      "id": "bsjmovrn",
+      "title": "画面確認",
+      "detail": "",
+      "warn": "normal"
+    },
+    {
+      "type": "step",
+      "id": "bga41ng1",
+      "title": "キーボード操作",
+      "detail": "",
+      "warn": "normal"
+    }
+  ],
+  "builderSig": "",
+  "steps": [
+    {
+      "title": "画面確認",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0.239,
+            0.099,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "キーボード操作",
+          "fontScale": 1
+        },
+        {
+          "type": "arrow",
+          "pos": [
+            -0.047,
+            0.331,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "UL",
+          "h": 0.124,
+          "rot": {
+            "x": 0,
+            "y": 0,
+            "z": 45
+          }
+        },
+        {
+          "type": "arrow",
+          "pos": [
+            0.549,
+            0.355,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "UR",
+          "h": 0.124,
+          "rot": {
+            "x": 0,
+            "y": 0,
+            "z": -45
+          }
+        },
+        {
+          "type": "arrow",
+          "pos": [
+            0.502,
+            0.035,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "DR",
+          "h": 0.124,
+          "rot": {
+            "x": 0,
+            "y": 0,
+            "z": -135
+          }
+        }
+      ],
+      "photo": "",
+      "face": "fmvhiy8w2k5",
+      "bid": "bsjmovrn"
+    },
+    {
+      "title": "キーボード操作",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "box",
+          "pos": [
+            0.5399,
+            -0.1074,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.005,
+          "label": "Enter",
+          "labelBelow": true,
+          "labelPos": {
+            "x": 0,
+            "y": -0.12675
+          },
+          "rot": {
+            "x": 15,
+            "y": -30,
+            "z": 15
+          },
+          "sizeW": 0.0787,
+          "sizeH": 0.0904
+        },
+        {
+          "type": "ring",
+          "pos": [
+            0.229,
+            -0.135,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.0869,
+          "label": "マウス",
+          "lineThick": 0.0063,
+          "rot": {
+            "x": -60,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ],
+      "photo": "",
+      "face": "fmvhiy8w2k5",
+      "bid": "bga41ng1"
+    }
+  ]
+}
