@@ -197,6 +197,7 @@
   #easy .ecard.setc { background:#f5f3ff; border-color:#c4b5fd; }
   #easy .ecard.setc.sel { border-color:#7c3aed; box-shadow:0 0 0 2px #ddd6fe; }
   #easy .ecard.setc .bh { color:#5b21b6; } #easy .ecard.setc .q { border-color:#a78bfa; }
+  #easy .ecard.setc .sdet { width:100%; min-height:36px; padding:7px 9px; border:1px solid #c4b5fd; border-radius:8px; font-size:13px; margin:-2px 0 8px; resize:vertical; background:#fff; }
   #easy .ans.task { border-color:#ddd6fe; border-left-color:#7c3aed; }
   #easy .ab.set { border-color:#7c3aed; color:#6d28d9; background:#f5f3ff; }
   #easy .bh { font-size:13px; font-weight:800; color:#92400e; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
@@ -685,7 +686,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.35';
+const APP_VERSION = 'v4.36';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1250,14 +1251,14 @@ function computeOutline(){ const E=[], n=ED.steps.length;
   const useB=Array.isArray(ED.builder) && ED.steps.some(s=>s.bid);
   const used=new Set();
   if(useB){
-    const no={}; let m=0; ED.builder.forEach(it=>{ if(it.type==='step'&&byBid.has(it.id)) no[it.id]=++m; });
+    const no={}; let m=0; ED.builder.forEach(it=>{ if((it.type==='step'&&byBid.has(it.id))||it.type==='set') no[it.id]=++m; });
     const thenTxt=(a,depth)=> a.then==='end' ? '■ '+(a.endLabel||'作業終了') : (a.then==='jump'||a.then==='back') ? (a.target&&no[a.target]?`→ 手順${no[a.target]}${a.then==='back'?'に戻る':'へ'}`:'→ （行き先未設定）') : (depth>0?'→ 分かれ目の後へ':'→ 次の手順へ');
     const walk=(items,depth,prefix,base)=>{ let k=0, last=''; const cnt=items.filter(x=>x.type==='step'&&byBid.has(x.id)).length;
       items.forEach(it=>{
         if(it.type==='step'){ const i=byBid.get(it.id); if(i==null) return; used.add(i);
           const lbl=depth===0?String(no[it.id]):`${prefix}-${++k}`; last=depth===0?`手順${lbl}`:lbl;
           E.push({ kind:'step', i, label:lbl, depth, branch:depth>0, crumb: depth===0?`手順${lbl}（本流 ${m}手順中）`:`${base} ▸ ${k}/${cnt}` }); }
-        else if(it.type==='set'){ E.push({ kind:'set', q:it.label||'順不同の作業', depth });
+        else if(it.type==='set'){ E.push({ kind:'set', q:it.label||'順不同の作業', depth, label:depth===0?String(no[it.id]):'' });
           it.answers.forEach((a,ai)=>{ const al=a.label||('作業'+(ai+1));
             const cb=(base&&depth?base+' ▸ ':'')+`📋 ${it.label||'順不同の作業'} ▸ ${al}`;
             E.push({ kind:'ans', label:'作業：'+al, tone:'', depth:depth+1, then:a.items.length?'':'（手順なし）', task:true });
@@ -1293,7 +1294,7 @@ function renderOutline(){ const L=document.getElementById('ol-list'); if(!L) ret
     if(e.kind==='step'){ const s=ED.steps[e.i]; if(!s) return; const noAr=!(s.ar&&s.ar.length);
       h+=wrap(`<div class="ol-step${e.branch?' br':''}${e.i===stepIdx?' cur':''}" data-i="${e.i}"><span class="ol-no">${escHtml(e.label)}</span><span class="ol-t">${escHtml(s.title||'（未入力）')}</span>${noAr?'<span class="ol-dot" title="AR図形が未配置">●</span>':''}</div>`); }
     else if(e.kind==='branch') h+=wrap(`<div class="ol-br">🔀 ${escHtml(e.q)}</div>`);
-    else if(e.kind==='set') h+=wrap(`<div class="ol-br set">📋 ${escHtml(e.q)}（順不同）</div>`);
+    else if(e.kind==='set') h+=wrap(`<div class="ol-br set">${e.label?`<span class="ol-no" style="background:#ddd6fe;color:#5b21b6">${escHtml(e.label)}</span> `:''}📋 ${escHtml(e.q)}（順不同）</div>`);
     else if(e.kind==='ans') h+=wrap(`<div class="ol-ans ${e.tone||''}${e.task?' task':''}">${escHtml(e.label)}${e.then?` <small class="${e.thenTone||''}">${escHtml(e.then)}</small>`:''}</div>`);
     else if(e.kind==='then') h+=wrap(`<div class="ol-then ${e.tone||''}">${escHtml(e.text)}</div>`);
     else if(e.kind==='sec') h+=`<div class="ol-sec${e.branch?' br':''}">${escHtml(e.label)}</div>`; });
@@ -1677,7 +1678,7 @@ function cleanFlow(){ const F=ED.flow; flowFix();
   return { start:F.sections[0].key, sections:F.sections.map(s=>{ const nx=s.next||{type:'end'}; let n;
     if(nx.type==='goto') n={type:'goto', to:nx.to||''};
     else if(nx.type==='choice') n={type:'choice', prompt:nx.prompt||'', options:(nx.options||[]).map(o=>({ label:o.label||'', to:o.to||'', ...(o.tone?{tone:o.tone}:{}), ...(o.note?{note:o.note}:{}) }))};
-    else if(nx.type==='set') n={type:'set', label:nx.label||'', tasks:(nx.tasks||[]).map(t=>({label:t.label||'', to:t.to||''})), done:JSON.parse(JSON.stringify(nx.done||{type:'end'}))};
+    else if(nx.type==='set') n={type:'set', label:nx.label||'', ...(nx.detail?{detail:nx.detail}:{}), tasks:(nx.tasks||[]).map(t=>({label:t.label||'', to:t.to||''})), done:JSON.parse(JSON.stringify(nx.done||{type:'end'}))};
     else if(nx.type==='return') n={type:'return', set:nx.set||''};
     else n={type:'end', ...((nx.label||'').trim()?{label:nx.label.trim()}:{}), ...(nx.tone?{tone:nx.tone}:{})};
     return { key:s.key, label:s.label||'', ...(s.branch?{branch:true}:{}), next:n }; }) }; }
@@ -1702,7 +1703,8 @@ const EB=(()=>{
       if(it.answers) for(const a of it.answers){ const r=findLoc(id, a.items, depth+1, t, a); if(r) return r; } }
     return null; }
   const findItem=id=>{ const l=findLoc(id); return l&&l.it; };
-  function mainNo(){ const m={}; let n=0; S.items.forEach(it=>{ if(it.type==='step') m[it.id]=++n; }); return m; }
+  // 本流の番号：順不同のまとまりも「作業の概要」として本流の1ステップに数える
+  function mainNo(){ const m={}; let n=0; S.items.forEach(it=>{ if(it.type==='step'||it.type==='set') m[it.id]=++n; }); return m; }
   function eachBranch(fn, arr, depth, top){ (arr||S.items).forEach((it,i)=>{ const t=depth?top:i; if(it.type==='branch'){ fn(it, depth||0, t); it.answers.forEach(a=>eachBranch(fn, a.items, (depth||0)+1, t)); }
     else if(it.type==='set') it.answers.forEach(a=>eachBranch(fn, a.items, (depth||0)+1, t)); }); }
   function eachSet(fn, arr, depth){ (arr||S.items).forEach(it=>{ if(it.answers){ if(it.type==='set') fn(it, depth||0); it.answers.forEach(a=>eachSet(fn, a.items, (depth||0)+1)); } }); }
@@ -1804,8 +1806,9 @@ const EB=(()=>{
           <span style="font-size:12px;color:#7c3aed">${a.items.length?'終えたら作業の一覧へ戻ります':''}</span></div>
       </div>`; }).join('');
     return `<div class="ecard setc${sel?' sel':''}" id="eb-it-${b.id}" data-id="${b.id}">
-      <div class="bh">📋 順不同のまとまり<span style="font-weight:600;color:#7c3aed;font-size:12px">（好きな順に行い、すべて済んだら次へ）</span><span class="sp"></span><button class="ab sm del" data-act="del">まとまりを削除</button></div>
-      <input class="q" data-k="label" value="${escAttr(b.label)}" placeholder="まとまりの名前（例：各部の点検）">
+      <div class="bh">${ctx.depth===0&&no[b.id]?`<span class="no" style="background:#ede9fe;color:#5b21b6">${no[b.id]}</span>`:''}📋 順不同のまとまり<span style="font-weight:600;color:#7c3aed;font-size:12px">（作業の概要。中の作業を好きな順に行い、すべて済んだらこのステップが「済」）</span><span class="sp"></span><button class="ab sm del" data-act="del">まとまりを削除</button></div>
+      <input class="q" data-k="label" value="${escAttr(b.label)}" placeholder="作業の概要（例：各部の点検）">
+      <textarea class="sdet" data-k="detail" placeholder="作業者への説明（任意）例：電源部・通信部・ファンを順不同で点検します">${escHtml(b.detail||'')}</textarea>
       ${tasks}
       ${b.answers.length<8?`<button class="ab sm" data-act="ansAdd">＋ 作業を追加</button>`:''}
       <div class="then"><b>すべて済んだら：</b>${doneTxt}</div>
@@ -1914,7 +1917,7 @@ const EB=(()=>{
         if(g.branch.type==='set'){ const sk=g.sec.key;
           const tasks=g.branch.answers.map((a,ai)=>({ label:a.label||('作業'+(ai+1)),
             to: a.items.length ? seq(a.items, false, `作業「${a.label||('作業'+(ai+1))}」`, {type:'return', set:sk}, '') : retSec(sk) }));
-          g.sec.next={ type:'set', label:g.branch.label||'順不同の作業', tasks, done:after }; continue; }
+          g.sec.next={ type:'set', label:g.branch.label||'順不同の作業', ...((g.branch.detail||'').trim()?{detail:g.branch.detail.trim()}:{}), tasks, done:after }; continue; }
         const opts=g.branch.answers.map((a,ai)=>{
           const aCont = a.then==='next' ? after : (a.then==='jump'||a.then==='back') ? {type:'goto', to:a.target?'T:'+a.target:''} : {type:'end', label:a.endLabel||'', tone:a.endTone||''};
           const to = a.items.length ? seq(a.items, false, `「${a.label||('答え'+(ai+1))}」のとき`, aCont, a.tone) : keyOf(aCont);

@@ -165,7 +165,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.24</div>
+    <div id="ver">Worklog v4.25</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -242,6 +242,7 @@
   <div class="cm-box">
     <div class="cm-from">順不同の作業（好きな順に行えます）</div>
     <div class="cm-q"><span id="sm-title"></span>　<span id="sm-count" style="font-size:13px;color:#64748b;font-weight:700"></span></div>
+    <div id="sm-detail" style="display:none;font-size:13px;color:#475569;line-height:1.6;margin:-6px 0 10px;white-space:pre-line"></div>
     <div id="sm-list"></div>
     <button id="sm-next" class="cm-opt" onclick="setNext()" disabled>次へ進む</button>
     <button class="cm-cancel" onclick="setBack()">‹ 前の手順に戻る</button>
@@ -816,7 +817,9 @@ function openSet(k){ const nx=secOf(k).next;
 function setAnchor(){ for(let j=Math.min(_set.baseLen,trail.length)-1;j>=0;j--){ const ids=secIdxs(cur,trail[j]); if(ids.length){ idx=ids[ids.length-1]; return; } } }
 function setDoneCount(){ return _set?_set.tasks.filter(t=>t.status==='done').length:0; }
 function showSetMenu(){ if(!_set) return; const n=_set.tasks.length, d=setDoneCount();
-  document.getElementById('sm-title').textContent=_set.label;
+  const sno=mainNos().bySet.get(_set.key), det=(secOf(_set.key).next||{}).detail||'';
+  document.getElementById('sm-title').textContent=(sno?sno+'. ':'')+_set.label;
+  const sd=document.getElementById('sm-detail'); sd.textContent=det; sd.style.display=det?'block':'none';
   document.getElementById('sm-count').textContent=`${d} / ${n} 済`;
   const box=document.getElementById('sm-list'); box.innerHTML='';
   _set.tasks.forEach((t,i)=>{ const b=document.createElement('button'); b.className='sm-item '+t.status;
@@ -919,7 +922,7 @@ function renderStep(){ const sc=cur; if(!sc) return; if(_endCard){ renderEndCard
   const step=sc.steps[idx]; const w=WARN[step.warn]||WARN.normal; const col=w.c;
   document.getElementById('stitle').textContent=(w.sym?w.sym+' ':'')+step.title;
   document.getElementById('sdetail').textContent=(w.sym?w.sym+' ':'')+(step.detail||'');
-  const b=document.getElementById('badge'); b.textContent=`STEP ${stepNo()}`; b.style.background=col;
+  const b=document.getElementById('badge'); b.textContent=badgeText(); b.style.background=col;
   document.getElementById('btn-next').style.background=col;
   let isLast, nextLbl='次へ ›';
   if(hasFlow()){ const ids=secIdxs(sc,step.sec), secLast=ids.indexOf(idx)===ids.length-1, r=resolveNext(step.sec);
@@ -969,7 +972,7 @@ document.getElementById('btn-check').onclick=()=>{
   // 認識ゲート：未認識では「済」にできない（ボタンも無効化しているが、安全のため二重チェック）
   if(CHECK_GATE && !checkedSteps.has(idx) && !_visible.has(String(curFace().barcode))){ toast('バーコードを認識してから確認してください'); return; }
   if(!checkedSteps.has(idx)){ checkedSteps.add(idx);
-    if(hasFlow()){ const k=cur.steps[idx].sec; logEvent('check',{step:stepNo(), stepTitle:cur.steps[idx].title, sec:k, secLabel:secLabel(k), pass:trail.filter(x=>x===k).length}); }
+    if(hasFlow()){ const k=cur.steps[idx].sec; logEvent('check',{step:badgeText().replace('STEP ',''), stepTitle:cur.steps[idx].title, sec:k, secLabel:secLabel(k), pass:trail.filter(x=>x===k).length}); }
     else logEvent('check',{step:idx+1, stepTitle:cur.steps[idx].title, totalSteps:cur.steps.length}); }
   renderStep();
 };
@@ -1135,7 +1138,7 @@ document.getElementById('btn-photo').onclick=()=>{
 async function showPhoto(url){
   initFloatDragResize('photo-viewer','photo-viewer-head','photo-viewer-resize');
   const pv=document.getElementById('photo-viewer'); const body=document.getElementById('photo-viewer-body');
-  document.getElementById('photo-viewer-title').textContent='参考写真'+(cur?(' – STEP '+stepNo()):'');
+  document.getElementById('photo-viewer-title').textContent='参考写真'+(cur?(' – '+badgeText()):'');
   pv.style.display='flex';
   let realUrl=url;
   if(!/^data:/.test(url) && !navigator.onLine){ try{ const a=await idbGet('assets',url); if(assetBlob(a)) realUrl=URL.createObjectURL(assetBlob(a)); }catch(_){} }
@@ -1558,16 +1561,14 @@ function openProg(){
     else if(here && !path.includes(here)){   // 分岐側・作業の中にいるとき：今の区間も先頭に出す
       const ids=secIdxs(cur,here);
       h+=`<div class="pg-sec">▶ 今：${escHtml(_set&&_set.cur>=0?('📋 '+_set.label+' ▸ '+_set.tasks[_set.cur].label):secLabel(here))}</div>`+ids.map((i,n)=>pgRow(i,n+1,'data-i')).join(''); }
+    const M=mainNos();
     path.forEach(k=>{ const ids=secIdxs(cur,k), nx=secOf(k).next||{};
-      // まとまりの作業の済み数（この区間の最後にまとまりがある場合）
-      const nt=nx.type==='set'?(nx.tasks||[]).length:0, dn=nx.type!=='set'?0:(_set&&_set.key===k)?_set.tasks.filter(t=>t.status==='done').length:(_setsDone[k]?nt:0);
-      if(ids.length){ const d=ids.filter(i=>checkedSteps.has(i)).length; mainTotal+=ids.length; mainDone+=d;
-        const secDone = d===ids.length && dn===nt;   // 見出しの✓は、手順もまとまりの作業もすべて済んだときだけ
-        h+=`<div class="pg-sec">${k===here?'▶ ':(secDone?'✓ ':'')}${escHtml(secLabel(k))}</div>`+ids.map((i,n)=>pgRow(i,n+1,'data-jump',k)).join(''); }
+      ids.forEach(i=>{ mainTotal++; if(checkedSteps.has(i)) mainDone++; h+=pgRow(i,M.byIdx.get(i),'data-jump',k); });
       if(nx.type==='choice') h+=`<div class="pg-sec next">◆ 分かれ目：${escHtml(nx.prompt||'')}</div>`;
-      if(nx.type==='set'){ const all=nt>0&&dn===nt;
-        h+=`<div class="pg-row pg-set${all?' all':''}" data-set="${k}"><span class="pg-num">📋</span><span class="pg-title">${escHtml(nx.label||'順不同の作業')}（順不同・${nt}作業）</span><span class="pg-badge ${all?'done':'todo'}">${all?'✓ 済':`${dn}/${nt}済`}</span></div>`; } });
-    sum.textContent=`${cur.name}　本流 済 ${mainDone} / ${mainTotal} ステップ（押すとその手順へ移動できます）`;
+      if(nx.type==='set'){ const nt=(nx.tasks||[]).length, dn=(_set&&_set.key===k)?_set.tasks.filter(t=>t.status==='done').length:(_setsDone[k]?nt:0), all=nt>0&&dn===nt;
+        mainTotal++; if(all) mainDone++;
+        h+=`<div class="pg-row pg-set${all?' all':''}${_set&&_set.key===k&&_set.cur>=0?' cur':''}" data-set="${k}"><span class="pg-num">${M.bySet.get(k)}</span><span class="pg-title">📋 ${escHtml(nx.label||'順不同の作業')}<small style="display:block;font-size:11px;color:#6d28d9;font-weight:600">順不同の作業 ${nt}つ（すべて済むと「済」）</small></span><span class="pg-badge ${all?'done':'todo'}">${all?'済':`${dn}/${nt}`}</span></div>`; } });
+    sum.textContent=`${cur.name}　済 ${mainDone} / ${mainTotal} ステップ（押すとその手順へ移動できます）`;
     bar.style.width=(mainTotal? Math.round(mainDone/mainTotal*100):0)+'%';
     list.innerHTML=h;
     const close=()=>{ document.getElementById('progmodal').style.display='none'; };
@@ -1588,6 +1589,15 @@ function openProg(){
 }
 function pgRow(i,n,attr,sec){ const ok=checkedSteps.has(i), t=cur.steps[i].title||('ステップ'+n);
   return `<div class="pg-row${i===idx&&!_endCard?' cur':''}" ${attr}="${i}"${sec?` data-sec="${sec}"`:''}><span class="pg-num">${n}</span><span class="pg-title">${escHtml(t)}</span><span class="pg-badge ${ok?'done':'todo'}">${ok?'済':'未'}</span></div>`; }
+// 本流の番号：本流の手順に 1,2,3…、順不同のまとまり（作業の概要）も1ステップとして数える
+function mainNos(){ if(cur._mainNos) return cur._mainNos; const byIdx=new Map(), bySet=new Map(); let n=0;
+  mainRoute().forEach(k=>{ secIdxs(cur,k).forEach(i=>byIdx.set(i,++n)); if(((secOf(k).next)||{}).type==='set') bySet.set(k,++n); });
+  return (cur._mainNos={ byIdx, bySet, total:n }); }
+// カードのバッジ：本流＝STEP n、まとまりの作業＝STEP n-作業番号、分岐側＝分岐
+function badgeText(){ if(!hasFlow()) return `STEP ${idx+1}`; const M=mainNos();
+  if(_set && _set.cur>=0) return `STEP ${M.bySet.get(_set.key)||''}-${_set.cur+1}`;
+  if(M.byIdx.has(idx)) return `STEP ${M.byIdx.get(idx)}`;
+  return '分岐'; }
 // 本流の道筋：開始から、分かれ目では本流側（分岐側でない区間）の答え、まとまりは「すべて済んだら」の先をたどる
 function mainRoute(){ const out=[], seen=new Set(); let k=cur.flow.start;
   while(k && secOf(k) && !seen.has(k)){ seen.add(k); out.push(k); const nx=secOf(k).next||{};
