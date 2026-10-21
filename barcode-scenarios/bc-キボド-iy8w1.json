@@ -154,7 +154,8 @@
           ],
           "color": "#60a5fa",
           "label": "キーボード操作",
-          "fontScale": 1
+          "fontScale": 1,
+          "anim": "blink"
         },
         {
           "type": "arrow",
@@ -170,7 +171,8 @@
             "x": 0,
             "y": 0,
             "z": 45
-          }
+          },
+          "anim": "push"
         },
         {
           "type": "arrow",
@@ -186,7 +188,8 @@
             "x": 0,
             "y": 0,
             "z": -45
-          }
+          },
+          "anim": "push"
         },
         {
           "type": "arrow",
@@ -202,7 +205,8 @@
             "x": 0,
             "y": 0,
             "z": -135
-          }
+          },
+          "anim": "push"
         }
       ],
       "photo": "",
@@ -236,7 +240,8 @@
             "z": 15
           },
           "sizeW": 0.0787,
-          "sizeH": 0.0904
+          "sizeH": 0.0904,
+          "anim": "pulse"
         },
         {
           "type": "ring",
@@ -253,7 +258,8 @@
             "x": -60,
             "y": 0,
             "z": 0
-          }
+          },
+          "anim": "pulse"
         }
       ],
       "photo": "",
@@ -277,7 +283,8 @@
           "size": 0.12,
           "lineThick": 0.0062,
           "label": "バーコード",
-          "labelBelow": true
+          "labelBelow": true,
+          "anim": "pulse"
         },
         {
           "type": "arrow",
@@ -288,7 +295,8 @@
           ],
           "color": "#60a5fa",
           "label": "中央",
-          "h": 0.124
+          "h": 0.124,
+          "anim": "blink"
         }
       ],
       "photo": "",
