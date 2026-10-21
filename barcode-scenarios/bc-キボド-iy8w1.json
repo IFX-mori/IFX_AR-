@@ -12,8 +12,8 @@
       "barcode": 2,
       "calib": {
         "scale": 9.61,
-        "ox": 0,
-        "oy": 0,
+        "ox": 0.04,
+        "oy": -0.02,
         "rot": 0
       },
       "markerSizeMM": 40,
@@ -46,11 +46,11 @@
           "options": [
             {
               "label": "合ってる",
-              "to": "s4"
+              "to": "s3"
             },
             {
               "label": "ズレてる",
-              "to": "s5"
+              "to": "s4"
             }
           ]
         }
@@ -64,15 +64,6 @@
       },
       {
         "key": "s4",
-        "label": "「合ってる」のとき",
-        "branch": true,
-        "next": {
-          "type": "goto",
-          "to": "s3"
-        }
-      },
-      {
-        "key": "s5",
         "label": "「ズレてる」のとき",
         "branch": true,
         "next": {
@@ -86,7 +77,7 @@
     {
       "type": "step",
       "id": "bsjmovrn",
-      "title": "画面確認",
+      "title": "画面確認2",
       "detail": "",
       "warn": "normal"
     },
@@ -113,15 +104,7 @@
           "id": "bkq9chqv",
           "label": "合ってる",
           "tone": "",
-          "items": [
-            {
-              "type": "step",
-              "id": "bkh8b76y",
-              "title": "次の手中に進む",
-              "detail": "次の手順に進みます",
-              "warn": "normal"
-            }
-          ],
+          "items": [],
           "then": "next",
           "target": "",
           "endLabel": "",
@@ -136,7 +119,7 @@
               "type": "step",
               "id": "b31hlzcx",
               "title": "校正する",
-              "detail": "ズレを調整します",
+              "detail": "",
               "warn": "normal"
             }
           ],
@@ -155,18 +138,18 @@
       "warn": "normal"
     }
   ],
-  "builderSig": "fcd7zs",
+  "builderSig": "f1d7sorg",
   "steps": [
     {
-      "title": "画面確認",
+      "title": "画面確認2",
       "detail": "",
       "warn": "normal",
       "ar": [
         {
           "type": "text",
           "pos": [
-            0.31,
-            0.17,
+            0.333,
+            0.163,
             0
           ],
           "color": "#60a5fa",
@@ -176,8 +159,8 @@
         {
           "type": "arrow",
           "pos": [
-            -0.002,
-            0.411,
+            -0.017,
+            0.412,
             0
           ],
           "color": "#60a5fa",
@@ -193,7 +176,7 @@
           "type": "arrow",
           "pos": [
             0.681,
-            0.411,
+            0.414,
             0
           ],
           "color": "#60a5fa",
@@ -208,8 +191,8 @@
         {
           "type": "arrow",
           "pos": [
-            0.669,
-            0.019,
+            0.677,
+            0.007,
             0
           ],
           "color": "#60a5fa",
@@ -258,8 +241,8 @@
         {
           "type": "ring",
           "pos": [
-            0.28,
-            -0.2,
+            0.285,
+            -0.21,
             0
           ],
           "color": "#60a5fa",
@@ -321,8 +304,8 @@
         {
           "type": "text",
           "pos": [
-            0,
-            0.16,
+            0.323,
+            0.155,
             0
           ],
           "color": "#60a5fa",
@@ -336,30 +319,8 @@
       "sec": "s3"
     },
     {
-      "title": "次の手中に進む",
-      "detail": "次の手順に進みます",
-      "warn": "normal",
-      "ar": [
-        {
-          "type": "text",
-          "pos": [
-            0,
-            0.16,
-            0
-          ],
-          "color": "#60a5fa",
-          "label": "次の手中に進む",
-          "fontScale": 1
-        }
-      ],
-      "photo": "",
-      "face": "fmvhiy8w2k5",
-      "bid": "bkh8b76y",
-      "sec": "s4"
-    },
-    {
       "title": "校正する",
-      "detail": "ズレを調整します",
+      "detail": "",
       "warn": "normal",
       "ar": [
         {
@@ -377,7 +338,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "b31hlzcx",
-      "sec": "s5"
+      "sec": "s4"
     }
   ]
 }
