@@ -334,13 +334,14 @@
         {
           "type": "text",
           "pos": [
-            0,
-            0.16,
+            0.012,
+            0.437,
             0
           ],
           "color": "#60a5fa",
           "label": "校正する",
-          "fontScale": 1
+          "fontScale": 1,
+          "anim": "blink"
         }
       ],
       "photo": "",
