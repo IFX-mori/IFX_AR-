@@ -119,6 +119,7 @@
   .pg-sec.next { color:#64748b; font-weight:700; }
   .pg-row.past { opacity:.6; cursor:default; }
   .pg-row.pg-set { border-color:#c4b5fd; background:#f5f3ff; } .pg-row.pg-set .pg-num { background:#ede9fe; }
+  .pg-row.pg-set.all { border-color:#86efac; background:#f0fdf4; } .pg-row.pg-set.all .pg-num { background:#dcfce7; }
   /* 作業記録モーダル */
   #logmodal { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); padding:16px; }
   #logmodal .lm-box { background:#fff; border-radius:16px; padding:16px; width:100%; max-width:520px; max-height:84vh; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,.35); }
@@ -164,7 +165,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.23</div>
+    <div id="ver">Worklog v4.24</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -745,7 +746,7 @@ let trail=[], _pendingChoice=null;
 // 終了の指示（終わり方に名前があるとき、ステップのカードに出して確認してから終了）。_pendingUndo/_choiceCtx＝「戻る」で直前の操作へ戻すための状態
 let _endCard=null, _choiceCtx=null, _pendingUndo=null;
 // 順不同のまとまり：_set={ key, label, baseLen(一覧の時点の経路の長さ), cur(作業中の番号 or -1), tasks:[{label,to,status:'todo'|'doing'|'done',save,secs}] }
-let _set=null;
+let _set=null, _setsDone={};   // _setsDone＝すべての作業が済んで先へ進んだまとまり（進捗一覧の表示用）
 function hasFlow(){ return !!(cur&&cur.flow); }
 function secOf(k){ return cur&&cur.flow ? cur.flow.by.get(k) : null; }
 function secLabel(k){ return (secOf(k)||{}).label||k; }
@@ -840,7 +841,7 @@ function finishTask(){ if(!_set||_set.cur<0){ toast('作業の一覧が見つか
   trail.length=_set.baseLen; _set.cur=-1; setAnchor(); renderStep(); showSetMenu(); }
 // 一覧の「次へ進む」：すべて済んだら、まとまりの後へ
 function setNext(){ if(!_set||setDoneCount()<_set.tasks.length) return; const nx=secOf(_set.key).next, d=nx.done||{type:'end'};
-  logEvent('setDone',{ set:_set.label, order:_set.tasks.map(t=>t.label).join(' → ') }); hideSetMenu(); _set=null; updateTaskBtn();
+  logEvent('setDone',{ set:_set.label, order:_set.tasks.map(t=>t.label).join(' → ') }); _setsDone[_set.key]=true; hideSetMenu(); _set=null; updateTaskBtn();
   if(d.type==='goto' && secOf(d.to)){ _pendingUndo=null; enterSection(d.to); }
   else if(d.type==='end' && d.label) showEndCard({ label:d.label, tone:d.tone||'' },{ trailLen:trail.length, reopen:null });
   else finishScenario(); }
@@ -976,7 +977,7 @@ function followMarker(markerId){ if(curMid===markerId) return; curMid=markerId;
   anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: ${FOLLOW_MC}; beta: ${FOLLOW_BETA}`); }
 function setScenario(scenario,key,markerId){ if(cur===scenario) return;
   if(scenario.tooNew){ toast('このシナリオは新しい版のアプリが必要です。プレイヤーを更新してください'); return; }
-  curKey=key; cur=scenario; idx=firstStepIdx(scenario); trail=scenario.flow?[scenario.flow.start]:[]; hideChoice(); _endCard=null; _pendingUndo=null; _set=null; hideSetMenu();
+  curKey=key; cur=scenario; idx=firstStepIdx(scenario); trail=scenario.flow?[scenario.flow.start]:[]; hideChoice(); _endCard=null; _pendingUndo=null; _set=null; _setsDone={}; hideSetMenu();
   checkedSteps=new Set(); sessionId=newSessionId();
   document.getElementById('scname').textContent=scenario.name;
   document.getElementById('scsub').textContent=scenario.subtitle||'';
@@ -1183,7 +1184,7 @@ function finishScenario(){
     logEvent('finish',{checked:checkedSteps.size, path:[...trail,...(r.via||[])].map(secLabel).join(' → '), endLabel, endTone}); }
   else logEvent('finish',{checked:checkedSteps.size, totalSteps:(cur&&cur.steps.length)||0});
   hideChoice(); closeDoc(); closePhoto(); const key=curKey, mid=curMid, finName=(cur&&cur.name)||'';
-  _finSnap={ sc:cur, idx, checked:new Set(checkedSteps), key, mid, sessionId, trail:trail.slice(), endCard:_endCard?{..._endCard}:null, set:_set?JSON.parse(JSON.stringify(_set)):null }; hideSetMenu();   // 「元の作業に戻る」用に退避
+  _finSnap={ sc:cur, idx, checked:new Set(checkedSteps), key, mid, sessionId, trail:trail.slice(), endCard:_endCard?{..._endCard}:null, set:_set?JSON.parse(JSON.stringify(_set)):null, setsDone:{..._setsDone} }; hideSetMenu();   // 「元の作業に戻る」用に退避
   cur=null; idx=0; trail=[]; _endCard=null; _set=null; checkedSteps=new Set();
   content.setAttribute('visible', false);
   _lockOrient=null; _updateOrientLock();   // 作業終了で向きロック解除
@@ -1212,7 +1213,7 @@ let _finSnap=null;
 function resumeFinished(){
   const sn=_finSnap; if(!sn||!sn.sc){ resetToIdle(); return; }
   hideFinish(); _homeSup.clear();
-  cur=sn.sc; idx=sn.idx; trail=(sn.trail||[]).slice(); _endCard=sn.endCard?{...sn.endCard}:null; _set=sn.set?JSON.parse(JSON.stringify(sn.set)):null; checkedSteps=new Set(sn.checked); curKey=sn.key; sessionId=sn.sessionId;
+  cur=sn.sc; idx=sn.idx; trail=(sn.trail||[]).slice(); _endCard=sn.endCard?{...sn.endCard}:null; _set=sn.set?JSON.parse(JSON.stringify(sn.set)):null; _setsDone={...(sn.setsDone||{})}; checkedSteps=new Set(sn.checked); curKey=sn.key; sessionId=sn.sessionId;
   document.getElementById('scname').textContent=cur.name;
   document.getElementById('scsub').textContent=cur.subtitle||'';
   renderStep(); updateDocButtons();
@@ -1232,7 +1233,7 @@ function resetToIdle(){
   _finSnap=null;
   closeDoc(); closePhoto(); hidePicker(); hideFinish();
   clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
-  hideChoice(); hideSetMenu(); cur=null; idx=0; trail=[]; _endCard=null; _pendingUndo=null; _set=null; checkedSteps=new Set(); curKey=null;
+  hideChoice(); hideSetMenu(); cur=null; idx=0; trail=[]; _endCard=null; _pendingUndo=null; _set=null; _setsDone={}; checkedSteps=new Set(); curKey=null;
   content.setAttribute('visible', false); while(content.firstChild) content.removeChild(content.firstChild);
   _lockOrient=null; _updateOrientLock();
   _visible.forEach(k=>_homeSup.set(k,0));   // 今写っているバーコードでは即再開しない
@@ -1558,11 +1559,14 @@ function openProg(){
       const ids=secIdxs(cur,here);
       h+=`<div class="pg-sec">▶ 今：${escHtml(_set&&_set.cur>=0?('📋 '+_set.label+' ▸ '+_set.tasks[_set.cur].label):secLabel(here))}</div>`+ids.map((i,n)=>pgRow(i,n+1,'data-i')).join(''); }
     path.forEach(k=>{ const ids=secIdxs(cur,k), nx=secOf(k).next||{};
+      // まとまりの作業の済み数（この区間の最後にまとまりがある場合）
+      const nt=nx.type==='set'?(nx.tasks||[]).length:0, dn=nx.type!=='set'?0:(_set&&_set.key===k)?_set.tasks.filter(t=>t.status==='done').length:(_setsDone[k]?nt:0);
       if(ids.length){ const d=ids.filter(i=>checkedSteps.has(i)).length; mainTotal+=ids.length; mainDone+=d;
-        h+=`<div class="pg-sec">${k===here?'▶ ':(d===ids.length?'✓ ':'')}${escHtml(secLabel(k))}</div>`+ids.map((i,n)=>pgRow(i,n+1,'data-jump',k)).join(''); }
+        const secDone = d===ids.length && dn===nt;   // 見出しの✓は、手順もまとまりの作業もすべて済んだときだけ
+        h+=`<div class="pg-sec">${k===here?'▶ ':(secDone?'✓ ':'')}${escHtml(secLabel(k))}</div>`+ids.map((i,n)=>pgRow(i,n+1,'data-jump',k)).join(''); }
       if(nx.type==='choice') h+=`<div class="pg-sec next">◆ 分かれ目：${escHtml(nx.prompt||'')}</div>`;
-      if(nx.type==='set'){ const st=(_set&&_set.key===k)?_set.tasks:null, dn=st?st.filter(t=>t.status==='done').length:0, n=(nx.tasks||[]).length;
-        h+=`<div class="pg-row pg-set" data-set="${k}"><span class="pg-num">📋</span><span class="pg-title">${escHtml(nx.label||'順不同の作業')}（順不同・${n}作業）</span><span class="pg-badge ${dn===n&&n?'done':'todo'}">${dn}/${n}済</span></div>`; } });
+      if(nx.type==='set'){ const all=nt>0&&dn===nt;
+        h+=`<div class="pg-row pg-set${all?' all':''}" data-set="${k}"><span class="pg-num">📋</span><span class="pg-title">${escHtml(nx.label||'順不同の作業')}（順不同・${nt}作業）</span><span class="pg-badge ${all?'done':'todo'}">${all?'✓ 済':`${dn}/${nt}済`}</span></div>`; } });
     sum.textContent=`${cur.name}　本流 済 ${mainDone} / ${mainTotal} ステップ（押すとその手順へ移動できます）`;
     bar.style.width=(mainTotal? Math.round(mainDone/mainTotal*100):0)+'%';
     list.innerHTML=h;
