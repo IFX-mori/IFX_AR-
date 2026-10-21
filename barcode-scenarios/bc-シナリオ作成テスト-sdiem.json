@@ -31,7 +31,7 @@
     "sections": [
       {
         "key": "s1",
-        "label": "分かれ目",
+        "label": "手順1",
         "next": {
           "type": "set",
           "label": "矢印位置の確認",
@@ -57,7 +57,7 @@
       },
       {
         "key": "s2",
-        "label": "手順2",
+        "label": "手順3",
         "next": {
           "type": "choice",
           "prompt": "矢印の位置は合っているか？",
@@ -76,7 +76,7 @@
       },
       {
         "key": "s3",
-        "label": "手順3〜4",
+        "label": "手順4〜5",
         "next": {
           "type": "end"
         }
@@ -129,6 +129,13 @@
     ]
   },
   "builder": [
+    {
+      "type": "step",
+      "id": "bzac5ap8",
+      "title": "作業開始",
+      "detail": "PC確認を開始します",
+      "warn": "normal"
+    },
     {
       "type": "set",
       "id": "b4di0oo8",
@@ -256,8 +263,30 @@
       "warn": "normal"
     }
   ],
-  "builderSig": "fyic3ce",
+  "builderSig": "f183s1ru",
   "steps": [
+    {
+      "title": "作業開始",
+      "detail": "PC確認を開始します",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "作業開始",
+          "fontScale": 1
+        }
+      ],
+      "photo": "",
+      "face": "fmvhsdiemxl",
+      "bid": "bzac5ap8",
+      "sec": "s1"
+    },
     {
       "title": "ステップ１ 矢印確認",
       "detail": "",
