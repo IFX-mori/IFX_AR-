@@ -106,12 +106,15 @@
   .cm-opt small { display:block; font-size:11.5px; font-weight:600; margin-top:3px; opacity:.85; }
   #setmodal { position:fixed; inset:0; z-index:44; display:none; align-items:flex-end; justify-content:center; background:rgba(15,23,42,.35); padding:16px; }
   #setmodal .cm-box { background:#fff; border-radius:16px; padding:16px; width:100%; max-width:440px; max-height:80vh; overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,.35); }
-  .sm-item { display:flex; align-items:center; gap:8px; width:100%; text-align:left; padding:12px; margin-bottom:8px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; font-size:15px; font-weight:700; color:#1e293b; cursor:pointer; }
+  .sm-item { display:flex; align-items:center; gap:8px; width:100%; text-align:left; padding:10px 10px 10px 12px; margin-bottom:8px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; font-size:15px; font-weight:700; color:#1e293b; }
   .sm-item.todo { border:2px solid #7c3aed; background:#f5f3ff; } .sm-item.doing { border:2px solid #d97706; background:#fffbeb; }
   .sm-badge { flex:0 0 auto; font-size:12px; padding:2px 8px; border-radius:999px; background:#fef3c7; color:#b45309; }
   .sm-item.done .sm-badge { background:#dcfce7; color:#15803d; } .sm-item.todo .sm-badge { background:#ede9fe; color:#6d28d9; }
-  .sm-name { flex:1; min-width:0; } .sm-act { flex:0 0 auto; font-size:12px; color:#6d28d9; }
-  .sm-item.done .sm-act { color:#64748b; font-weight:600; }
+  .sm-name { flex:1; min-width:0; }
+  .sm-item button { flex:0 0 auto; border-radius:9px; font-size:13px; font-weight:800; padding:8px 10px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .sm-ok { border:2px solid #16a34a; background:#16a34a; color:#fff; } .sm-ok:disabled { border-color:#cbd5e1; background:#f1f5f9; color:#94a3b8; }
+  .sm-view { border:1px solid #c4b5fd; background:#fff; color:#6d28d9; font-size:12px !important; }
+  .sm-undo { border:1px solid #cbd5e1; background:#fff; color:#64748b; font-size:12px !important; }
   #sm-next { margin-top:4px; border-color:#16a34a; background:#f0fdf4; color:#15803d; text-align:center; }
   #sm-next:disabled { border-color:#cbd5e1; background:#f1f5f9; color:#94a3b8; cursor:default; }
   .cm-cancel { display:block; width:100%; padding:11px; border:1px solid #cbd5e1; border-radius:11px; background:#fff; color:#475569; font-size:13px; font-weight:700; cursor:pointer; }
@@ -165,7 +168,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.26</div>
+    <div id="ver">Worklog v4.27</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -244,7 +247,9 @@
     <div class="cm-q"><span id="sm-title"></span>　<span id="sm-count" style="font-size:13px;color:#64748b;font-weight:700"></span></div>
     <div id="sm-detail" style="display:none;font-size:13px;color:#475569;line-height:1.6;margin:-6px 0 10px;white-space:pre-line"></div>
     <div id="sm-list"></div>
+    <div id="sm-gate" style="display:none;font-size:12px;color:#b45309;margin:-2px 0 8px">🔒 「確認」はバーコードを認識している間だけ押せます</div>
     <button id="sm-next" class="cm-opt" onclick="setNext()" disabled>次へ進む</button>
+    <button id="sm-other" class="cm-cancel" onclick="setOther()" style="display:none;margin-bottom:8px;border-color:#16a34a;color:#15803d">ほかのステップを選ぶ</button>
     <button class="cm-cancel" onclick="setBack()">‹ 前の手順に戻る</button>
   </div>
 </div>
@@ -836,12 +841,37 @@ function showSetMenu(){ if(!_set) return; const n=_set.tasks.length, d=setDoneCo
   const sd=document.getElementById('sm-detail'); sd.textContent=det; sd.style.display=det?'block':'none';
   document.getElementById('sm-count').textContent=`${d} / ${n} 済`;
   const box=document.getElementById('sm-list'); box.innerHTML='';
-  _set.tasks.forEach((t,i)=>{ const b=document.createElement('button'); b.className='sm-item '+t.status;
-    const badge=t.status==='done'?'✓ 済':t.status==='doing'?'途中':'未', act=t.status==='done'?'もう一度':t.status==='doing'?'▶ 続きから':'▶ 始める';
-    b.innerHTML=`<span class="sm-badge">${badge}</span><span class="sm-name">${escHtml(t.label)}</span><span class="sm-act">${act}</span>`;
-    b.onclick=()=>startTask(i); box.appendChild(b); });
-  const nb=document.getElementById('sm-next'); nb.disabled=d<n; nb.textContent = d<n ? `次へ進む（あと ${n-d} つの作業）` : '✓ すべて済みました。次へ進む ›';
+  _set.tasks.forEach((t,i)=>{ const row=document.createElement('div'); row.className='sm-item '+t.status;
+    const badge=t.status==='done'?'✓ 済':t.status==='doing'?'途中':'未', steps=taskHasSteps(t);
+    row.innerHTML=`<span class="sm-badge">${badge}</span><span class="sm-name">${escHtml(t.label)}</span>`
+      +(steps?`<button class="sm-view" data-i="${i}">${t.status==='doing'?'▶ 続きから':t.status==='done'?'手順を見直す':'手順を見る'}</button>`:'')
+      +(t.status==='done'?`<button class="sm-undo" data-i="${i}" title="未に戻す">取消</button>`:`<button class="sm-ok" data-i="${i}">☑ 確認</button>`);
+    box.appendChild(row); });
+  box.querySelectorAll('.sm-view').forEach(b=>b.onclick=()=>startTask(+b.dataset.i));
+  box.querySelectorAll('.sm-ok').forEach(b=>b.onclick=()=>confirmTask(+b.dataset.i));
+  box.querySelectorAll('.sm-undo').forEach(b=>b.onclick=()=>undoTask(+b.dataset.i));
+  updateSetGate();
+  const nb=document.getElementById('sm-next'), ob=document.getElementById('sm-other'), all=d>=n;
+  nb.disabled=!all; nb.textContent = all ? `✓ すべて済みました。次へ進む（${setNextLabel()}）›` : `次へ進む（あと ${n-d} つの作業）`;
+  ob.style.display=all?'':'none';
   document.getElementById('setmodal').style.display='flex'; }
+// 作業に手順（AR表示）があるか：作業の最初の区間にステップがある、または途中で分かれ目等を通る
+function taskHasSteps(t){ const nx=(secOf(t.to)||{}).next||{}; return secIdxs(cur,t.to).length>0 || nx.type==='choice'; }
+// 一覧の「☑ 確認」はバーコード認識中のみ（ほかの確認ボタンと同じルール）
+function setGateOK(){ if(!CHECK_GATE) return true; const f=curFace(); return !!(f && typeof _visible!=='undefined' && _visible.has(String(f.barcode))); }
+function updateSetGate(){ const ok=setGateOK(); document.querySelectorAll('#sm-list .sm-ok').forEach(b=>{ b.disabled=!ok; b.textContent=ok?'☑ 確認':'🔒 確認'; b.title=ok?'この作業を確認済みにする':'バーコード認識中のみ確認できます'; });
+  const g=document.getElementById('sm-gate'); if(g) g.style.display=ok?'none':'block'; }
+function confirmTask(i){ const t=_set&&_set.tasks[i]; if(!t) return; if(!setGateOK()){ toast('バーコードを認識してから確認してください'); return; }
+  t.status='done'; t.save=null; logEvent('taskDone',{ set:_set.label, task:t.label, by:'list' }); showSetMenu(); }
+function undoTask(i){ const t=_set&&_set.tasks[i]; if(!t) return; if(!confirm(`「${t.label}」を未確認に戻しますか？`)) return;
+  t.secs.forEach(k=>secIdxs(cur,k).forEach(x=>checkedSteps.delete(x))); t.status='todo'; t.save=null; logEvent('taskUndo',{ set:_set.label, task:t.label }); showSetMenu(); }
+// 「次へ進む」の行き先の表示（本流の番号と手順名）
+function setNextLabel(){ const d=(secOf(_set.key).next||{}).done||{type:'end'};
+  if(d.type==='goto'){ const ids=secIdxs(cur,d.to); if(ids.length){ const n=mainNos().byIdx.get(ids[0]); return (n?n+' ':'')+(cur.steps[ids[0]].title||''); } return secLabel(d.to); }
+  return d.label||'作業終了'; }
+// 「ほかのステップを選ぶ」：まとまりを完了扱いにして、進捗の一覧（本流の全ステップ）から選ぶ
+function setOther(){ if(!_set||setDoneCount()<_set.tasks.length) return;
+  logEvent('setDone',{ set:_set.label, order:_set.tasks.map(t=>t.label).join(' → ') }); _setsDone[_set.key]=true; hideSetMenu(); _set=null; updateTaskBtn(); openProg(); }
 function hideSetMenu(){ const m=document.getElementById('setmodal'); if(m) m.style.display='none'; }
 function startTask(i){ const t=_set.tasks[i]; if(!t) return;
   if(t.status==='done'){ if(!confirm(`「${t.label}」をもう一度行いますか？（この作業の確認はやり直しになります）`)) return;
@@ -987,7 +1017,10 @@ document.getElementById('btn-check').onclick=()=>{
   if(CHECK_GATE && !checkedSteps.has(idx) && !_visible.has(String(curFace().barcode))){ toast('バーコードを認識してから確認してください'); return; }
   if(!checkedSteps.has(idx)){ checkedSteps.add(idx);
     if(hasFlow()){ const k=cur.steps[idx].sec; logEvent('check',{step:badgeText().replace('STEP ',''), stepTitle:cur.steps[idx].title, sec:k, secLabel:secLabel(k), pass:trail.filter(x=>x===k).length}); }
-    else logEvent('check',{step:idx+1, stepTitle:cur.steps[idx].title, totalSteps:cur.steps.length}); }
+    else logEvent('check',{step:idx+1, stepTitle:cur.steps[idx].title, totalSteps:cur.steps.length});
+    // 作業の最後の手順を確認したら、自動で作業を終えて一覧へ（「作業を終えて一覧へ」を押さなくてよい）
+    if(hasFlow() && _set && _set.cur>=0){ const k=cur.steps[idx].sec, ids=secIdxs(cur,k), r=resolveNext(k);
+      if(ids.indexOf(idx)===ids.length-1 && r.type==='return'){ renderStep(); setTimeout(()=>{ if(_set&&_set.cur>=0){ trail.push(...r.via); finishTask(); } },450); return; } } }
   renderStep();
 };
 function followMarker(markerId){ if(curMid===markerId) return; curMid=markerId;
@@ -1282,6 +1315,7 @@ let lostTimer=null;
 // 確認ゲート：バーコード認識中だけ「このステップを確認しました」を押せる（現場不在での一括“済”化を防止）。?checkgate=off で解除。
 const CHECK_GATE = (new URLSearchParams(location.search).get('checkgate')!=='off');
 function updateCheckGate(vis){ const bc=document.getElementById('btn-check'); if(!bc) return;
+  if(document.getElementById('setmodal').style.display==='flex') updateSetGate();
   if(_endCard){ bc.disabled=false; bc.textContent=_endCard.acked?'✓ 確認済み':'☑ この指示を確認しました'; return; }
   if(!cur){ bc.disabled=true; return; }
   if(checkedSteps.has(idx)){ bc.disabled=false; bc.textContent='✓ 確認済み'; }
@@ -1540,7 +1574,7 @@ function logsToCsv(logs){
   const esc=v=>{ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
   const rows=logs.slice().sort((a,b)=>a.ts-b.ts).map(l=>[fmtTs(l.ts), l.sessionId, l.barcode||'', l.device||'', l.scenarioName||'', l.event, l.step||'', (l.event==='endAck'?('終了の指示：'+(l.endLabel||'')):(l.stepTitle||'')), l.totalSteps||'',
     l.event==='branch' ? (l.fromLabel||'') : l.set ? ('📋 '+l.set) : (l.secLabel ? l.secLabel+((l.pass||1)>1?`（${l.pass}回目）`:'') : ''),
-    l.event==='branch' ? `${l.choice||''} → ${l.toLabel||''}` : l.event==='jump' ? `進捗一覧から移動：${l.to||''}` : ({taskStart:'作業開始：',taskResume:'作業再開：',taskPause:'作業中断：',taskDone:'作業完了：',taskLeave:'作業を途中にして移動：'}[l.event]||'')+(l.task||'')+(l.event==='taskLeave'&&l.to?' → '+l.to:'')+(l.event==='setDone'?'すべての作業が完了':''),
+    l.event==='branch' ? `${l.choice||''} → ${l.toLabel||''}` : l.event==='jump' ? `進捗一覧から移動：${l.to||''}` : ({taskStart:'作業開始：',taskResume:'作業再開：',taskPause:'作業中断：',taskDone:'作業完了：',taskLeave:'作業を途中にして移動：',taskUndo:'作業を未確認に戻す：'}[l.event]||'')+(l.task||'')+(l.by==='list'?'（一覧で確認）':'')+(l.event==='taskLeave'&&l.to?' → '+l.to:'')+(l.event==='setDone'?'すべての作業が完了':''),
     l.path ? l.path+((l.endLabel&&!String(l.path).endsWith(l.endLabel))?`（${l.endLabel}）`:'') : ''].map(esc).join(','));
   return '﻿'+cols.join(',')+'\n'+rows.join('\n');
 }
