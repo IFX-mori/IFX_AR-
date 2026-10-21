@@ -686,7 +686,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.38';
+const APP_VERSION = 'v4.39';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1485,6 +1485,7 @@ function flowAnalyze(F, steps){
     if(nx.type==='set'){ if(!(nx.tasks||[]).length) E(s.key,'の順不同のまとまりに作業がありません'); (nx.tasks||[]).forEach((t,i)=>{ if(!t.to||!by.has(t.to)) E(s.key,`の作業${i+1}の行き先がありません`); }); }
     if(nx.type==='return' && ((by.get(nx.set)||{}).next||{}).type!=='set') E(s.key,'の戻り先の一覧がありません');
     if(n===0 && nx.type==='return'){}
+    else if(n===0 && nx.type==='set'){}   // まとまりだけの区間（分かれ目の直後にまとまり）は正常
     else if(n===0){ if(nx.type==='choice'&&s.key!==F.start) warns.push(L(s.key)+'にステップがありません（前の区間からすぐに選択画面になります）');
       else if(nx.type==='end'&&s.key!==F.start) warns.push(L(s.key)+'にステップがありません（選ぶとすぐ作業終了になります）');
       else E(s.key,'にステップがありません'); }
@@ -1495,7 +1496,7 @@ function flowAnalyze(F, steps){
     if(!by.has(k)||seen.has(k)) return; seen.add(k); path.push(k); out(k).forEach(e=>{ if(!back.has(e)&&e.kind!=='task'&&e.kind!=='return') walk(e.to,path,seen); }); path.pop(); seen.delete(k); };
   if(by.has(F.start)) walk(F.start,[],new Set());
   routes.forEach(r=>{ r.steps=r.path.reduce((a,k)=>a+cnt(k),0); r.choices=r.path.filter(k=>(by.get(k).next||{}).type==='choice').length; });
-  if(routes.some(r=>r.choices>=3)) warns.push('分岐が3段以上重なる経路があります（読みやすさのため2段までを推奨）');
+  if(routes.some(r=>r.choices>=4)) warns.push('分かれ目を4回以上通る経路があります（現場で迷わないよう、分かれ目を減らせないか確認してください）');
   if(secs.length>20) warns.push('区間が20個を超えています');
   const lbls=secs.map(s=>(s.label||'').trim()); if(new Set(lbls).size!==lbls.length) warns.push('同じ名前の区間があります');
   const indeg=new Map(); valid.forEach(e=>{ if(!back.has(e)) indeg.set(e.to,(indeg.get(e.to)||0)+1); });
@@ -1922,6 +1923,7 @@ const EB=(()=>{
         g.steps.forEach(st=>{ secOfItem[st.id]=g.sec.key; startOf[st.id]=startOf[st.id]||g.sec.key; if(isMain) g.sec._no.push(no[st.id]);
           g.sec.steps.push({ bid:st.id, title:st.title||'（未入力）', detail:st.detail||'', warn:(st.warn&&st.warn!=='normal')?st.warn:(!isMain&&tone==='danger'?'danger':!isMain&&tone==='warn'?'caution':'normal') }); });
         firstItem[g.sec.key]=(g.steps[0]||g.branch).id; if(g.branch) secOfItem[g.branch.id]=g.sec.key;
+        if(isMain && g.branch && g.branch.type==='set') g.sec._no.push(no[g.branch.id]);   // まとまりも本流の番号を持つ
         if(isMain) g.sec.label = !g.sec._no.length ? '分かれ目' : g.sec._no.length>1 ? `手順${g.sec._no[0]}〜${g.sec._no[g.sec._no.length-1]}` : `手順${g.sec._no[0]}`; });
       for(let gi=segs.length-1; gi>=0; gi--){ const g=segs[gi];
         const after = gi<segs.length-1 ? {type:'goto', to:segs[gi+1].sec.key} : cont;
