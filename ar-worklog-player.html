@@ -165,7 +165,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.25</div>
+    <div id="ver">Worklog v4.26</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -747,7 +747,7 @@ let trail=[], _pendingChoice=null;
 // 終了の指示（終わり方に名前があるとき、ステップのカードに出して確認してから終了）。_pendingUndo/_choiceCtx＝「戻る」で直前の操作へ戻すための状態
 let _endCard=null, _choiceCtx=null, _pendingUndo=null;
 // 順不同のまとまり：_set={ key, label, baseLen(一覧の時点の経路の長さ), cur(作業中の番号 or -1), tasks:[{label,to,status:'todo'|'doing'|'done',save,secs}] }
-let _set=null, _setsDone={};   // _setsDone＝すべての作業が済んで先へ進んだまとまり（進捗一覧の表示用）
+let _set=null, _setsDone={}, _setStates={};   // _setsDone＝すべて済んで先へ進んだまとまり／_setStates＝まとまりごとの作業の状態（外へ出ても覚えておく）
 function hasFlow(){ return !!(cur&&cur.flow); }
 function secOf(k){ return cur&&cur.flow ? cur.flow.by.get(k) : null; }
 function secLabel(k){ return (secOf(k)||{}).label||k; }
@@ -798,7 +798,21 @@ function flowNext(){ const k=cur.steps[idx].sec, ids=secIdxs(cur,k), pos=ids.ind
   else if(r.type==='return'){ trail.push(...r.via); finishTask(); }
   else if(r.label) showEndCard(r,{ trailLen:trail.length, reopen:null });
   else finishScenario(); }
-function enterSection(t){ trail.push(t);
+// まとまりの作業に属する区間（作業の開始から、本流の区間に出るまで／一覧へ戻るまで）
+function taskSecs(st, ti){ const key='_ts_'+st.key+'_'+ti; if(cur[key]) return cur[key]; const main=new Set(mainRoute()), out=new Set(), q=[st.tasks[ti].to];
+  while(q.length){ const k=q.shift(); if(!k||out.has(k)||main.has(k)||!secOf(k)) continue; out.add(k); const nx=secOf(k).next||{};
+    if(nx.type==='goto') q.push(nx.to); else if(nx.type==='choice') (nx.options||[]).forEach(o=>q.push(o.to)); }
+  return (cur[key]=out); }
+// 作業の途中でまとまりの外へ出る：その作業は「途中」のまま（続きから再開できる）、まとまりの状態は覚えておく
+function leaveTask(toK){ const t=_set.tasks[_set.cur]; t.save={ trail:trail.slice(_set.baseLen), idx };
+  logEvent('taskLeave',{ set:_set.label, task:t.label, to:secLabel(toK) });
+  const path=mainRoute(), p=path.indexOf(toK), ps=path.indexOf(_set.key);
+  // 前の手順に戻る＝やり直し：戻り先から、まとまりの直前までの本流の確認を外す（まとまりの作業の状態はそのまま）
+  if(p>=0 && ps>=0 && p<=ps) path.slice(p,ps+1).forEach(k=>secIdxs(cur,k).forEach(i=>checkedSteps.delete(i)));
+  _set.cur=-1; _set=null; updateTaskBtn();
+  if(p>=0) trail=path.slice(0,p); }
+function enterSection(t){ if(_set && _set.cur>=0 && !taskSecs(_set,_set.cur).has(t)) leaveTask(t);
+  trail.push(t);
   const ids=secIdxs(cur,t);
   if(trail.filter(x=>x===t).length>1) ids.forEach(i=>checkedSteps.delete(i));   // やり直し：もう一度確認させる
   if(ids.length){ _pendingUndo=null; idx=ids[0]; renderStep(); return; }
@@ -810,8 +824,8 @@ function enterSection(t){ trail.push(t);
   else { const u=_pendingUndo||{ trailLen:trail.length-1, reopen:null }; trail.push(...r.via); if(r.label) showEndCard(r,u); else finishScenario(); } }
 // ══════ 📋 順不同のまとまり：作業の一覧から好きな順に行い、すべて済んだら次へ ══════
 function openSet(k){ const nx=secOf(k).next;
-  if(!_set || _set.key!==k) _set={ key:k, label:nx.label||'順不同の作業', baseLen:trail.length, cur:-1,
-    tasks:(nx.tasks||[]).map(t=>({ label:t.label||'作業', to:t.to, status:'todo', save:null, secs:[] })) };
+  _set=_setStates[k] || (_setStates[k]={ key:k, label:nx.label||'順不同の作業', baseLen:trail.length, cur:-1,
+    tasks:(nx.tasks||[]).map(t=>({ label:t.label||'作業', to:t.to, status:'todo', save:null, secs:[] })) });
   _set.baseLen=trail.length; _set.cur=-1; showSetMenu(); }
 // 一覧の時点で表示するステップ＝まとまりの直前の手順（経路をさかのぼって、手順のある区間の最後）
 function setAnchor(){ for(let j=Math.min(_set.baseLen,trail.length)-1;j>=0;j--){ const ids=secIdxs(cur,trail[j]); if(ids.length){ idx=ids[ids.length-1]; return; } } }
@@ -844,7 +858,7 @@ function finishTask(){ if(!_set||_set.cur<0){ toast('作業の一覧が見つか
   trail.length=_set.baseLen; _set.cur=-1; setAnchor(); renderStep(); showSetMenu(); }
 // 一覧の「次へ進む」：すべて済んだら、まとまりの後へ
 function setNext(){ if(!_set||setDoneCount()<_set.tasks.length) return; const nx=secOf(_set.key).next, d=nx.done||{type:'end'};
-  logEvent('setDone',{ set:_set.label, order:_set.tasks.map(t=>t.label).join(' → ') }); _setsDone[_set.key]=true; hideSetMenu(); _set=null; updateTaskBtn();
+  logEvent('setDone',{ set:_set.label, order:_set.tasks.map(t=>t.label).join(' → ') }); _setsDone[_set.key]=true; hideSetMenu(); _set=null; updateTaskBtn();   // 状態は _setStates に残る
   if(d.type==='goto' && secOf(d.to)){ _pendingUndo=null; enterSection(d.to); }
   else if(d.type==='end' && d.label) showEndCard({ label:d.label, tone:d.tone||'' },{ trailLen:trail.length, reopen:null });
   else finishScenario(); }
@@ -980,7 +994,7 @@ function followMarker(markerId){ if(curMid===markerId) return; curMid=markerId;
   anchor.setAttribute('smooth-follow',`target: #${markerId}; mc: ${FOLLOW_MC}; beta: ${FOLLOW_BETA}`); }
 function setScenario(scenario,key,markerId){ if(cur===scenario) return;
   if(scenario.tooNew){ toast('このシナリオは新しい版のアプリが必要です。プレイヤーを更新してください'); return; }
-  curKey=key; cur=scenario; idx=firstStepIdx(scenario); trail=scenario.flow?[scenario.flow.start]:[]; hideChoice(); _endCard=null; _pendingUndo=null; _set=null; _setsDone={}; hideSetMenu();
+  curKey=key; cur=scenario; idx=firstStepIdx(scenario); trail=scenario.flow?[scenario.flow.start]:[]; hideChoice(); _endCard=null; _pendingUndo=null; _set=null; _setsDone={}; _setStates={}; hideSetMenu();
   checkedSteps=new Set(); sessionId=newSessionId();
   document.getElementById('scname').textContent=scenario.name;
   document.getElementById('scsub').textContent=scenario.subtitle||'';
@@ -1187,7 +1201,7 @@ function finishScenario(){
     logEvent('finish',{checked:checkedSteps.size, path:[...trail,...(r.via||[])].map(secLabel).join(' → '), endLabel, endTone}); }
   else logEvent('finish',{checked:checkedSteps.size, totalSteps:(cur&&cur.steps.length)||0});
   hideChoice(); closeDoc(); closePhoto(); const key=curKey, mid=curMid, finName=(cur&&cur.name)||'';
-  _finSnap={ sc:cur, idx, checked:new Set(checkedSteps), key, mid, sessionId, trail:trail.slice(), endCard:_endCard?{..._endCard}:null, set:_set?JSON.parse(JSON.stringify(_set)):null, setsDone:{..._setsDone} }; hideSetMenu();   // 「元の作業に戻る」用に退避
+  _finSnap={ sc:cur, idx, checked:new Set(checkedSteps), key, mid, sessionId, trail:trail.slice(), endCard:_endCard?{..._endCard}:null, set:_set?_set.key:null, setStates:JSON.parse(JSON.stringify(_setStates)), setsDone:{..._setsDone} }; hideSetMenu();   // 「元の作業に戻る」用に退避
   cur=null; idx=0; trail=[]; _endCard=null; _set=null; checkedSteps=new Set();
   content.setAttribute('visible', false);
   _lockOrient=null; _updateOrientLock();   // 作業終了で向きロック解除
@@ -1216,7 +1230,7 @@ let _finSnap=null;
 function resumeFinished(){
   const sn=_finSnap; if(!sn||!sn.sc){ resetToIdle(); return; }
   hideFinish(); _homeSup.clear();
-  cur=sn.sc; idx=sn.idx; trail=(sn.trail||[]).slice(); _endCard=sn.endCard?{...sn.endCard}:null; _set=sn.set?JSON.parse(JSON.stringify(sn.set)):null; _setsDone={...(sn.setsDone||{})}; checkedSteps=new Set(sn.checked); curKey=sn.key; sessionId=sn.sessionId;
+  cur=sn.sc; idx=sn.idx; trail=(sn.trail||[]).slice(); _endCard=sn.endCard?{...sn.endCard}:null; _setStates=JSON.parse(JSON.stringify(sn.setStates||{})); _set=sn.set?_setStates[sn.set]||null:null; _setsDone={...(sn.setsDone||{})}; checkedSteps=new Set(sn.checked); curKey=sn.key; sessionId=sn.sessionId;
   document.getElementById('scname').textContent=cur.name;
   document.getElementById('scsub').textContent=cur.subtitle||'';
   renderStep(); updateDocButtons();
@@ -1236,7 +1250,7 @@ function resetToIdle(){
   _finSnap=null;
   closeDoc(); closePhoto(); hidePicker(); hideFinish();
   clearPending(); if(lostTimer){clearTimeout(lostTimer);lostTimer=null;}
-  hideChoice(); hideSetMenu(); cur=null; idx=0; trail=[]; _endCard=null; _pendingUndo=null; _set=null; _setsDone={}; checkedSteps=new Set(); curKey=null;
+  hideChoice(); hideSetMenu(); cur=null; idx=0; trail=[]; _endCard=null; _pendingUndo=null; _set=null; _setsDone={}; _setStates={}; checkedSteps=new Set(); curKey=null;
   content.setAttribute('visible', false); while(content.firstChild) content.removeChild(content.firstChild);
   _lockOrient=null; _updateOrientLock();
   _visible.forEach(k=>_homeSup.set(k,0));   // 今写っているバーコードでは即再開しない
@@ -1526,7 +1540,7 @@ function logsToCsv(logs){
   const esc=v=>{ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
   const rows=logs.slice().sort((a,b)=>a.ts-b.ts).map(l=>[fmtTs(l.ts), l.sessionId, l.barcode||'', l.device||'', l.scenarioName||'', l.event, l.step||'', (l.event==='endAck'?('終了の指示：'+(l.endLabel||'')):(l.stepTitle||'')), l.totalSteps||'',
     l.event==='branch' ? (l.fromLabel||'') : l.set ? ('📋 '+l.set) : (l.secLabel ? l.secLabel+((l.pass||1)>1?`（${l.pass}回目）`:'') : ''),
-    l.event==='branch' ? `${l.choice||''} → ${l.toLabel||''}` : l.event==='jump' ? `進捗一覧から移動：${l.to||''}` : ({taskStart:'作業開始：',taskResume:'作業再開：',taskPause:'作業中断：',taskDone:'作業完了：'}[l.event]||'')+(l.task||'')+(l.event==='setDone'?'すべての作業が完了':''),
+    l.event==='branch' ? `${l.choice||''} → ${l.toLabel||''}` : l.event==='jump' ? `進捗一覧から移動：${l.to||''}` : ({taskStart:'作業開始：',taskResume:'作業再開：',taskPause:'作業中断：',taskDone:'作業完了：',taskLeave:'作業を途中にして移動：'}[l.event]||'')+(l.task||'')+(l.event==='taskLeave'&&l.to?' → '+l.to:'')+(l.event==='setDone'?'すべての作業が完了':''),
     l.path ? l.path+((l.endLabel&&!String(l.path).endsWith(l.endLabel))?`（${l.endLabel}）`:'') : ''].map(esc).join(','));
   return '﻿'+cols.join(',')+'\n'+rows.join('\n');
 }
@@ -1565,7 +1579,7 @@ function openProg(){
     path.forEach(k=>{ const ids=secIdxs(cur,k), nx=secOf(k).next||{};
       ids.forEach(i=>{ mainTotal++; if(checkedSteps.has(i)) mainDone++; h+=pgRow(i,M.byIdx.get(i),'data-jump',k); });
       if(nx.type==='choice') h+=`<div class="pg-sec next">◆ 分かれ目：${escHtml(nx.prompt||'')}</div>`;
-      if(nx.type==='set'){ const nt=(nx.tasks||[]).length, dn=(_set&&_set.key===k)?_set.tasks.filter(t=>t.status==='done').length:(_setsDone[k]?nt:0), all=nt>0&&dn===nt;
+      if(nx.type==='set'){ const nt=(nx.tasks||[]).length, S0=_setStates[k], dn=S0?S0.tasks.filter(t=>t.status==='done').length:(_setsDone[k]?nt:0), all=nt>0&&dn===nt;
         mainTotal++; if(all) mainDone++;
         h+=`<div class="pg-row pg-set${all?' all':''}${_set&&_set.key===k&&_set.cur>=0?' cur':''}" data-set="${k}"><span class="pg-num">${M.bySet.get(k)}</span><span class="pg-title">📋 ${escHtml(nx.label||'順不同の作業')}<small style="display:block;font-size:11px;color:#6d28d9;font-weight:600">順不同の作業 ${nt}つ（すべて済むと「済」）</small></span><span class="pg-badge ${all?'done':'todo'}">${all?'済':`${dn}/${nt}`}</span></div>`; } });
     sum.textContent=`${cur.name}　済 ${mainDone} / ${mainTotal} ステップ（押すとその手順へ移動できます）`;

@@ -686,7 +686,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.37';
+const APP_VERSION = 'v4.38';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -1764,7 +1764,8 @@ const EB=(()=>{
   const backList=top=>S.items.slice(0,top).filter(x=>x.type==='step');
   function thenDesc(a,no){ if(!a) return '次の手順へ'; if(a._task) return '作業を終えて一覧へ戻る'; if(a.then==='end') return '作業終了'; if((a.then==='jump'||a.then==='back')&&a.target) return `手順${no[a.target]}へ${a.then==='back'?'戻る':''}`; if(a.then==='next') return '分かれ目の後の手順へ'; return '行き先未設定'; }
   function branchCard(b,i,ctx){ const sel=S.sel===b.id, no=ctx.no, top=ctx.depth===0?i:ctx.top;
-    const after=S.items.slice(top+1).filter(x=>x.type==='step'), jl=ctx.inSet?[]:jumpList(ctx,top), bl=ctx.inSet?[]:backList(top);
+    // 作業の中の分かれ目からも、本流（第一階層）の手順へ飛ぶ・戻るを選べる（まとまりの外へ出る＝その作業は「途中」のまま）
+    const after=S.items.slice(top+1).filter(x=>x.type==='step'), jl=jumpList(ctx,top), bl=backList(top);
     const restInSeq=ctx.items?ctx.items.slice(i+1).some(x=>x.type==='step'):false;
     const nextTxt = ctx.depth===0
       ? (after.length ? `次の手順へ進む（手順${no[after[0].id]}）` : '次の手順へ進む（この後に手順が無いので作業終了）')
