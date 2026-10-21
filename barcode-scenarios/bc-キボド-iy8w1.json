@@ -46,11 +46,11 @@
           "options": [
             {
               "label": "合ってる",
-              "to": "s3"
+              "to": "s4"
             },
             {
               "label": "ズレてる",
-              "to": "s4"
+              "to": "s5"
             }
           ]
         }
@@ -64,6 +64,15 @@
       },
       {
         "key": "s4",
+        "label": "「合ってる」のとき",
+        "branch": true,
+        "next": {
+          "type": "goto",
+          "to": "s3"
+        }
+      },
+      {
+        "key": "s5",
         "label": "「ズレてる」のとき",
         "branch": true,
         "next": {
@@ -104,7 +113,15 @@
           "id": "bkq9chqv",
           "label": "合ってる",
           "tone": "",
-          "items": [],
+          "items": [
+            {
+              "type": "step",
+              "id": "bkh8b76y",
+              "title": "次の手中に進む",
+              "detail": "次の手順に進みます",
+              "warn": "normal"
+            }
+          ],
           "then": "next",
           "target": "",
           "endLabel": "",
@@ -119,7 +136,7 @@
               "type": "step",
               "id": "b31hlzcx",
               "title": "校正する",
-              "detail": "",
+              "detail": "ズレを調整します",
               "warn": "normal"
             }
           ],
@@ -138,7 +155,7 @@
       "warn": "normal"
     }
   ],
-  "builderSig": "f1d7sorg",
+  "builderSig": "fcd7zs",
   "steps": [
     {
       "title": "画面確認",
@@ -319,8 +336,30 @@
       "sec": "s3"
     },
     {
+      "title": "次の手中に進む",
+      "detail": "次の手順に進みます",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "次の手中に進む",
+          "fontScale": 1
+        }
+      ],
+      "photo": "",
+      "face": "fmvhiy8w2k5",
+      "bid": "bkh8b76y",
+      "sec": "s4"
+    },
+    {
       "title": "校正する",
-      "detail": "",
+      "detail": "ズレを調整します",
       "warn": "normal",
       "ar": [
         {
@@ -338,7 +377,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "b31hlzcx",
-      "sec": "s4"
+      "sec": "s5"
     }
   ]
 }
