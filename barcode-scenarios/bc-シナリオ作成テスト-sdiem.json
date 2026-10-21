@@ -57,7 +57,7 @@
       },
       {
         "key": "s2",
-        "label": "手順3",
+        "label": "分かれ目",
         "next": {
           "type": "choice",
           "prompt": "矢印の位置は合っているか？",
@@ -76,7 +76,7 @@
       },
       {
         "key": "s3",
-        "label": "手順4〜5",
+        "label": "手順3〜4",
         "next": {
           "type": "end"
         }
@@ -96,7 +96,7 @@
         "branch": true,
         "next": {
           "type": "goto",
-          "to": "s2"
+          "to": "s1"
         }
       },
       {
@@ -199,13 +199,6 @@
       ]
     },
     {
-      "type": "step",
-      "id": "blmiu202",
-      "title": "ステップ１ 矢印確認",
-      "detail": "",
-      "warn": "normal"
-    },
-    {
       "type": "branch",
       "id": "bz1r6cl6",
       "q": "矢印の位置は合っているか？",
@@ -242,7 +235,7 @@
             }
           ],
           "then": "back",
-          "target": "blmiu202",
+          "target": "bzac5ap8",
           "endLabel": "",
           "endTone": ""
         }
@@ -263,7 +256,7 @@
       "warn": "normal"
     }
   ],
-  "builderSig": "f183s1ru",
+  "builderSig": "f1kiqs5q",
   "steps": [
     {
       "title": "作業開始",
@@ -273,8 +266,8 @@
         {
           "type": "text",
           "pos": [
-            0,
-            0.16,
+            0.379,
+            0.185,
             0
           ],
           "color": "#60a5fa",
@@ -286,76 +279,6 @@
       "face": "fmvhsdiemxl",
       "bid": "bzac5ap8",
       "sec": "s1"
-    },
-    {
-      "title": "ステップ１ 矢印確認",
-      "detail": "",
-      "warn": "normal",
-      "ar": [
-        {
-          "type": "text",
-          "pos": [
-            0.334,
-            0.183,
-            0
-          ],
-          "color": "#60a5fa",
-          "label": "ステップ１ 矢印確認",
-          "fontScale": 1
-        },
-        {
-          "type": "arrow",
-          "pos": [
-            -0.013,
-            0.45,
-            0
-          ],
-          "color": "#60a5fa",
-          "label": "押す",
-          "h": 0.124,
-          "rot": {
-            "x": 0,
-            "y": 0,
-            "z": 45
-          }
-        },
-        {
-          "type": "arrow",
-          "pos": [
-            0.746,
-            0.451,
-            0
-          ],
-          "color": "#60a5fa",
-          "label": "押す",
-          "h": 0.124,
-          "rot": {
-            "x": 0,
-            "y": 0,
-            "z": -45
-          }
-        },
-        {
-          "type": "arrow",
-          "pos": [
-            0.767,
-            0.008,
-            0
-          ],
-          "color": "#60a5fa",
-          "label": "押す",
-          "h": 0.124,
-          "rot": {
-            "x": 0,
-            "y": 0,
-            "z": -135
-          }
-        }
-      ],
-      "photo": "",
-      "face": "fmvhsdiemxl",
-      "bid": "blmiu202",
-      "sec": "s2"
     },
     {
       "title": "ステップ2 キーボード確認",
@@ -435,8 +358,8 @@
         {
           "type": "text",
           "pos": [
-            0,
-            0.16,
+            0.365,
+            0.183,
             0
           ],
           "color": "#60a5fa",
@@ -457,8 +380,8 @@
         {
           "type": "text",
           "pos": [
-            0,
-            0.16,
+            0.363,
+            0.213,
             0
           ],
           "color": "#60a5fa",
