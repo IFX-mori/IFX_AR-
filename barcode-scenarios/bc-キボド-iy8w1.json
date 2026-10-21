@@ -11,9 +11,9 @@
       "label": "前面",
       "barcode": 2,
       "calib": {
-        "scale": 9.61,
+        "scale": 8.74,
         "ox": 0.04,
-        "oy": -0.02,
+        "oy": 0.02,
         "rot": 0
       },
       "markerSizeMM": 40,
