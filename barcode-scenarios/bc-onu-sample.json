@@ -17,7 +17,7 @@
         "rot": 0
       },
       "markerSizeMM": 40,
-      "imageFile": "",
+      "imageFile": "barcode-targets/bc-onu-sample-fmvhufz4ss2.jpg",
       "markerPos": {
         "u": 0.5,
         "v": 0.5,
@@ -455,6 +455,21 @@
           "color": "#60a5fa",
           "label": "ONUの前面ランプを確認する",
           "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.215,
+            0.486,
+            0
+          ],
+          "color": "#60a5fa",
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "sizeW": 0.4401,
+          "sizeH": 0.12,
+          "anim": "blink"
         }
       ],
       "sec": "s1"
@@ -477,6 +492,20 @@
           "color": "#60a5fa",
           "label": "光回線ランプを確認する",
           "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.22,
+            0.484,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "anim": "blink"
         }
       ],
       "sec": "s2"
@@ -521,6 +550,37 @@
           "color": "#60a5fa",
           "label": "インターネットの通信を確認する",
           "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.381,
+            0.49,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "anim": "blink"
+        },
+        {
+          "type": "arrow",
+          "pos": [
+            0.201,
+            0.479,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "",
+          "h": 0.189,
+          "rot": {
+            "x": 0,
+            "y": 0,
+            "z": -90
+          },
+          "anim": "push"
         }
       ],
       "sec": "s4"
@@ -565,6 +625,20 @@
           "color": "#60a5fa",
           "label": "LANケーブルの両端を差し直す",
           "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.509,
+            -0.06,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "anim": "blink"
         }
       ],
       "sec": "s7"
@@ -587,6 +661,20 @@
           "color": "#60a5fa",
           "label": "ルーターの電源ランプを確認する",
           "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.066,
+            0.487,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "anim": "blink"
         }
       ],
       "sec": "s8"
@@ -609,6 +697,20 @@
           "color": "#ef4444",
           "label": "光コードの差し込みを確認する",
           "fontScale": 1
+        },
+        {
+          "type": "box",
+          "pos": [
+            0.496,
+            0.122,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.12,
+          "lineThick": 0.015,
+          "label": "確認",
+          "labelBelow": true,
+          "anim": "blink"
         }
       ],
       "sec": "s10"
@@ -631,6 +733,18 @@
           "color": "#f59e0b",
           "label": "電源アダプタの接続を確認する",
           "fontScale": 1
+        },
+        {
+          "type": "ring",
+          "pos": [
+            0.48,
+            0.555,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.2614,
+          "label": "確認",
+          "anim": "pulse"
         }
       ],
       "sec": "s12"
@@ -653,6 +767,18 @@
           "color": "#60a5fa",
           "label": "コンセントに差し直す",
           "fontScale": 1
+        },
+        {
+          "type": "ring",
+          "pos": [
+            0.512,
+            0.482,
+            0
+          ],
+          "color": "#60a5fa",
+          "size": 0.2803,
+          "label": "挿す",
+          "anim": "pulse"
         }
       ],
       "sec": "s12"
