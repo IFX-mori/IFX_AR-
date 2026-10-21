@@ -153,7 +153,7 @@
     <div id="doc-btn-row" style="display:none; gap:6px;"></div>
     <button id="btn-home" style="display:none" title="シナリオを閉じて最初の画面へ">🏠 最初へ</button>
     <button id="btn-menu" style="display:none">≡ 操作</button>
-    <div id="ver">Worklog v4.19</div>
+    <div id="ver">Worklog v4.20</div>
   </div>
   <div id="status"><span id="dot"></span><span id="stxt">マーカー未認識</span></div>
   <div id="hint">バーコードマーカーにカメラを向けてください<small>登録済みのシナリオを自動表示します</small></div>
@@ -607,8 +607,34 @@ function makeItem(it, cal){
     el.setAttribute('position', `${it.pos[0]+cal.ox} ${it.pos[1]+cal.oy} ${it.pos[2]||0}`);
     el.setAttribute('material', {shader:'flat', transparent:true, side:'double', alphaTest:0.02, depthWrite:false, opacity:(it.opacity!=null?it.opacity:1), src:(it._src||it.src||'')});
     if(it.rot&&(it.rot.x||it.rot.y||it.rot.z)) el.setAttribute('rotation', `${it.rot.x||0} ${it.rot.y||0} ${it.rot.z||0}`);
+    if(figAnim(it)==='blink') applyFigAnim(el, it, it.opacity!=null?it.opacity:1);
     return el;
   }
+  const an=figAnim(it), x=it.pos[0]+cal.ox, y=it.pos[1]+cal.oy, z=it.pos[2]||0;
+  if(!an){
+    const el=planeFromCanvas(itemCanvas(it), x, y, z);
+    // 図形ごとの3D回転（面内Z＋奥行きX/Y）。図形はcontrolの子なのでローカル回転。
+    if(it.rot&&(it.rot.x||it.rot.y||it.rot.z)) el.setAttribute('rotation', `${it.rot.x||0} ${it.rot.y||0} ${it.rot.z||0}`);
+    return el;
+  }
+  // 動きあり：図形とラベルを別の板にして、図形だけを動かす（ラベルは読めるように止めておく）
+  const g=document.createElement('a-entity'); g.setAttribute('position', `${x} ${y} ${z}`);
+  if(it.rot&&(it.rot.x||it.rot.y||it.rot.z)) g.setAttribute('rotation', `${it.rot.x||0} ${it.rot.y||0} ${it.rot.z||0}`);
+  const shp=planeFromCanvas(itemCanvas(it,'shape'),0,0,0); applyFigAnim(shp, it, 1); g.appendChild(shp);
+  if(it.label && it.type!=='text') g.appendChild(planeFromCanvas(itemCanvas(it,'label'),0,0,0.002));
+  return g;
+}
+// ══════ 図形の動き（anim）：矢印＝向きに往復(push)、回転矢印＝回る(spin)、囲み・丸＝脈打つ(pulse)、全種＝点滅(blink) ══════
+const FIG_ANIMS={ arrow:['push','blink'], arrowDown:['push','blink'], curvedArrow:['spin','blink'], box:['blink','pulse'], ring:['blink','pulse'], text:['blink'], image:['blink'] };
+function figAnim(it){ const a=it&&it.anim; return (a && (FIG_ANIMS[it.type]||[]).includes(a)) ? a : ''; }
+function applyFigAnim(el, it, op){ const a=figAnim(it); const base={ loop:true, easing:'easeInOutSine', dir:'alternate' };
+  if(a==='push'){ const d=(it.type==='arrowDown'?-1:1)*0.25*(it.h||0.5);   // 矢じりの方向へ本体の1/4だけ往復
+    el.setAttribute('animation__fig', { ...base, property:'position', from:'0 0 0', to:`0 ${d.toFixed(4)} 0`, dur:700 }); }
+  else if(a==='spin') el.setAttribute('animation__fig', { property:'rotation', from:'0 0 0', to:`0 0 ${it.dir==='left'?360:-360}`, dur:2400, loop:true, easing:'linear' });
+  else if(a==='pulse') el.setAttribute('animation__fig', { ...base, property:'scale', from:'1 1 1', to:'1.15 1.15 1', dur:600 });
+  else if(a==='blink') el.setAttribute('animation__fig', { ...base, property:'material.opacity', from:op, to:+(op*0.2).toFixed(3), dur:700 }); }
+// 図形1個をキャンバスに描く。part='shape'＝図形だけ／'label'＝ラベルだけ（同じ大きさ・位置）。文字図形は文字＝本体。
+function itemCanvas(it, part){
   const tmp=document.createElement('canvas').getContext('2d');
   const color=it.color||'#60a5fa'; const fp=Math.round(46*(it.fontScale||1));
   const bg=it.textBg||'rgba(0,0,0,0.82)';
@@ -628,17 +654,16 @@ function makeItem(it, cal){
   const cw=2*halfW, ch=2*halfH;
   const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
   const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
-  if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
-  else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=(it.lineThick!=null)?(it.lineThick*PXREF):Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
-  else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
-  else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
-  else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir);
-  if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg,it.align);
+  const drawShape=part!=='label', drawLbl=part!=='shape' || it.type==='text';
+  if(drawShape){
+    if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
+    else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=(it.lineThick!=null)?(it.lineThick*PXREF):Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
+    else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
+    else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
+    else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir); }
+  if(it.label && drawLbl && !(part==='label' && it.type==='text')){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg,it.align);
     else drawLabel(ctx, CX+lxPx, CY+lyPx, it.label, fp,bg,fg); }
-  const el=planeFromCanvas(cv, it.pos[0]+cal.ox, it.pos[1]+cal.oy, it.pos[2]);
-  // 図形ごとの3D回転（面内Z＋奥行きX/Y）。図形はcontrolの子なのでローカル回転。
-  if(it.rot&&(it.rot.x||it.rot.y||it.rot.z)) el.setAttribute('rotation', `${it.rot.x||0} ${it.rot.y||0} ${it.rot.z||0}`);
-  return el;
+  return cv;
 }
 
 // ══════ IndexedDB（作業ログ・端末保存） ══════

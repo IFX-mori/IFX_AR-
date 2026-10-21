@@ -83,6 +83,16 @@
   .fig { position:absolute; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; transform:translate(-50%,-50%); transform-style:preserve-3d; }
   .fig img { backface-visibility:visible; }
   .fig img { display:block; width:100%; height:100%; }
+  /* 図形の動き（プレイヤーと同じ動き。ラベルは止めたまま図形だけ動かす） */
+  .fig.anim img { position:absolute; left:0; top:0; }
+  @keyframes fa-push { from{ transform:translateY(0); } to{ transform:translateY(var(--amp)); } }
+  @keyframes fa-spin { from{ transform:rotate(0deg); } to{ transform:rotate(var(--spin)); } }
+  @keyframes fa-blink { from{ opacity:1; } to{ opacity:.2; } }
+  @keyframes fa-pulse { from{ transform:scale(1); } to{ transform:scale(1.15); } }
+  .fig img.a-push { animation:fa-push .7s ease-in-out infinite alternate; }
+  .fig img.a-spin { animation:fa-spin 2.4s linear infinite; }
+  .fig img.a-blink { animation:fa-blink .7s ease-in-out infinite alternate; }
+  .fig img.a-pulse { animation:fa-pulse .6s ease-in-out infinite alternate; }
   .fig.sel::after { content:''; position:absolute; inset:-6px; border:2px dashed #fff; border-radius:8px; box-shadow:0 0 0 2px rgba(0,0,0,.4); }
   /* バーコード基準ボックス（実寸マーカーの写真上の大きさ＝原点＆cm基準） */
   /* 選択図形のサイズ変更ハンドル（図形本体の外接枠。ラベルは含まない） */
@@ -669,7 +679,7 @@
 </div>
 
 <script>
-const APP_VERSION = 'v4.33';
+const APP_VERSION = 'v4.34';
 const BARCODE_DIR = 'barcode-scenarios';   // 出力先フォルダ（画像トラッキング用 scenarios/ とは分離）
 const TARGET_DIR  = 'barcode-targets';     // 参照写真の保存先
 const ASSET_DIR   = 'barcode-assets';      // 画像オーバーレイ(配線図PNG等)の保存先
@@ -780,7 +790,8 @@ function defaultLabelOffset(it){
   const lyPx=(it.labelAbove?-1:1)*(ih/2+gap+labelH/2);
   return {x:0, y:-lyPx/PXREF};
 }
-function figCanvas(it){
+// part='shape'＝図形だけ／'label'＝ラベルだけ（同じ大きさ・位置。動きのある図形で使う）。文字図形は文字＝本体。
+function figCanvas(it, part){
   const tmp=document.createElement('canvas').getContext('2d');
   const color=it.color||'#60a5fa'; const fp=Math.round(46*(it.fontScale||1));
   const bg=it.textBg||'rgba(0,0,0,0.82)';
@@ -801,15 +812,22 @@ function figCanvas(it){
   const cw=2*halfW, ch=2*halfH;
   const cv=document.createElement('canvas'); cv.width=Math.max(2,Math.ceil(cw)); cv.height=Math.max(2,Math.ceil(ch));
   const ctx=cv.getContext('2d'); const CX=cv.width/2, CY=cv.height/2;
-  if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
-  else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=(it.lineThick!=null)?(it.lineThick*PXREF):Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
-  else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
-  else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
-  else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir);
-  if(it.label){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg,it.align);
+  if(part!=='label'){
+    if(it.type==='box') iconBox(ctx,CX,CY,iw,ih,color,(it.lineThick||0.015)*PXREF);
+    else if(it.type==='ring'){ ctx.beginPath(); ctx.arc(CX,CY,iw/2,0,Math.PI*2); ctx.lineWidth=(it.lineThick!=null)?(it.lineThick*PXREF):Math.max(10,(iw/2)*0.28); ctx.strokeStyle=color; ctx.stroke(); }
+    else if(it.type==='arrow') iconArrow(ctx,CX,CY,iw,ih,color,'up');
+    else if(it.type==='arrowDown') iconArrow(ctx,CX,CY,iw,ih,color,'down');
+    else if(it.type==='curvedArrow') iconCurved(ctx,CX,CY,iw/2,color,it.dir); }
+  const lblOn = it.type==='text' ? part!=='label' : part!=='shape';
+  if(it.label && lblOn){ if(it.type==='text') drawLabel(ctx,CX,CY,it.label,fp,bg,fg,it.align);
     else drawLabel(ctx, CX+lxPx, CY+lyPx, it.label, fp,bg,fg); }
   return { url:cv.toDataURL('image/png'), wUnits:cv.width/PXREF, hUnits:cv.height/PXREF };
 }
+
+// ══════════ 図形の動き（anim）：プレイヤーと同じ種類 ══════════
+const FIG_ANIMS={ arrow:['push','blink'], arrowDown:['push','blink'], curvedArrow:['spin','blink'], box:['blink','pulse'], ring:['blink','pulse'], text:['blink'], image:['blink'] };
+const ANIM_LABEL={ push:'矢印の向きに動く', spin:'矢印の向きに回る', blink:'点滅', pulse:'脈打つ' };
+function figAnim(it){ const a=it&&it.anim; return (a && (FIG_ANIMS[it.type]||[]).includes(a)) ? a : ''; }
 
 // ══════════ 座標変換（写真ピクセル ⇔ 正規化画像座標） ══════════
 // 正規化座標：原点=画像中心, x:右+, y:上+, x∈[-0.5,0.5], y∈[-aspect/2, aspect/2]（aspect=高/幅）
@@ -887,7 +905,15 @@ function renderOverlay(){
     const rt=it.rot; if(rt&&(rt.x||rt.y||rt.z)){
       el.style.transform=`translate(-50%,-50%) rotateZ(${ROT_SIGN.z*(rt.z||0)}deg) rotateX(${ROT_SIGN.x*(rt.x||0)}deg) rotateY(${ROT_SIGN.y*(rt.y||0)}deg)`;
     }
-    const im=document.createElement('img'); im.src=fc.url; el.appendChild(im);
+    const an=figAnim(it);
+    if(!an || it.type==='image'){ const im=document.createElement('img'); im.src=fc.url; if(an) im.className='a-'+an; el.appendChild(im); }
+    else { // 動きあり：図形だけの画像を動かし、ラベルの画像は止めて重ねる
+      el.classList.add('anim');
+      const im=document.createElement('img'); im.src=figCanvas(it,'shape').url; im.className='a-'+an;
+      if(an==='push'){ const d=(it.type==='arrowDown'?1:-1)*0.25*(it.h||0.5)/fc.hUnits*100; im.style.setProperty('--amp', d.toFixed(2)+'%'); }
+      if(an==='spin') im.style.setProperty('--spin', it.dir==='left'?'-360deg':'360deg');
+      el.appendChild(im);
+      if(it.label && it.type!=='text'){ const lb=document.createElement('img'); lb.src=figCanvas(it,'label').url; el.appendChild(lb); } }
     el.addEventListener('pointerdown', ev=>{ ev.stopPropagation(); startDrag(ev,i); });
     ov.appendChild(el);
     if(i===figIdx) rsz=makeResizeFrame(it, i, p, el.style.transform);
@@ -1964,12 +1990,15 @@ function renderPropbar(){
     h+=`<span class="grp">高さ<button class="sbtn" data-hz="-" title="1mm下げる（面へ近づく/裏へ）">－</button><button class="sbtn" data-hz="+" title="1mm上げる（面から浮かす）">＋</button>`
       +(hz?`<button class="sbtn" data-hz="0" title="高さリセット">⟲</button>`:'')
       +`<b id="pp-hz" style="min-width:52px;text-align:center;color:${hz?'#0f766e':'#94a3b8'}">${hmm.toFixed(0)}mm</b></span>`; }
+  { const opts=FIG_ANIMS[f.type]||[]; if(opts.length){ const cur=figAnim(f);
+    h+=`<span class="grp">動き<select id="pp-anim"><option value="">なし</option>${opts.map(a=>`<option value="${a}"${a===cur?' selected':''}>${ANIM_LABEL[a]}</option>`).join('')}</select></span>`; } }
   h+=`<span class="grp" id="pp-pos">${posCmLabel(f)}</span>`;
   h+=`<button class="delfig" onclick="deleteFig()">図形削除</button>`;
   bar.innerHTML=h;
   const col=document.getElementById('pp-color'); if(col) col.oninput=e=>{ f.color=e.target.value; renderOverlay(); };
   const lab=document.getElementById('pp-label'); if(lab) lab.oninput=e=>{ f.label=e.target.value; renderOverlay(); };
   const dir=document.getElementById('pp-dir'); if(dir) dir.onchange=e=>{ f.dir=e.target.value; renderOverlay(); };
+  const anm=document.getElementById('pp-anim'); if(anm) anm.onchange=e=>{ if(e.target.value) f.anim=e.target.value; else delete f.anim; renderOverlay(); };
   const al=document.getElementById('pp-align'); if(al) al.onchange=e=>{ if(e.target.value==='center') delete f.align; else f.align=e.target.value; renderOverlay(); };
   const below=document.getElementById('pp-below'); if(below) below.onchange=e=>{ f.labelBelow=e.target.checked; renderOverlay(); };
   const above=document.getElementById('pp-above'); if(above) above.onchange=e=>{ f.labelAbove=e.target.checked; renderOverlay(); };
