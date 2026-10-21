@@ -1,0 +1,661 @@
+{
+  "id": "bc-onu-sample",
+  "barcode": 2,
+  "name": "光回線ONU 通信トラブルの確認（サンプル）",
+  "subtitle": "ランプの状態で原因を切り分け、点検・再起動して復旧を確認する",
+  "device": "光回線終端装置（ONU）",
+  "docs": {},
+  "faces": [
+    {
+      "key": "fmvhufz4ss2",
+      "label": "前面",
+      "barcode": 2,
+      "calib": {
+        "scale": 6.67,
+        "ox": 0,
+        "oy": 0,
+        "rot": 0
+      },
+      "markerSizeMM": 40,
+      "imageFile": "",
+      "markerPos": {
+        "u": 0.5,
+        "v": 0.5,
+        "w": 0.15
+      }
+    }
+  ],
+  "formatVersion": 2,
+  "flow": {
+    "start": "s1",
+    "sections": [
+      {
+        "key": "s1",
+        "label": "手順1",
+        "next": {
+          "type": "choice",
+          "prompt": "電源ランプは点灯していますか？",
+          "options": [
+            {
+              "label": "点灯している",
+              "to": "s2"
+            },
+            {
+              "label": "消灯している",
+              "to": "s12",
+              "tone": "warn"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s2",
+        "label": "手順2",
+        "next": {
+          "type": "choice",
+          "prompt": "光回線ランプの状態は？",
+          "options": [
+            {
+              "label": "緑で点灯",
+              "to": "s3"
+            },
+            {
+              "label": "消灯・赤く点灯",
+              "to": "s10",
+              "tone": "danger"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s3",
+        "label": "手順3",
+        "next": {
+          "type": "set",
+          "label": "ケーブル・機器の点検",
+          "detail": "LANケーブル・ルーター・設置場所を、好きな順番で点検します。",
+          "tasks": [
+            {
+              "label": "LANケーブルの点検",
+              "to": "s7"
+            },
+            {
+              "label": "ルーターの点検",
+              "to": "s8"
+            },
+            {
+              "label": "設置場所の確認（通気・高温）",
+              "to": "s9"
+            }
+          ],
+          "done": {
+            "type": "goto",
+            "to": "s4"
+          }
+        }
+      },
+      {
+        "key": "s4",
+        "label": "手順4〜5",
+        "next": {
+          "type": "choice",
+          "prompt": "インターネットにつながりましたか？",
+          "options": [
+            {
+              "label": "つながった",
+              "to": "s5"
+            },
+            {
+              "label": "もう一度再起動する",
+              "to": "s4",
+              "tone": "warn"
+            },
+            {
+              "label": "つながらない",
+              "to": "s6",
+              "tone": "danger"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s5",
+        "label": "手順6",
+        "next": {
+          "type": "end"
+        }
+      },
+      {
+        "key": "s6",
+        "label": "作業を中止し、サポート窓口へ連絡",
+        "branch": true,
+        "next": {
+          "type": "end",
+          "label": "作業を中止し、サポート窓口へ連絡",
+          "tone": "danger"
+        }
+      },
+      {
+        "key": "s7",
+        "label": "作業「LANケーブルの点検」",
+        "branch": true,
+        "next": {
+          "type": "return",
+          "set": "s3"
+        }
+      },
+      {
+        "key": "s8",
+        "label": "作業「ルーターの点検」",
+        "branch": true,
+        "next": {
+          "type": "return",
+          "set": "s3"
+        }
+      },
+      {
+        "key": "s9",
+        "label": "一覧へ戻る",
+        "branch": true,
+        "next": {
+          "type": "return",
+          "set": "s3"
+        }
+      },
+      {
+        "key": "s10",
+        "label": "「消灯・赤く点灯」のとき",
+        "branch": true,
+        "next": {
+          "type": "choice",
+          "prompt": "光回線ランプは緑になりましたか？",
+          "options": [
+            {
+              "label": "緑になった",
+              "to": "s3"
+            },
+            {
+              "label": "ならない",
+              "to": "s11",
+              "tone": "danger"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s11",
+        "label": "作業を中止し、回線の故障窓口へ連絡",
+        "branch": true,
+        "next": {
+          "type": "end",
+          "label": "作業を中止し、回線の故障窓口へ連絡",
+          "tone": "danger"
+        }
+      },
+      {
+        "key": "s12",
+        "label": "「消灯している」のとき",
+        "branch": true,
+        "next": {
+          "type": "goto",
+          "to": "s1"
+        }
+      }
+    ]
+  },
+  "builder": [
+    {
+      "type": "step",
+      "id": "onu1",
+      "title": "ONUの前面ランプを確認する",
+      "detail": "電源・認証・光回線・LANの各ランプの点灯状態を確認します。",
+      "warn": "normal"
+    },
+    {
+      "type": "branch",
+      "id": "onu2",
+      "q": "電源ランプは点灯していますか？",
+      "answers": [
+        {
+          "id": "onu3",
+          "label": "点灯している",
+          "tone": "",
+          "items": [],
+          "then": "next",
+          "target": "",
+          "endLabel": "",
+          "endTone": ""
+        },
+        {
+          "id": "onu6",
+          "label": "消灯している",
+          "tone": "warn",
+          "items": [
+            {
+              "type": "step",
+              "id": "onu4",
+              "title": "電源アダプタの接続を確認する",
+              "detail": "ONU側の差し込み口とアダプタのつなぎ目が奥まで入っているか確認します。",
+              "warn": "caution"
+            },
+            {
+              "type": "step",
+              "id": "onu5",
+              "title": "コンセントに差し直す",
+              "detail": "別のコンセントがあれば差し替えて確認します。",
+              "warn": "caution"
+            }
+          ],
+          "then": "back",
+          "target": "onu1",
+          "endLabel": "",
+          "endTone": ""
+        }
+      ]
+    },
+    {
+      "type": "step",
+      "id": "onu7",
+      "title": "光回線ランプを確認する",
+      "detail": "光回線（PON/光など）のランプの色を確認します。",
+      "warn": "normal"
+    },
+    {
+      "type": "branch",
+      "id": "onu8",
+      "q": "光回線ランプの状態は？",
+      "answers": [
+        {
+          "id": "onu9",
+          "label": "緑で点灯",
+          "tone": "",
+          "items": [],
+          "then": "next",
+          "target": "",
+          "endLabel": "",
+          "endTone": ""
+        },
+        {
+          "id": "onu14",
+          "label": "消灯・赤く点灯",
+          "tone": "danger",
+          "items": [
+            {
+              "type": "step",
+              "id": "onu10",
+              "title": "光コードの差し込みを確認する",
+              "detail": "光コンセントとONUの光コードが外れていないか確認します。強く曲げたり引っ張ったりしないでください。",
+              "warn": "danger"
+            },
+            {
+              "type": "branch",
+              "id": "onu11",
+              "q": "光回線ランプは緑になりましたか？",
+              "answers": [
+                {
+                  "id": "onu12",
+                  "label": "緑になった",
+                  "tone": "",
+                  "items": [],
+                  "then": "next",
+                  "target": "",
+                  "endLabel": "",
+                  "endTone": ""
+                },
+                {
+                  "id": "onu13",
+                  "label": "ならない",
+                  "tone": "danger",
+                  "items": [],
+                  "then": "end",
+                  "target": "",
+                  "endLabel": "作業を中止し、回線の故障窓口へ連絡",
+                  "endTone": "danger"
+                }
+              ]
+            }
+          ],
+          "then": "next",
+          "target": "",
+          "endLabel": "",
+          "endTone": ""
+        }
+      ]
+    },
+    {
+      "type": "set",
+      "id": "onu15",
+      "label": "ケーブル・機器の点検",
+      "detail": "LANケーブル・ルーター・設置場所を、好きな順番で点検します。",
+      "answers": [
+        {
+          "id": "onu17",
+          "label": "LANケーブルの点検",
+          "tone": "",
+          "items": [
+            {
+              "type": "step",
+              "id": "onu16",
+              "title": "LANケーブルの両端を差し直す",
+              "detail": "ONU側とルーター側の両方を、カチッと音がするまで差し込みます。",
+              "warn": "normal"
+            }
+          ],
+          "then": "next",
+          "target": "",
+          "endLabel": "",
+          "endTone": ""
+        },
+        {
+          "id": "onu19",
+          "label": "ルーターの点検",
+          "tone": "",
+          "items": [
+            {
+              "type": "step",
+              "id": "onu18",
+              "title": "ルーターの電源ランプを確認する",
+              "detail": "消えている場合は電源の接続を確認します。",
+              "warn": "normal"
+            }
+          ],
+          "then": "next",
+          "target": "",
+          "endLabel": "",
+          "endTone": ""
+        },
+        {
+          "id": "onu20",
+          "label": "設置場所の確認（通気・高温）",
+          "tone": "",
+          "items": [],
+          "then": "next",
+          "target": "",
+          "endLabel": "",
+          "endTone": ""
+        }
+      ]
+    },
+    {
+      "type": "step",
+      "id": "onu21",
+      "title": "ONUを再起動する",
+      "detail": "電源アダプタを抜いて1分ほど待ち、差し直します。ランプが落ち着くまで数分待ちます。",
+      "warn": "caution"
+    },
+    {
+      "type": "step",
+      "id": "onu22",
+      "title": "インターネットの通信を確認する",
+      "detail": "パソコンやスマートフォンでWebページが表示できるか確認します。",
+      "warn": "normal"
+    },
+    {
+      "type": "branch",
+      "id": "onu23",
+      "q": "インターネットにつながりましたか？",
+      "answers": [
+        {
+          "id": "onu24",
+          "label": "つながった",
+          "tone": "",
+          "items": [],
+          "then": "next",
+          "target": "",
+          "endLabel": "",
+          "endTone": ""
+        },
+        {
+          "id": "onu25",
+          "label": "もう一度再起動する",
+          "tone": "warn",
+          "items": [],
+          "then": "back",
+          "target": "onu21",
+          "endLabel": "",
+          "endTone": ""
+        },
+        {
+          "id": "onu26",
+          "label": "つながらない",
+          "tone": "danger",
+          "items": [],
+          "then": "end",
+          "target": "",
+          "endLabel": "作業を中止し、サポート窓口へ連絡",
+          "endTone": "danger"
+        }
+      ]
+    },
+    {
+      "type": "step",
+      "id": "onu27",
+      "title": "作業結果を記録する",
+      "detail": "確認した内容と、復旧した時刻を記録します。",
+      "warn": "normal"
+    }
+  ],
+  "builderSig": "flztgqf",
+  "steps": [
+    {
+      "title": "ONUの前面ランプを確認する",
+      "detail": "電源・認証・光回線・LANの各ランプの点灯状態を確認します。",
+      "warn": "normal",
+      "face": "fmvhufz4ss2",
+      "photo": "",
+      "bid": "onu1",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "ONUの前面ランプを確認する",
+          "fontScale": 1
+        }
+      ],
+      "sec": "s1"
+    },
+    {
+      "title": "光回線ランプを確認する",
+      "detail": "光回線（PON/光など）のランプの色を確認します。",
+      "warn": "normal",
+      "face": "fmvhufz4ss2",
+      "photo": "",
+      "bid": "onu7",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "光回線ランプを確認する",
+          "fontScale": 1
+        }
+      ],
+      "sec": "s2"
+    },
+    {
+      "title": "ONUを再起動する",
+      "detail": "電源アダプタを抜いて1分ほど待ち、差し直します。ランプが落ち着くまで数分待ちます。",
+      "warn": "caution",
+      "face": "fmvhufz4ss2",
+      "photo": "",
+      "bid": "onu21",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#f59e0b",
+          "label": "ONUを再起動する",
+          "fontScale": 1
+        }
+      ],
+      "sec": "s4"
+    },
+    {
+      "title": "インターネットの通信を確認する",
+      "detail": "パソコンやスマートフォンでWebページが表示できるか確認します。",
+      "warn": "normal",
+      "face": "fmvhufz4ss2",
+      "photo": "",
+      "bid": "onu22",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "インターネットの通信を確認する",
+          "fontScale": 1
+        }
+      ],
+      "sec": "s4"
+    },
+    {
+      "title": "作業結果を記録する",
+      "detail": "確認した内容と、復旧した時刻を記録します。",
+      "warn": "normal",
+      "face": "fmvhufz4ss2",
+      "photo": "",
+      "bid": "onu27",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "作業結果を記録する",
+          "fontScale": 1
+        }
+      ],
+      "sec": "s5"
+    },
+    {
+      "title": "LANケーブルの両端を差し直す",
+      "detail": "ONU側とルーター側の両方を、カチッと音がするまで差し込みます。",
+      "warn": "normal",
+      "face": "fmvhufz4ss2",
+      "photo": "",
+      "bid": "onu16",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "LANケーブルの両端を差し直す",
+          "fontScale": 1
+        }
+      ],
+      "sec": "s7"
+    },
+    {
+      "title": "ルーターの電源ランプを確認する",
+      "detail": "消えている場合は電源の接続を確認します。",
+      "warn": "normal",
+      "face": "fmvhufz4ss2",
+      "photo": "",
+      "bid": "onu18",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "ルーターの電源ランプを確認する",
+          "fontScale": 1
+        }
+      ],
+      "sec": "s8"
+    },
+    {
+      "title": "光コードの差し込みを確認する",
+      "detail": "光コンセントとONUの光コードが外れていないか確認します。強く曲げたり引っ張ったりしないでください。",
+      "warn": "danger",
+      "face": "fmvhufz4ss2",
+      "photo": "",
+      "bid": "onu10",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#ef4444",
+          "label": "光コードの差し込みを確認する",
+          "fontScale": 1
+        }
+      ],
+      "sec": "s10"
+    },
+    {
+      "title": "電源アダプタの接続を確認する",
+      "detail": "ONU側の差し込み口とアダプタのつなぎ目が奥まで入っているか確認します。",
+      "warn": "caution",
+      "face": "fmvhufz4ss2",
+      "photo": "",
+      "bid": "onu4",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#f59e0b",
+          "label": "電源アダプタの接続を確認する",
+          "fontScale": 1
+        }
+      ],
+      "sec": "s12"
+    },
+    {
+      "title": "コンセントに差し直す",
+      "detail": "別のコンセントがあれば差し替えて確認します。",
+      "warn": "caution",
+      "face": "fmvhufz4ss2",
+      "photo": "",
+      "bid": "onu5",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "コンセントに差し直す",
+          "fontScale": 1
+        }
+      ],
+      "sec": "s12"
+    }
+  ]
+}
