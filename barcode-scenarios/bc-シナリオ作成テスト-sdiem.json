@@ -31,22 +31,22 @@
     "sections": [
       {
         "key": "s1",
-        "label": "手順1",
+        "label": "分かれ目",
         "next": {
           "type": "set",
           "label": "矢印位置の確認",
           "tasks": [
             {
               "label": "右上",
-              "to": "s3"
+              "to": "s6"
             },
             {
               "label": "右下",
-              "to": "s4"
+              "to": "s7"
             },
             {
               "label": "左上",
-              "to": "s5"
+              "to": "s8"
             }
           ],
           "done": {
@@ -57,13 +57,50 @@
       },
       {
         "key": "s2",
+        "label": "手順2",
+        "next": {
+          "type": "choice",
+          "prompt": "矢印の位置は合っているか？",
+          "options": [
+            {
+              "label": "合っている",
+              "to": "s4"
+            },
+            {
+              "label": "ズレている",
+              "to": "s5",
+              "tone": "danger"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s3",
         "label": "手順3〜4",
         "next": {
           "type": "end"
         }
       },
       {
-        "key": "s3",
+        "key": "s4",
+        "label": "「合っている」のとき",
+        "branch": true,
+        "next": {
+          "type": "goto",
+          "to": "s3"
+        }
+      },
+      {
+        "key": "s5",
+        "label": "「ズレている」のとき",
+        "branch": true,
+        "next": {
+          "type": "goto",
+          "to": "s2"
+        }
+      },
+      {
+        "key": "s6",
         "label": "作業「右上」",
         "branch": true,
         "next": {
@@ -72,7 +109,7 @@
         }
       },
       {
-        "key": "s4",
+        "key": "s7",
         "label": "作業「右下」",
         "branch": true,
         "next": {
@@ -81,7 +118,7 @@
         }
       },
       {
-        "key": "s5",
+        "key": "s8",
         "label": "作業「左上」",
         "branch": true,
         "next": {
@@ -92,13 +129,6 @@
     ]
   },
   "builder": [
-    {
-      "type": "step",
-      "id": "blmiu202",
-      "title": "ステップ１ 矢印確認",
-      "detail": "",
-      "warn": "normal"
-    },
     {
       "type": "set",
       "id": "b4di0oo8",
@@ -163,6 +193,56 @@
     },
     {
       "type": "step",
+      "id": "blmiu202",
+      "title": "ステップ１ 矢印確認",
+      "detail": "",
+      "warn": "normal"
+    },
+    {
+      "type": "branch",
+      "id": "bz1r6cl6",
+      "q": "矢印の位置は合っているか？",
+      "answers": [
+        {
+          "id": "bi11421q",
+          "label": "合っている",
+          "tone": "",
+          "items": [
+            {
+              "type": "step",
+              "id": "b522jiu0",
+              "title": "次の手順に進む",
+              "detail": "",
+              "warn": "normal"
+            }
+          ],
+          "then": "next",
+          "target": "",
+          "endLabel": "",
+          "endTone": ""
+        },
+        {
+          "id": "bq2uk0gx",
+          "label": "ズレている",
+          "tone": "danger",
+          "items": [
+            {
+              "type": "step",
+              "id": "b2mje648",
+              "title": "校正を実施する",
+              "detail": "",
+              "warn": "danger"
+            }
+          ],
+          "then": "back",
+          "target": "blmiu202",
+          "endLabel": "",
+          "endTone": ""
+        }
+      ]
+    },
+    {
+      "type": "step",
       "id": "bk9rb44o",
       "title": "ステップ2 キーボード確認",
       "detail": "",
@@ -176,7 +256,7 @@
       "warn": "normal"
     }
   ],
-  "builderSig": "frmdqkv",
+  "builderSig": "fyic3ce",
   "steps": [
     {
       "title": "ステップ１ 矢印確認",
@@ -246,7 +326,7 @@
       "photo": "",
       "face": "fmvhsdiemxl",
       "bid": "blmiu202",
-      "sec": "s1"
+      "sec": "s2"
     },
     {
       "title": "ステップ2 キーボード確認",
@@ -281,7 +361,7 @@
       "photo": "",
       "face": "fmvhsdiemxl",
       "bid": "bk9rb44o",
-      "sec": "s2"
+      "sec": "s3"
     },
     {
       "title": "ステップ3 バーコード確認",
@@ -316,7 +396,51 @@
       "photo": "",
       "face": "fmvhsdiemxl",
       "bid": "baipc1dz",
-      "sec": "s2"
+      "sec": "s3"
+    },
+    {
+      "title": "次の手順に進む",
+      "detail": "",
+      "warn": "normal",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "次の手順に進む",
+          "fontScale": 1
+        }
+      ],
+      "photo": "",
+      "face": "fmvhsdiemxl",
+      "bid": "b522jiu0",
+      "sec": "s4"
+    },
+    {
+      "title": "校正を実施する",
+      "detail": "",
+      "warn": "danger",
+      "ar": [
+        {
+          "type": "text",
+          "pos": [
+            0,
+            0.16,
+            0
+          ],
+          "color": "#60a5fa",
+          "label": "校正を実施する",
+          "fontScale": 1
+        }
+      ],
+      "photo": "",
+      "face": "fmvhsdiemxl",
+      "bid": "b2mje648",
+      "sec": "s5"
     },
     {
       "title": "右上",
@@ -354,7 +478,7 @@
       "photo": "",
       "face": "fmvhsdiemxl",
       "bid": "bl3unyp0",
-      "sec": "s3"
+      "sec": "s6"
     },
     {
       "title": "右下",
@@ -392,7 +516,7 @@
       "photo": "",
       "face": "fmvhsdiemxl",
       "bid": "b5oawbxc",
-      "sec": "s4"
+      "sec": "s7"
     },
     {
       "title": "左上",
@@ -430,7 +554,7 @@
       "photo": "",
       "face": "fmvhsdiemxl",
       "bid": "b655264h",
-      "sec": "s5"
+      "sec": "s8"
     }
   ]
 }
