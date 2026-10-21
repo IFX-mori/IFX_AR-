@@ -33,30 +33,40 @@
         "key": "s1",
         "label": "手順1",
         "next": {
-          "type": "set",
-          "label": "矢印位置の確認",
-          "tasks": [
+          "type": "choice",
+          "prompt": "右上",
+          "options": [
             {
-              "label": "ULよし",
-              "to": "s11"
+              "label": "合っている",
+              "to": "s2"
             },
             {
-              "label": "URよし",
-              "to": "s12"
-            },
-            {
-              "label": "DRよし",
-              "to": "s13"
+              "label": "ズレている",
+              "to": "s1"
             }
-          ],
-          "done": {
-            "type": "goto",
-            "to": "s2"
-          }
+          ]
         }
       },
       {
         "key": "s2",
+        "label": "分かれ目",
+        "next": {
+          "type": "choice",
+          "prompt": "左上",
+          "options": [
+            {
+              "label": "合っている",
+              "to": "s3"
+            },
+            {
+              "label": "ズレている",
+              "to": "s12"
+            }
+          ]
+        }
+      },
+      {
+        "key": "s3",
         "label": "手順2",
         "next": {
           "type": "set",
@@ -64,33 +74,11 @@
           "tasks": [
             {
               "label": "マウスよし",
-              "to": "s9"
+              "to": "s10"
             },
             {
               "label": "Enterよし",
-              "to": "s10"
-            }
-          ],
-          "done": {
-            "type": "goto",
-            "to": "s3"
-          }
-        }
-      },
-      {
-        "key": "s3",
-        "label": "手順3",
-        "next": {
-          "type": "set",
-          "label": "画面の囲みを確認",
-          "tasks": [
-            {
-              "label": "囲みよし",
-              "to": "s7"
-            },
-            {
-              "label": "中心よし",
-              "to": "s8"
+              "to": "s11"
             }
           ],
           "done": {
@@ -101,6 +89,28 @@
       },
       {
         "key": "s4",
+        "label": "手順4",
+        "next": {
+          "type": "set",
+          "label": "画面の囲みを確認",
+          "tasks": [
+            {
+              "label": "囲みよし",
+              "to": "s8"
+            },
+            {
+              "label": "中心よし",
+              "to": "s9"
+            }
+          ],
+          "done": {
+            "type": "goto",
+            "to": "s5"
+          }
+        }
+      },
+      {
+        "key": "s5",
         "label": "分かれ目",
         "next": {
           "type": "choice",
@@ -108,43 +118,52 @@
           "options": [
             {
               "label": "合ってる",
-              "to": "s5"
+              "to": "s6"
             },
             {
               "label": "ズレてる",
-              "to": "s6"
+              "to": "s7"
             }
           ]
         }
       },
       {
-        "key": "s5",
-        "label": "手順4",
+        "key": "s6",
+        "label": "手順6",
         "next": {
           "type": "end"
         }
       },
       {
-        "key": "s6",
+        "key": "s7",
         "label": "「ズレてる」のとき",
         "branch": true,
         "next": {
           "type": "goto",
-          "to": "s3"
-        }
-      },
-      {
-        "key": "s7",
-        "label": "作業「囲みよし」",
-        "branch": true,
-        "next": {
-          "type": "return",
-          "set": "s3"
+          "to": "s4"
         }
       },
       {
         "key": "s8",
+        "label": "作業「囲みよし」",
+        "branch": true,
+        "next": {
+          "type": "return",
+          "set": "s4"
+        }
+      },
+      {
+        "key": "s9",
         "label": "作業「中心よし」",
+        "branch": true,
+        "next": {
+          "type": "return",
+          "set": "s4"
+        }
+      },
+      {
+        "key": "s10",
+        "label": "作業「マウスよし」",
         "branch": true,
         "next": {
           "type": "return",
@@ -152,48 +171,21 @@
         }
       },
       {
-        "key": "s9",
-        "label": "作業「マウスよし」",
-        "branch": true,
-        "next": {
-          "type": "return",
-          "set": "s2"
-        }
-      },
-      {
-        "key": "s10",
+        "key": "s11",
         "label": "作業「Enterよし」",
         "branch": true,
         "next": {
           "type": "return",
-          "set": "s2"
-        }
-      },
-      {
-        "key": "s11",
-        "label": "作業「ULよし」",
-        "branch": true,
-        "next": {
-          "type": "return",
-          "set": "s1"
+          "set": "s3"
         }
       },
       {
         "key": "s12",
-        "label": "作業「URよし」",
+        "label": "「ズレている」のとき",
         "branch": true,
         "next": {
-          "type": "return",
-          "set": "s1"
-        }
-      },
-      {
-        "key": "s13",
-        "label": "作業「DRよし」",
-        "branch": true,
-        "next": {
-          "type": "return",
-          "set": "s1"
+          "type": "goto",
+          "to": "s1"
         }
       }
     ]
@@ -202,66 +194,67 @@
     {
       "type": "step",
       "id": "bsjmovrn",
-      "title": "画面確認2",
+      "title": "画面確認",
       "detail": "",
       "warn": "caution"
     },
     {
-      "type": "set",
-      "id": "bidc8a3g",
-      "label": "矢印位置の確認",
+      "type": "branch",
+      "id": "b4zqnhm9",
+      "q": "右上",
       "answers": [
         {
-          "id": "bcg1al55",
-          "label": "ULよし",
+          "id": "beyrx7a4",
+          "label": "合っている",
           "tone": "",
-          "items": [
-            {
-              "type": "step",
-              "id": "b62s6jhk",
-              "title": "左上を指している",
-              "detail": "",
-              "warn": "normal"
-            }
-          ],
+          "items": [],
           "then": "next",
           "target": "",
           "endLabel": "",
           "endTone": ""
         },
         {
-          "id": "b8tbo9t7",
-          "label": "URよし",
+          "id": "ba9n15gh",
+          "label": "ズレている",
           "tone": "",
-          "items": [
-            {
-              "type": "step",
-              "id": "btk2lprq",
-              "title": "",
-              "detail": "右上を指している",
-              "warn": "normal"
-            }
-          ],
+          "items": [],
+          "then": "back",
+          "target": "bsjmovrn",
+          "endLabel": "",
+          "endTone": ""
+        }
+      ]
+    },
+    {
+      "type": "branch",
+      "id": "b9ukeu8f",
+      "q": "左上",
+      "answers": [
+        {
+          "id": "b816ci2f",
+          "label": "合っている",
+          "tone": "",
+          "items": [],
           "then": "next",
           "target": "",
           "endLabel": "",
           "endTone": ""
         },
         {
-          "id": "b0pt5gn2",
-          "label": "DRよし",
+          "id": "bigy1cbs",
+          "label": "ズレている",
           "tone": "",
           "items": [
             {
               "type": "step",
-              "id": "b88f1jsx",
-              "title": "右下を指している",
+              "id": "bdqy6c8h",
+              "title": "校正",
               "detail": "",
               "warn": "normal"
             }
           ],
-          "then": "next",
-          "target": "",
+          "then": "back",
+          "target": "bsjmovrn",
           "endLabel": "",
           "endTone": ""
         }
@@ -410,10 +403,10 @@
       "warn": "normal"
     }
   ],
-  "builderSig": "fslitez",
+  "builderSig": "f132ck55",
   "steps": [
     {
-      "title": "画面確認2",
+      "title": "画面確認",
       "detail": "",
       "warn": "caution",
       "ar": [
@@ -537,7 +530,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "bga41ng1",
-      "sec": "s2"
+      "sec": "s3"
     },
     {
       "title": "画面指示",
@@ -574,7 +567,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "birrl30r",
-      "sec": "s3"
+      "sec": "s4"
     },
     {
       "title": "作業終了",
@@ -596,7 +589,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "bkt4sqx5",
-      "sec": "s5"
+      "sec": "s6"
     },
     {
       "title": "校正する",
@@ -619,7 +612,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "b31hlzcx",
-      "sec": "s6"
+      "sec": "s7"
     },
     {
       "title": "バーコードを囲っている",
@@ -641,7 +634,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "bep76g2m",
-      "sec": "s7"
+      "sec": "s8"
     },
     {
       "title": "バーコード中心を指している",
@@ -663,7 +656,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "be5r2op9",
-      "sec": "s8"
+      "sec": "s9"
     },
     {
       "title": "マウスを囲っている",
@@ -685,7 +678,7 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "b8xkugqi",
-      "sec": "s9"
+      "sec": "s10"
     },
     {
       "title": "Enterを囲っている",
@@ -707,54 +700,10 @@
       "photo": "",
       "face": "fmvhiy8w2k5",
       "bid": "bod18j49",
-      "sec": "s10"
-    },
-    {
-      "title": "左上を指している",
-      "detail": "",
-      "warn": "normal",
-      "ar": [
-        {
-          "type": "text",
-          "pos": [
-            0,
-            0.16,
-            0
-          ],
-          "color": "#60a5fa",
-          "label": "左上を指している",
-          "fontScale": 1
-        }
-      ],
-      "photo": "",
-      "face": "fmvhiy8w2k5",
-      "bid": "b62s6jhk",
       "sec": "s11"
     },
     {
-      "title": "（未入力）",
-      "detail": "右上を指している",
-      "warn": "normal",
-      "ar": [
-        {
-          "type": "text",
-          "pos": [
-            0,
-            0.16,
-            0
-          ],
-          "color": "#60a5fa",
-          "label": "（未入力）",
-          "fontScale": 1
-        }
-      ],
-      "photo": "",
-      "face": "fmvhiy8w2k5",
-      "bid": "btk2lprq",
-      "sec": "s12"
-    },
-    {
-      "title": "右下を指している",
+      "title": "校正",
       "detail": "",
       "warn": "normal",
       "ar": [
@@ -766,14 +715,14 @@
             0
           ],
           "color": "#60a5fa",
-          "label": "右下を指している",
+          "label": "校正",
           "fontScale": 1
         }
       ],
       "photo": "",
       "face": "fmvhiy8w2k5",
-      "bid": "b88f1jsx",
-      "sec": "s13"
+      "bid": "bdqy6c8h",
+      "sec": "s12"
     }
   ]
 }
