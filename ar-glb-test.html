@@ -8,6 +8,7 @@
   3Dモデル(GLB)表示の検証用プレイヤー v0.2（2026-10-27）
   v0.2：iPadでGLBを選べない不具合を修正（ファイル選択の種類指定を外し、拡張子で確認）
   v0.3：カメラ映像が表示されない不具合を修正（bodyの黒背景が映像を隠していた）
+  v0.4：バーコードの置き方（壁・機器＝垂直／床・机＝水平）の切替と、90°単位の向き変更（前後・左右・水平）を追加
   - バーコード(0〜9)の位置にモデルの底面中心を合わせて実寸表示（原点は読込時に自動補正）
   - 縮尺：ピンチ(1%〜100%)・1/100・1/50・実寸・100%固定、2本指で回転、1本指ドラッグで移動
   - アニメーション：選択・再生/停止・スライダー・繰り返し
@@ -58,7 +59,7 @@
   <input id="file" type="file" style="display:none">
   <button class="sub" id="btnPanel">▼ 操作パネルを縮める</button>
   <span id="info">GLBファイルを開いてください</span>
-  <span id="ver">v0.3</span>
+  <span id="ver">v0.4</span>
 </div>
 <div id="status">準備中…</div>
 <div id="toast"></div>
@@ -73,6 +74,17 @@
     <button class="sub" id="btnLock">🔒 100%固定</button>
     <button class="sub" id="btnResetPose">位置・向きを戻す</button>
     <span id="mmBox">バーコード <input id="mm" type="number" min="10" max="500" step="1">mm</span>
+  </div>
+  <div class="row">
+    <span class="lbl">向き</span>
+    <select id="mount">
+      <option value="wall">バーコード：壁・機器に貼る（垂直）</option>
+      <option value="floor">バーコード：床・机に置く（水平）</option>
+    </select>
+    <button class="sub" data-rot="x">⤵ 前後に90°</button>
+    <button class="sub" data-rot="z">↻ 左右に90°</button>
+    <button class="sub" data-rot="y">⟳ 水平に90°</button>
+    <button class="sub" id="btnResetRot">向きを戻す</button>
   </div>
   <div class="row" id="animRow">
     <span class="lbl">動き</span>
@@ -94,7 +106,7 @@
 
 <script>
 'use strict';
-const VERSION = 'v0.3';
+const VERSION = 'v0.4';
 const Q = new URLSearchParams(location.search);
 const PREVIEW = Q.get('preview') === '1';
 const LIBS = [
@@ -120,6 +132,8 @@ const S = {
   scene: null, holder: null, offset: null, model: null, gltf: null,
   markerMM: Number(Q.get('mm') || lsGet('glb_marker_mm', 40)),
   userScale: 1, lock100: false, rotY: 0, pos: null,
+  // 向き：mount＝バーコードの置き方（壁・機器＝垂直／床・机＝水平）、stepQ＝90°ボタンで足した回転
+  mount: lsGet('glb_mount', 'wall'), stepQ: null, orient: null, spin: null,
   mixer: null, actions: [], clipIdx: 0, playing: false, duration: 0,
   dims: null, tris: 0,
   // 干渉
@@ -170,8 +184,11 @@ function buildScene() {
   S.scene = sc;
   sc.addEventListener('loaded', () => {
     const THREE = window.THREE;
-    S.holder = new THREE.Group(); S.offset = new THREE.Group(); S.holder.add(S.offset);
-    S.pos = new THREE.Vector3(); S.cam.target = new THREE.Vector3();
+    // holder(バーコード座標：位置・縮尺) → orient(置き方) → spin(2本指の回転) → step(90°回転＋底面合わせ) → offset(底面中心) → モデル
+    S.holder = new THREE.Group(); S.orient = new THREE.Group(); S.spin = new THREE.Group(); S.step = new THREE.Group(); S.offset = new THREE.Group();
+    S.holder.add(S.orient); S.orient.add(S.spin); S.spin.add(S.step); S.step.add(S.offset);
+    S.pos = new THREE.Vector3(); S.cam.target = new THREE.Vector3(); S.stepQ = new THREE.Quaternion();
+    applyTransform();
     if (PREVIEW) {
       sc.object3D.add(S.holder);
       const grid = new THREE.GridHelper(400, 400, 0x667788, 0xaabbcc); grid.material.opacity = 0.5; grid.material.transparent = true;
@@ -242,7 +259,7 @@ function loadGLB(buf, name) {
     S.tris = 0; S.model.traverse(o => { if (o.isMesh) { const g = o.geometry; S.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; o.frustumCulled = false; } });
     // 縮尺の初期値：20mを超える大きなモデルは1/100、それ以外は実寸
     const maxDim = Math.max(size.x, size.y, size.z);
-    S.rotY = 0; S.pos.set(0, 0, 0);
+    S.rotY = 0; S.pos.set(0, 0, 0); S.stepQ.identity();
     S.lock100 = false; $('btnLock').classList.remove('on');
     setUserScale(maxDim > 20 ? 0.01 : 1);
     if (maxDim > 20) toast(`大きいモデル（最大${maxDim.toFixed(0)}m）のため 1/100 で表示します`, 2600);
@@ -271,11 +288,34 @@ function clearModel() {
 
 // ---------- 縮尺・向き・位置 ----------
 function unitScale() { return PREVIEW ? 1 : 1000 / S.markerMM; } // AR.jsはバーコード1辺=1単位
+// AR.jsのバーコード座標は、面の手前方向が+Y・面の上方向が-Z。
+// 壁・機器に貼った（垂直の）バーコードではX軸まわりに-90°回して、モデルの上(+Y)を面の上方向へ向ける
+function mountQuat() {
+  const THREE = window.THREE, q = new THREE.Quaternion();
+  if (!PREVIEW && S.mount === 'wall') q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+  return q;
+}
 function applyTransform() {
   if (!S.holder) return;
   S.holder.scale.setScalar(unitScale() * S.userScale);
-  S.holder.rotation.set(0, S.rotY, 0);
   S.holder.position.copy(S.pos);
+  S.orient.quaternion.copy(mountQuat());
+  S.spin.rotation.set(0, S.rotY, 0);
+  // 90°回転後も、回転後の底面の中心が原点（バーコードの位置）に来るようにずらす
+  S.step.quaternion.copy(S.stepQ);
+  S.step.position.set(0, 0, 0);
+  if (S.dims) {
+    const THREE = window.THREE, d = S.dims, box = new THREE.Box3(), v = new THREE.Vector3();
+    for (const x of [-d.x / 2, d.x / 2]) for (const y of [0, d.y]) for (const z of [-d.z / 2, d.z / 2]) box.expandByPoint(v.set(x, y, z).applyQuaternion(S.stepQ));
+    const c = box.getCenter(v);
+    S.step.position.set(-c.x, -box.min.y, -c.z);
+  }
+}
+// 90°回転：x＝前後に倒す、z＝左右に倒す、y＝水平に回す（いずれも立てた状態のモデルから見た軸）
+function rotStep(axis) {
+  const THREE = window.THREE, v = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[axis];
+  S.stepQ.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...v), Math.PI / 2));
+  applyTransform();
 }
 function setUserScale(s, fromPinch) {
   s = Math.min(1, Math.max(0.01, s));
@@ -582,6 +622,11 @@ function bindUI() {
     else toast('100%固定を解除しました');
   };
   $('btnResetPose').onclick = () => { S.rotY = 0; S.pos.set(0, 0, 0); applyTransform(); if (PREVIEW) fitPreviewCam(); };
+  $('mount').value = S.mount;
+  if (PREVIEW) $('mount').style.display = 'none';
+  $('mount').onchange = e => { S.mount = e.target.value; lsSet('glb_mount', S.mount); applyTransform(); };
+  for (const b of document.querySelectorAll('[data-rot]')) b.onclick = () => rotStep(b.dataset.rot);
+  $('btnResetRot').onclick = () => { S.stepQ.identity(); S.rotY = 0; applyTransform(); };
   $('clip').onchange = e => { selectClip(Number(e.target.value)); S.scanHtml = ''; if (S.intfOn) runCheck(); };
   $('btnPlay').onclick = () => setPlaying(!S.playing);
   $('seek').oninput = e => { setPlaying(false); setAnimTime(Number(e.target.value)); clearTimeout(S._seekT); S._seekT = setTimeout(runCheck, 120); };
