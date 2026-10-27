@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>3Dモデル表示テスト</title>
 <!--
-  3Dモデル(GLB)表示の検証用プレイヤー v0.1（2026-10-27）
+  3Dモデル(GLB)表示の検証用プレイヤー v0.2（2026-10-27）
+  v0.2：iPadでGLBを選べない不具合を修正（ファイル選択の種類指定を外し、拡張子で確認）
   - バーコード(0〜9)の位置にモデルの底面中心を合わせて実寸表示（原点は読込時に自動補正）
   - 縮尺：ピンチ(1%〜100%)・1/100・1/50・実寸・100%固定、2本指で回転、1本指ドラッグで移動
   - アニメーション：選択・再生/停止・スライダー・繰り返し
@@ -49,10 +50,11 @@
 <div id="top" class="ui">
   <b>3Dモデル表示テスト</b>
   <button id="btnOpen">📂 モデルを開く</button>
-  <input id="file" type="file" accept=".glb,model/gltf-binary" style="display:none">
+  <!-- iPadのSafariは .glb の種類を判別できず accept 指定があると選べなくなるため、種類は指定せず選択後に拡張子で確認する -->
+  <input id="file" type="file" style="display:none">
   <button class="sub" id="btnPanel">▼ 操作パネルを縮める</button>
   <span id="info">GLBファイルを開いてください</span>
-  <span id="ver">v0.1</span>
+  <span id="ver">v0.2</span>
 </div>
 <div id="status">準備中…</div>
 <div id="toast"></div>
@@ -88,7 +90,7 @@
 
 <script>
 'use strict';
-const VERSION = 'v0.1';
+const VERSION = 'v0.2';
 const Q = new URLSearchParams(location.search);
 const PREVIEW = Q.get('preview') === '1';
 const LIBS = [
