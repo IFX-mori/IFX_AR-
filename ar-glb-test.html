@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>3Dモデル表示テスト</title>
+<!--
+  3Dモデル(GLB)表示の検証用プレイヤー v0.1（2026-10-27）
+  - バーコード(0〜9)の位置にモデルの底面中心を合わせて実寸表示（原点は読込時に自動補正）
+  - 縮尺：ピンチ(1%〜100%)・1/100・1/50・実寸・100%固定、2本指で回転、1本指ドラッグで移動
+  - アニメーション：選択・再生/停止・スライダー・繰り返し
+  - モデル内の干渉判定：動く部品(アニメ対象)×動かない部品、接触/接近(離隔m以内)、全体チェック
+  URL：?preview=1 でカメラ無しの確認表示（PC用）、?src=URL でモデルを自動読込、?mm=40 でバーコード寸法
+-->
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;
+    -webkit-user-select:none;user-select:none;touch-action:none}
+  a-scene{position:fixed;inset:0;width:100%;height:100%}
+  .ui{position:fixed;z-index:20;color:#fff;font-size:13px}
+  #top{top:0;left:0;right:0;display:flex;gap:6px;align-items:center;padding:6px 8px;background:rgba(0,0,0,.6);flex-wrap:wrap}
+  #top b{font-size:14px}
+  #info{font-size:12px;opacity:.9;flex:1;min-width:180px}
+  #status{position:fixed;top:44px;left:8px;z-index:20;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:6px;font-size:12px;pointer-events:none}
+  #toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:40;background:rgba(0,0,0,.8);color:#fff;
+    padding:10px 16px;border-radius:10px;font-size:14px;display:none;pointer-events:none;text-align:center}
+  #panel{left:0;right:0;bottom:0;background:rgba(0,0,0,.66);padding:6px 8px 8px;max-height:46vh;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+  .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0}
+  .row .lbl{min-width:56px;opacity:.8}
+  button,select{font-size:13px;border:0;border-radius:6px;padding:6px 10px;background:#2b6cb0;color:#fff}
+  button.sub{background:#4a5568}
+  button.on{background:#d69e2e;color:#000}
+  button:disabled{opacity:.4}
+  input[type=range]{flex:1;min-width:140px}
+  input[type=number]{width:56px;font-size:13px;border-radius:4px;border:0;padding:4px}
+  #scaleLbl{font-weight:bold;font-size:15px;min-width:130px;transition:background .2s;border-radius:4px;padding:2px 4px}
+  #scaleLbl.flash{background:#38a169}
+  #res{font-size:12px;line-height:1.5}
+  #res .hit{color:#feb2b2}
+  #res .near{color:#fbd38d}
+  #panel.min > :not(.row:first-child){display:none}
+  #res div.item{cursor:pointer;padding:2px 4px;border-radius:4px}
+  #res div.item:active{background:rgba(255,255,255,.15)}
+  details summary{cursor:pointer;opacity:.85;margin:4px 0}
+  #parts label{display:inline-block;margin:2px 8px 2px 0;font-size:12px}
+  #ver{opacity:.6;font-size:11px}
+</style>
+</head>
+<body>
+<div id="top" class="ui">
+  <b>3Dモデル表示テスト</b>
+  <button id="btnOpen">📂 モデルを開く</button>
+  <input id="file" type="file" accept=".glb,model/gltf-binary" style="display:none">
+  <button class="sub" id="btnPanel">▼ 操作パネルを縮める</button>
+  <span id="info">GLBファイルを開いてください</span>
+  <span id="ver">v0.1</span>
+</div>
+<div id="status">準備中…</div>
+<div id="toast"></div>
+
+<div id="panel" class="ui">
+  <div class="row">
+    <span class="lbl">縮尺</span>
+    <span id="scaleLbl">－</span>
+    <button class="sub" data-scale="0.01">1/100</button>
+    <button class="sub" data-scale="0.02">1/50</button>
+    <button class="sub" data-scale="1">実寸</button>
+    <button class="sub" id="btnLock">🔒 100%固定</button>
+    <button class="sub" id="btnResetPose">位置・向きを戻す</button>
+    <span id="mmBox">バーコード <input id="mm" type="number" min="10" max="500" step="1">mm</span>
+  </div>
+  <div class="row" id="animRow">
+    <span class="lbl">動き</span>
+    <select id="clip"></select>
+    <button id="btnPlay">▶ 再生</button>
+    <input id="seek" type="range" min="0" max="1" step="0.01" value="0">
+    <span id="tLbl">0.0 / 0.0 秒</span>
+    <label><input id="loop" type="checkbox" checked> 繰り返し</label>
+  </div>
+  <div class="row">
+    <span class="lbl">干渉</span>
+    <button id="btnIntf" class="sub">干渉チェック：切</button>
+    <span>接近の目安 <input id="clr" type="number" min="0" max="20" step="0.1" value="1.0"> m以内</span>
+    <button id="btnScan" class="sub">⏱ 動き全体を調べる</button>
+  </div>
+  <div id="res"></div>
+  <details id="partsBox"><summary>動く部品の選択（干渉チェックの対象）</summary><div id="parts"></div></details>
+</div>
+
+<script>
+'use strict';
+const VERSION = 'v0.1';
+const Q = new URLSearchParams(location.search);
+const PREVIEW = Q.get('preview') === '1';
+const LIBS = [
+  'https://aframe.io/releases/1.5.0/aframe.min.js',
+  ...(PREVIEW ? [] : ['https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.5/aframe/build/aframe-ar.js']),
+];
+const BVH_ESM = 'https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.8/+esm';
+
+const $ = id => document.getElementById(id);
+function toast(msg, ms = 1800) {
+  const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', ms);
+}
+function setStatus(s) { $('status').textContent = s; }
+function loadScript(src) {
+  return new Promise((ok, ng) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => ng(new Error('読込失敗: ' + src)); document.head.appendChild(s); });
+}
+function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+// ---------- 状態 ----------
+const S = {
+  scene: null, holder: null, offset: null, model: null, gltf: null,
+  markerMM: Number(Q.get('mm') || lsGet('glb_marker_mm', 40)),
+  userScale: 1, lock100: false, rotY: 0, pos: null,
+  mixer: null, actions: [], clipIdx: 0, playing: false, duration: 0,
+  dims: null, tris: 0,
+  // 干渉
+  intfOn: false, bvhReady: false, moving: [], statics: [], movingNames: [], enabledMoving: new Set(),
+  lastCheck: 0, highlighted: [], scanning: false,
+  // プレビュー用カメラ
+  cam: { yaw: 0.7, pitch: 0.35, dist: 10, target: null },
+  lastMarker: null,
+};
+
+// ---------- 起動 ----------
+(async function boot() {
+  try {
+    for (const src of LIBS) await loadScript(src);
+  } catch (e) { setStatus(e.message); return; }
+  registerTick();
+  buildScene();
+  bindUI();
+  const src = Q.get('src');
+  if (src) {
+    setStatus('モデル読込中…');
+    fetch(src).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(buf => loadGLB(buf, decodeURIComponent(src.split('/').pop())))
+      .catch(e => setStatus('モデル取得失敗: ' + e.message));
+  }
+})();
+
+function buildScene() {
+  const sc = document.createElement('a-scene');
+  sc.setAttribute('embedded', '');
+  sc.setAttribute('vr-mode-ui', 'enabled: false');
+  sc.setAttribute('renderer', 'antialias: true; logarithmicDepthBuffer: true');
+  sc.setAttribute('glbtest', '');
+  let html = '';
+  if (PREVIEW) {
+    sc.setAttribute('background', 'color: #d9e2ec');
+    html += '<a-entity id="cam" camera="fov: 50; near: 0.05; far: 20000" look-controls="enabled: false" wasd-controls="enabled: false"></a-entity>';
+  } else {
+    sc.setAttribute('arjs', 'sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; detectionMode: mono_and_matrix; matrixCodeType: 3x3; patternRatio: 0.5; maxDetectionRate: 60; debugUIEnabled: false;');
+    for (let i = 0; i <= 9; i++) html += `<a-marker id="m${i}" type="barcode" value="${i}" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5"></a-marker>`;
+    html += '<a-entity camera></a-entity>';
+  }
+  html += '<a-entity light="type: hemisphere; color: #ffffff; groundColor: #888888; intensity: 1.1"></a-entity>';
+  html += '<a-entity light="type: directional; intensity: 1.4" position="3 6 4"></a-entity>';
+  sc.innerHTML = html;
+  document.body.appendChild(sc);
+  S.scene = sc;
+  sc.addEventListener('loaded', () => {
+    const THREE = window.THREE;
+    S.holder = new THREE.Group(); S.offset = new THREE.Group(); S.holder.add(S.offset);
+    S.pos = new THREE.Vector3(); S.cam.target = new THREE.Vector3();
+    if (PREVIEW) {
+      sc.object3D.add(S.holder);
+      const grid = new THREE.GridHelper(400, 400, 0x667788, 0xaabbcc); grid.material.opacity = 0.5; grid.material.transparent = true;
+      sc.object3D.add(grid);
+      updatePreviewCam();
+      setStatus('確認表示（カメラ無し）：ドラッグで視点回転・ホイールで拡大縮小');
+    } else {
+      setStatus('バーコード(0〜9)にカメラを向けてください');
+    }
+  });
+}
+
+// ---------- 毎フレーム処理 ----------
+function registerTick() {
+  AFRAME.registerComponent('glbtest', {
+    tick(t, dt) {
+      if (!S.holder) return;
+      const sec = Math.min(dt || 16, 100) / 1000;
+      if (!PREVIEW) followMarker();
+      if (S.mixer && S.playing) {
+        S.mixer.update(sec);
+        const a = S.actions[S.clipIdx];
+        if (a) {
+          if (!$('loop').checked && a.time >= S.duration - 1e-3) { setPlaying(false); }
+          $('seek').value = a.time; updateTimeLbl(a.time);
+        }
+        if (S.intfOn && t - S.lastCheck > 250) { S.lastCheck = t; runCheck(); }
+      }
+      fpsTick(t);
+    }
+  });
+}
+
+let _fps = { n: 0, t0: 0, v: 0 };
+function fpsTick(t) {
+  _fps.n++;
+  if (t - _fps.t0 > 1000) {
+    _fps.v = Math.round(_fps.n * 1000 / (t - _fps.t0)); _fps.n = 0; _fps.t0 = t;
+    const r = S.scene.renderer;
+    if (S.model) $('info').textContent = infoText() + ` ／ ${_fps.v}fps・描画${r ? r.info.render.calls : '-'}回`;
+  }
+}
+
+function followMarker() {
+  let vis = null;
+  for (let i = 0; i <= 9; i++) { const m = document.getElementById('m' + i); if (m && m.object3D.visible) { vis = m; break; } }
+  if (vis && S.holder.parent !== vis.object3D) { vis.object3D.add(S.holder); S.lastMarker = vis; }
+  const s = vis ? `バーコード ${vis.getAttribute('value')} を認識中` : (S.lastMarker ? 'バーコードを見失いました' : 'バーコード(0〜9)にカメラを向けてください');
+  if ($('status').textContent !== s) setStatus(s);
+}
+
+// ---------- モデル読込 ----------
+function loadGLB(buf, name) {
+  const THREE = window.THREE;
+  if (!THREE || !THREE.GLTFLoader) { setStatus('読込機能の準備ができていません'); return; }
+  setStatus('モデル解析中…');
+  const loader = new THREE.GLTFLoader();
+  loader.parse(buf, '', gltf => {
+    clearModel();
+    S.gltf = gltf; S.model = gltf.scene; S.offset.add(S.model);
+    S.fileName = name; S.fileMB = (buf.byteLength / 1e6).toFixed(1);
+    // 原点の自動補正：底面中心を原点へ
+    S.model.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(S.model);
+    const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+    S.model.position.set(-c.x, -box.min.y, -c.z);
+    S.dims = size;
+    S.tris = 0; S.model.traverse(o => { if (o.isMesh) { const g = o.geometry; S.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; o.frustumCulled = false; } });
+    // 縮尺の初期値：20mを超える大きなモデルは1/100、それ以外は実寸
+    const maxDim = Math.max(size.x, size.y, size.z);
+    S.rotY = 0; S.pos.set(0, 0, 0);
+    S.lock100 = false; $('btnLock').classList.remove('on');
+    setUserScale(maxDim > 20 ? 0.01 : 1);
+    if (maxDim > 20) toast(`大きいモデル（最大${maxDim.toFixed(0)}m）のため 1/100 で表示します`, 2600);
+    setupAnim(gltf);
+    resetIntf();
+    $('info').textContent = infoText();
+    if (PREVIEW) { fitPreviewCam(); setStatus('確認表示（カメラ無し）：ドラッグで視点回転・ホイールで拡大縮小'); }
+    else setStatus(S.holder.parent ? '表示中' : 'バーコード(0〜9)にカメラを向けてください');
+  }, err => { setStatus('読込失敗：' + (err && err.message || err)); });
+}
+
+function infoText() {
+  const d = S.dims;
+  const tri = S.tris >= 1000 ? `${Math.round(S.tris / 1000)}千` : `${S.tris}`;
+  return `${S.fileName}（${S.fileMB}MB）幅${d.x.toFixed(2)}×奥行${d.z.toFixed(2)}×高さ${d.y.toFixed(2)}m・${tri}三角形`;
+}
+
+function clearModel() {
+  clearHighlight();
+  if (S.model) {
+    S.offset.remove(S.model);
+    S.model.traverse(o => { if (o.isMesh) { o.geometry.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m && m.dispose()); } });
+  }
+  S.model = null; S.gltf = null; S.mixer = null; S.actions = []; S.playing = false;
+}
+
+// ---------- 縮尺・向き・位置 ----------
+function unitScale() { return PREVIEW ? 1 : 1000 / S.markerMM; } // AR.jsはバーコード1辺=1単位
+function applyTransform() {
+  if (!S.holder) return;
+  S.holder.scale.setScalar(unitScale() * S.userScale);
+  S.holder.rotation.set(0, S.rotY, 0);
+  S.holder.position.copy(S.pos);
+}
+function setUserScale(s, fromPinch) {
+  s = Math.min(1, Math.max(0.01, s));
+  if (S.lock100) s = 1;
+  if (fromPinch && Math.abs(s - 1) < 0.03) { if (S.userScale !== 1) snapFeedback(); s = 1; }
+  S.userScale = s; applyTransform(); updateScaleLbl();
+}
+function updateScaleLbl() {
+  const s = S.userScale, pct = s * 100;
+  $('scaleLbl').textContent = s >= 0.9995 ? '実寸（100%）' : `1/${Math.round(1 / s)}（${pct < 1 ? pct.toFixed(2) : pct.toFixed(1)}%）`;
+}
+function snapFeedback() {
+  try { navigator.vibrate && navigator.vibrate(20); } catch (e) {}
+  const l = $('scaleLbl'); l.classList.add('flash'); setTimeout(() => l.classList.remove('flash'), 400);
+}
+
+// ---------- アニメーション ----------
+function setupAnim(gltf) {
+  const THREE = window.THREE;
+  const sel = $('clip'); sel.innerHTML = '';
+  const clips = gltf.animations || [];
+  $('animRow').style.display = clips.length ? '' : 'none';
+  if (!clips.length) return;
+  S.mixer = new THREE.AnimationMixer(S.model);
+  S.actions = clips.map(c => S.mixer.clipAction(c));
+  clips.forEach((c, i) => { const o = document.createElement('option'); o.value = i; o.textContent = `${c.name || '動き' + (i + 1)}（${c.duration.toFixed(1)}秒）`; sel.appendChild(o); });
+  selectClip(0);
+}
+function selectClip(i) {
+  S.actions.forEach(a => a.stop());
+  S.clipIdx = i; const a = S.actions[i]; if (!a) return;
+  S.duration = a.getClip().duration;
+  a.setLoop(window.THREE.LoopRepeat, Infinity); a.clampWhenFinished = true;
+  a.play(); a.paused = true; a.time = 0; S.mixer.update(0);
+  $('seek').max = S.duration; $('seek').value = 0; updateTimeLbl(0); setPlaying(false);
+}
+function setPlaying(p) {
+  S.playing = p; const a = S.actions[S.clipIdx];
+  if (a) {
+    a.setLoop($('loop').checked ? window.THREE.LoopRepeat : window.THREE.LoopOnce, Infinity);
+    if (p && a.time >= S.duration - 1e-3) a.time = 0;
+    a.enabled = true; a.paused = !p; if (p) a.play();
+  }
+  $('btnPlay').textContent = p ? '⏸ 停止' : '▶ 再生';
+  if (!p && S.intfOn) runCheck();
+}
+function setAnimTime(t) {
+  const a = S.actions[S.clipIdx]; if (!a) return;
+  a.enabled = true; a.play(); a.paused = true; a.time = Math.min(Math.max(0, t), S.duration);
+  S.mixer.update(0);
+  $('seek').value = a.time; updateTimeLbl(a.time);
+}
+function updateTimeLbl(t) { $('tLbl').textContent = `${t.toFixed(1)} / ${S.duration.toFixed(1)} 秒`; }
+
+// ---------- 干渉判定 ----------
+// 動く部品＝アニメーションで動くノードとその子孫のメッシュ、動かない部品＝それ以外。
+// 動く部品×動かない部品の組だけを調べる（動く部品同士は同じ機械の一部なので対象外）。
+async function ensureBVH() {
+  if (window.MeshBVHLib) return window.MeshBVHLib;
+  const m = await import(BVH_ESM); window.MeshBVHLib = m; return m;
+}
+// 部品名：GLB内の元のノード名（読込時に「.」等が除かれた名前ではなく）を使う。座標圧縮で挟まる「_mesh」ノードは親の名前
+function partName(mesh) {
+  const p = S.gltf && S.gltf.parser, nodes = p && p.json.nodes;
+  for (let o = mesh; o && o !== S.model; o = o.parent) {
+    const as = p && p.associations.get(o);
+    if (as && as.nodes !== undefined && nodes[as.nodes] && nodes[as.nodes].name) {
+      return nodes[as.nodes].name.replace(/_mesh$/, '').replace(/\.\d{3}$/, '');
+    }
+  }
+  return mesh.name || 'メッシュ';
+}
+// 「機種名@部品名」は部品名だけ、「部材名@Default」は部材名を表示
+function shortName(n) {
+  const i = n.lastIndexOf('@'); if (i < 0) return n;
+  const tail = n.slice(i + 1);
+  return /^default$/i.test(tail) ? n.slice(0, i) : tail;
+}
+
+function resetIntf() {
+  S.bvhReady = false; S.moving = []; S.statics = []; S.movingNames = []; S.enabledMoving = new Set();
+  S.intfOn = false; $('btnIntf').textContent = '干渉チェック：切'; $('btnIntf').classList.remove('on');
+  $('res').innerHTML = ''; $('parts').innerHTML = '';
+  const hasAnim = S.gltf && S.gltf.animations && S.gltf.animations.length;
+  $('btnIntf').disabled = !hasAnim; $('btnScan').disabled = !hasAnim;
+  if (S.model && !hasAnim) $('res').textContent = '※このモデルには動きが無いため、干渉チェックは使えません';
+}
+
+async function prepareIntf() {
+  if (S.bvhReady) return true;
+  const THREE = window.THREE;
+  setStatus('干渉チェックの準備中…（大きなモデルは数秒かかります）');
+  await new Promise(r => setTimeout(r, 30));
+  let lib;
+  try { lib = await ensureBVH(); } catch (e) { setStatus('干渉チェック用の部品を読み込めませんでした'); return false; }
+  // アニメーション対象のノードを集める
+  const movingRoots = new Set();
+  for (const clip of S.gltf.animations) for (const tr of clip.tracks) {
+    const pn = THREE.PropertyBinding.parseTrackName(tr.name);
+    const node = THREE.PropertyBinding.findNode(S.model, pn.nodeName);
+    if (node) movingRoots.add(node);
+  }
+  const isMoving = o => { for (let p = o; p; p = p.parent) { if (movingRoots.has(p)) return true; if (p === S.model) break; } return false; };
+  const t0 = performance.now();
+  S.model.traverse(o => {
+    if (!o.isMesh) return;
+    const g = o.geometry;
+    if (!g.boundsTree) { g.boundsTree = new lib.MeshBVH(g); }
+    if (!g.boundingBox) g.computeBoundingBox();
+    const rec = { mesh: o, name: partName(o), box: new THREE.Box3() };
+    (isMoving(o) ? S.moving : S.statics).push(rec);
+  });
+  S.movingNames = [...new Set(S.moving.map(r => r.name))];
+  S.enabledMoving = new Set(S.movingNames);
+  $('parts').innerHTML = '';
+  for (const n of S.movingNames) {
+    const lb = document.createElement('label');
+    lb.innerHTML = `<input type="checkbox" checked> ${shortName(n)}`;
+    lb.querySelector('input').onchange = e => { e.target.checked ? S.enabledMoving.add(n) : S.enabledMoving.delete(n); runCheck(); };
+    $('parts').appendChild(lb);
+  }
+  S.bvhReady = true;
+  setStatus(`干渉チェック準備完了（動く部品${S.movingNames.length}・動かない部品${S.statics.length}、${((performance.now() - t0) / 1000).toFixed(1)}秒）`);
+  return true;
+}
+
+// 現在の姿勢で判定。戻り値：[{a,b,type:'hit'|'near',dist(m)}]（部品名の組で集約）
+// 接近（離隔の計算）は重いので、clearance=0 のときは接触だけを調べる（再生中はこちら）
+function checkNow(clearance) {
+  const THREE = window.THREE;
+  S.holder.updateMatrixWorld(true);
+  const refScale = S.offset.matrixWorld.getMaxScaleOnAxis();  // ワールド→モデル(m)の換算
+  const clrW = clearance * refScale;
+  for (const r of S.statics) r.box.copy(r.mesh.geometry.boundingBox).applyMatrix4(r.mesh.matrixWorld);
+  const inv = new THREE.Matrix4(), m = new THREE.Matrix4(), ta = new THREE.Box3();
+  const out = new Map();
+  for (const A of S.moving) {
+    if (!S.enabledMoving.has(A.name)) continue;
+    ta.copy(A.mesh.geometry.boundingBox).applyMatrix4(A.mesh.matrixWorld).expandByScalar(clrW);
+    for (const B of S.statics) {
+      if (!ta.intersectsBox(B.box)) continue;
+      inv.copy(B.mesh.matrixWorld).invert();
+      m.multiplyMatrices(inv, A.mesh.matrixWorld);           // Aの形状 → Bの座標系
+      const bvh = B.mesh.geometry.boundsTree;
+      const key = A.name + '|' + B.name;
+      if (bvh.intersectsGeometry(A.mesh.geometry, m)) {
+        out.set(key, { a: A.name, b: B.name, type: 'hit', dist: 0, ma: A.mesh, mb: B.mesh });
+        continue;
+      }
+      if (clearance > 0) {
+        const d = nearDist(A.mesh, B.mesh, clearance, refScale);
+        if (d <= clearance) {
+          const prev = out.get(key);
+          if (d < 0.01) { out.set(key, { a: A.name, b: B.name, type: 'hit', dist: 0, ma: A.mesh, mb: B.mesh }); continue; } // 1cm未満は接している＝接触扱い
+          if (!prev || (prev.type === 'near' && d < prev.dist)) out.set(key, { a: A.name, b: B.name, type: 'near', dist: d, ma: A.mesh, mb: B.mesh });
+        }
+      }
+    }
+  }
+  return [...out.values()].sort((x, y) => (x.type === y.type ? x.dist - y.dist : x.type === 'hit' ? -1 : 1));
+}
+
+// 離隔（m）：一方の部品の頂点と辺上の点（25cm間隔）から、もう一方の面までの最短距離を両方向で求める。
+// 形状どうしの最短距離関数は1組ごとの負荷が大きいため、高速な点→面の距離で代用（誤差は数cm程度）。
+const SAMPLE_M = 0.25;
+function samplePts(mesh, refScale) {
+  if (mesh.userData._pts) return mesh.userData._pts;
+  const THREE = window.THREE, g = mesh.geometry, p = g.attributes.position, ix = g.index;
+  const unitM = mesh.matrixWorld.getMaxScaleOnAxis() / refScale;   // ローカル1単位が何mか
+  const step = SAMPLE_M / unitM, pts = [], a = new THREE.Vector3(), b = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) pts.push(p.getX(i), p.getY(i), p.getZ(i));
+  for (let i = 0; i < ix.count; i += 3) for (let k = 0; k < 3; k++) {
+    a.fromBufferAttribute(p, ix.getX(i + k)); b.fromBufferAttribute(p, ix.getX(i + (k + 1) % 3));
+    const n = Math.floor(a.distanceTo(b) / step);
+    for (let j = 1; j <= n; j++) { const t = j / (n + 1); pts.push(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t); }
+  }
+  return (mesh.userData._pts = new Float32Array(pts));
+}
+function nearDist(ma, mb, clearance, refScale) {
+  const THREE = window.THREE, v = new THREE.Vector3(), tgt = {}, m = new THREE.Matrix4();
+  let best = Infinity;
+  for (const [src, dst] of [[ma, mb], [mb, ma]]) {
+    const pts = samplePts(src, refScale), bvh = dst.geometry.boundsTree;
+    const sc = dst.matrixWorld.getMaxScaleOnAxis() / refScale;
+    m.copy(dst.matrixWorld).invert().multiply(src.matrixWorld);
+    const maxL = Math.min(best, clearance) / sc;
+    for (let i = 0; i < pts.length; i += 3) {
+      v.set(pts[i], pts[i + 1], pts[i + 2]).applyMatrix4(m);
+      const r = bvh.closestPointToPoint(v, tgt, 0, Math.min(best / sc, maxL));
+      if (r && r.distance * sc < best) { best = r.distance * sc; if (best < 0.01) return best; }
+    }
+  }
+  return best;
+}
+
+let _hitMat = null, _nearMat = null;
+function clearHighlight() {
+  for (const h of S.highlighted) h.material = h.userData._origMat;
+  S.highlighted = [];
+}
+function highlight(res) {
+  const THREE = window.THREE;
+  if (!_hitMat) {
+    _hitMat = new THREE.MeshStandardMaterial({ color: 0xff2020, emissive: 0x880000, roughness: 0.6 });
+    _nearMat = new THREE.MeshStandardMaterial({ color: 0xff7a00, emissive: 0x803000, roughness: 0.6 });
+  }
+  clearHighlight();
+  const mark = (mesh, mat) => {
+    if (mesh.userData._hl) return;
+    mesh.userData._origMat = mesh.material; mesh.material = mat; mesh.userData._hl = true; S.highlighted.push(mesh);
+  };
+  for (const r of res) { const mat = r.type === 'hit' ? _hitMat : _nearMat; mark(r.ma, mat); mark(r.mb, mat); }
+  for (const h of S.highlighted) h.userData._hl = false;
+}
+
+function runCheck() {
+  if (!S.intfOn || !S.bvhReady || S.scanning) return;
+  const clrSet = Math.max(0, Number($('clr').value) || 0);
+  const clr = S.playing ? 0 : clrSet;
+  const t0 = performance.now();
+  const res = checkNow(clr);
+  const ms = Math.round(performance.now() - t0);
+  highlight(res);
+  const hit = res.filter(r => r.type === 'hit').length, near = res.length - hit;
+  const nearTxt = S.playing ? '接近は停止中に判定' : (near ? `<span class="near">● 接近 ${near}件（${clr}m以内）</span>` : `接近なし（${clr}m以内）`);
+  let html = `<div>${hit ? `<span class="hit">● 接触 ${hit}件</span>` : '接触なし'} ／ ${nearTxt} <span style="opacity:.6">判定${ms}ms</span></div>`;
+  html += res.slice(0, 8).map(r => `<div class="${r.type}">${r.type === 'hit' ? '接触' : '接近 ' + r.dist.toFixed(2) + 'm'}：${shortName(r.a)} × ${shortName(r.b)}</div>`).join('');
+  if (res.length > 8) html += `<div>…ほか${res.length - 8}件</div>`;
+  if (S.scanHtml) html += S.scanHtml;
+  $('res').innerHTML = html;
+  bindScanItems();
+}
+
+// 動き全体を一定間隔で調べ、接触・接近した時間帯を一覧にする
+async function scanTimeline() {
+  if (!S.actions.length) return;
+  if (!S.bvhReady && !(await prepareIntf())) return;
+  if (!S.intfOn) toggleIntf(true);
+  setPlaying(false);
+  S.scanning = true; $('btnScan').disabled = true;
+  const clr = Math.max(0, Number($('clr').value) || 0);
+  const a = S.actions[S.clipIdx], keep = a.time;
+  const step = Math.max(0.5, S.duration / 180), times = [];
+  for (let t = 0; t <= S.duration + 1e-6; t += step) times.push(Math.min(t, S.duration));
+  const ranges = new Map();   // key -> [{s,e,type,min}]
+  const t0 = performance.now();
+  for (let i = 0; i < times.length; i++) {
+    setAnimTime(times[i]);
+    for (const r of checkNow(clr)) {
+      const key = r.a + '|' + r.b; let arr = ranges.get(key); if (!arr) ranges.set(key, arr = []);
+      const last = arr[arr.length - 1];
+      if (last && Math.abs(last.e - times[i - 1]) < 1e-6) { last.e = times[i]; if (r.type === 'hit') last.type = 'hit'; last.min = Math.min(last.min, r.dist); }
+      else arr.push({ s: times[i], e: times[i], type: r.type, min: r.dist, a: r.a, b: r.b });
+    }
+    if (i % 4 === 0) { setStatus(`動き全体を調査中… ${Math.round(i / times.length * 100)}%`); await new Promise(r => setTimeout(r, 0)); }
+  }
+  const list = [...ranges.values()].flat().sort((x, y) => x.s - y.s);
+  const sec = ((performance.now() - t0) / 1000).toFixed(1);
+  S.scanHtml = `<div style="margin-top:6px;border-top:1px solid #666;padding-top:4px">⏱ 動き全体の結果（${S.duration.toFixed(1)}秒を${step.toFixed(2)}秒刻み・${sec}秒で調査）：` +
+    (list.length ? `${list.length}件 <span style="opacity:.7">※行をタップするとその時刻へ移動</span>` : '接触・接近なし') + '</div>' +
+    list.map(r => `<div class="item ${r.type}" data-t="${r.s}">${r.s.toFixed(1)}〜${r.e.toFixed(1)}秒　${r.type === 'hit' ? '接触' : '接近 最小' + r.min.toFixed(2) + 'm'}：${shortName(r.a)} × ${shortName(r.b)}</div>`).join('');
+  setAnimTime(keep);
+  S.scanning = false; $('btnScan').disabled = false;
+  setStatus(PREVIEW ? '確認表示（カメラ無し）' : (S.holder.parent ? '表示中' : 'バーコード(0〜9)にカメラを向けてください'));
+  runCheck();
+}
+function bindScanItems() {
+  for (const el of $('res').querySelectorAll('div.item')) el.onclick = () => { setPlaying(false); setAnimTime(Number(el.dataset.t)); runCheck(); };
+}
+
+async function toggleIntf(force) {
+  const on = force === undefined ? !S.intfOn : force;
+  if (on && !(await prepareIntf())) return;
+  S.intfOn = on;
+  $('btnIntf').textContent = on ? '干渉チェック：入' : '干渉チェック：切';
+  $('btnIntf').classList.toggle('on', on);
+  if (on) runCheck(); else { clearHighlight(); $('res').innerHTML = S.scanHtml || ''; bindScanItems(); }
+}
+
+// ---------- 操作（ボタン・ジェスチャー） ----------
+function bindUI() {
+  $('mm').value = S.markerMM;
+  if (PREVIEW) $('mmBox').style.display = 'none';
+  $('mm').onchange = () => { S.markerMM = Math.max(10, Number($('mm').value) || 40); lsSet('glb_marker_mm', S.markerMM); applyTransform(); };
+  $('btnOpen').onclick = () => $('file').click();
+  $('btnPanel').onclick = () => {
+    const min = $('panel').classList.toggle('min');
+    $('btnPanel').textContent = min ? '▲ 操作パネルを広げる' : '▼ 操作パネルを縮める';
+  };
+  $('file').onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (!/\.glb$/i.test(f.name)) { toast('GLB形式（.glb）のファイルを選んでください'); return; }
+    setStatus('モデル読込中…'); S.scanHtml = '';
+    f.arrayBuffer().then(buf => loadGLB(buf, f.name));
+    e.target.value = '';
+  };
+  for (const b of document.querySelectorAll('[data-scale]')) b.onclick = () => {
+    if (S.lock100 && Number(b.dataset.scale) !== 1) { toast('100%固定中です'); return; }
+    setUserScale(Number(b.dataset.scale)); if (PREVIEW) fitPreviewCam();
+  };
+  $('btnLock').onclick = () => {
+    S.lock100 = !S.lock100; $('btnLock').classList.toggle('on', S.lock100);
+    if (S.lock100) { setUserScale(1); if (PREVIEW) fitPreviewCam(); toast('実寸（100%）に固定しました。ピンチでの縮尺変更は無効です'); }
+    else toast('100%固定を解除しました');
+  };
+  $('btnResetPose').onclick = () => { S.rotY = 0; S.pos.set(0, 0, 0); applyTransform(); if (PREVIEW) fitPreviewCam(); };
+  $('clip').onchange = e => { selectClip(Number(e.target.value)); S.scanHtml = ''; if (S.intfOn) runCheck(); };
+  $('btnPlay').onclick = () => setPlaying(!S.playing);
+  $('seek').oninput = e => { setPlaying(false); setAnimTime(Number(e.target.value)); clearTimeout(S._seekT); S._seekT = setTimeout(runCheck, 120); };
+  $('loop').onchange = () => { if (S.playing) setPlaying(true); };
+  $('btnIntf').onclick = () => toggleIntf();
+  $('btnScan').onclick = () => scanTimeline();
+  $('clr').onchange = () => { S.scanHtml = ''; runCheck(); };
+  bindGestures();
+}
+
+function inUI(target) { return target && target.closest && target.closest('.ui'); }
+
+function bindGestures() {
+  let pinch = null, drag = null;
+  const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  const ang = (a, b) => Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
+  document.addEventListener('touchstart', e => {
+    if (inUI(e.target)) return;
+    if (e.touches.length === 2) {
+      drag = null;
+      pinch = { d: dist(e.touches[0], e.touches[1]), a: ang(e.touches[0], e.touches[1]), s: S.userScale, r: S.rotY };
+    } else if (e.touches.length === 1) {
+      drag = startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (pinch && e.touches.length === 2) {
+      const k = dist(e.touches[0], e.touches[1]) / pinch.d;
+      if (!S.lock100) setUserScale(pinch.s * k, true);
+      S.rotY = pinch.r - (ang(e.touches[0], e.touches[1]) - pinch.a); applyTransform();
+    } else if (drag && e.touches.length === 1) moveDrag(drag, e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  document.addEventListener('touchend', e => { if (e.touches.length < 2) pinch = null; if (e.touches.length === 0) drag = null; }, { passive: true });
+  // マウス（PCでの確認用）
+  let md = null;
+  document.addEventListener('mousedown', e => { if (inUI(e.target)) return; md = startDrag(e.clientX, e.clientY); });
+  document.addEventListener('mousemove', e => { if (md) moveDrag(md, e.clientX, e.clientY); });
+  document.addEventListener('mouseup', () => md = null);
+  document.addEventListener('wheel', e => {
+    if (inUI(e.target)) return;
+    if (PREVIEW) { S.cam.dist *= Math.pow(1.1, Math.sign(e.deltaY)); updatePreviewCam(); }
+    else if (!S.lock100) setUserScale(S.userScale * Math.pow(1.1, -Math.sign(e.deltaY)), true);
+  }, { passive: true });
+}
+
+// 1本指ドラッグ：ARではバーコード面上でモデルを移動、確認表示では視点回転
+function startDrag(x, y) {
+  if (PREVIEW) return { x, y, yaw: S.cam.yaw, pitch: S.cam.pitch };
+  const p = rayToMarkerPlane(x, y);
+  return p ? { x, y, p0: p, pos0: S.pos.clone() } : null;
+}
+function moveDrag(d, x, y) {
+  if (PREVIEW) {
+    S.cam.yaw = d.yaw - (x - d.x) * 0.008;
+    S.cam.pitch = Math.min(1.45, Math.max(-0.2, d.pitch + (y - d.y) * 0.006));
+    updatePreviewCam(); return;
+  }
+  const p = rayToMarkerPlane(x, y); if (!p) return;
+  S.pos.set(d.pos0.x + (p.x - d.p0.x), 0, d.pos0.z + (p.z - d.p0.z)); applyTransform();
+}
+// 画面の点からバーコード面(マーカー座標のY=0平面)との交点をマーカー座標で返す
+function rayToMarkerPlane(x, y) {
+  const THREE = window.THREE, mk = S.holder && S.holder.parent;
+  if (!mk || !S.scene.camera || !mk.visible) return null;
+  const cv = S.scene.canvas.getBoundingClientRect();
+  const ndc = new THREE.Vector2(((x - cv.left) / cv.width) * 2 - 1, -((y - cv.top) / cv.height) * 2 + 1);
+  const rc = new THREE.Raycaster(); rc.setFromCamera(ndc, S.scene.camera);
+  mk.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(mk.matrixWorld).invert();
+  const ray = rc.ray.clone().applyMatrix4(inv);
+  const hit = ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+  return hit;
+}
+
+// ---------- 確認表示（カメラ無し）の視点 ----------
+function fitPreviewCam() {
+  if (!S.dims) return;
+  const s = S.userScale, d = Math.max(S.dims.x, S.dims.y, S.dims.z) * s;
+  S.cam.dist = Math.max(0.5, d * 2.2); S.cam.target.set(S.pos.x, S.dims.y * s * 0.4, S.pos.z);
+  updatePreviewCam();
+}
+function updatePreviewCam() {
+  const cam = document.getElementById('cam'); if (!cam || !S.cam.target) return;
+  const c = S.cam, cp = Math.cos(c.pitch);
+  cam.object3D.position.set(c.target.x + c.dist * cp * Math.sin(c.yaw), c.target.y + c.dist * Math.sin(c.pitch), c.target.z + c.dist * cp * Math.cos(c.yaw));
+  // カメラ実体はエンティティの子で-Z方向を向くため、エンティティの+Zを注視点と反対側へ向ける
+  const p = cam.object3D.position;
+  cam.object3D.lookAt(2 * p.x - c.target.x, 2 * p.y - c.target.y, 2 * p.z - c.target.z);
+}
+</script>
+</body>
+</html>
